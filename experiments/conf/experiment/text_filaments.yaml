@@ -1,0 +1,43 @@
+# @package _global_
+experiment:
+  type: text_filaments
+  text: "ARTIFICIAL LIFE"   # whitespace splits rows; chars laid out left-to-right per row
+  grid_shape: [400, 1600]  # (h, w) — must fit longest row: max_chars * cell_width
+  cell_width: 150
+  cell_height: 160
+  bending_stiffness: 0.5
+  use_feedback: true
+
+  rendering:
+    subsample: 1
+
+  char_paths:
+    A: outputs/filament_folding/2026-05-21/20-59-20/a.json
+    R: outputs/filament_folding/2026-05-21/21-01-34/r.json
+    T: outputs/filament_folding/2026-05-21/20-55-40/t.json
+    I: outputs/filament_folding/2026-05-21/21-06-07/i.json
+    F: outputs/filament_folding/2026-05-21/21-08-25/f.json
+    E: outputs/filament_folding/2026-05-21/21-15-12/e.json
+    L: outputs/filament_folding/2026-05-21/21-12-58/l.json
+    C: outputs/filament_folding/2026-05-21/21-10-42/c.json
+    N: outputs/filament_folding/2026-05-21/21-17-26/n.json
+    S: outputs/filament_folding/2026-05-21/21-19-43/s.json
+    U: outputs/filament_folding/2026-05-21/21-24-08/u.json
+
+simulation:
+  dt: 0.02
+  num_steps: 280
+
+physics:
+  scheme: stable_cosserat
+  stable_cosserat:
+    cycles_per_step: 10
+    stiffness_stretch: 55000.0
+    stiffness_shear: 1.0
+    damping: 0.98
+
+  apply_steric_forces: true
+  steric_strength: 1300
+  steric_sigma: 2.0
+  steric_scatter_value: 1.0
+  steric_neighbor_skip: 3

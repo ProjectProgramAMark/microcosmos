@@ -1,0 +1,90 @@
+# @package _global_
+experiment:
+  type: filament_folding
+  export_to_digits: false  # set true to copy result JSON to DIGITS/ in the WebGPU repo
+  grid_shape: [256, 256]
+  digit: 2
+  font: "/System/Library/Fonts/Supplemental/GillSans.ttc"
+  # font: "/System/Library/Fonts/Helvetica.ttc"       # path to .ttf/.ttc font; if set, use font glyph instead of MNIST
+  character: "E"   # glyph to target when font is set (single capital letter or digit)
+  # image_path: "blackandwhite.png"  # path to PNG image (black bg, white fg); overrides font/digit when set; relative to experiments/ dir
+  num_nodes: 600
+
+  initialization:
+    init_mode: fourier_series  # random_walk | fourier_series
+    init_line_distance: 1.0
+    walk_angle_std: 0.9
+    theta_pre_compute: true
+    canonical_init: true  # if true: rotate init shape so first→last node vector points up (+y)
+    overfit_single_init: false  # if true: fixes init seed, batch_size=1 (overfit to one orientation)
+    overfit_seed: 0
+    pin_middle_nodes: false  # if true: pin mid/mid+1 nodes + edge theta to anchor orientation
+    fourier_num_harmonics: 3
+    fourier_frequencies: [50, 8, 2]  # high-freq → serpentine rows, low-freq → global shape
+    fourier_amplitudes: [0.99, 1.8, 0.8]  # heading-angle amplitude (radians); keep below π to avoid coiling
+    fourier_phases: [0.0, 0.78, 0.0]  # base phases; global offset added on top in batch mode
+    fourier_randomize_phases: true  # false=fixed, true=global random offset, "highest"=highest-freq harmonic only, 0/1/2=randomize only that harmonic index
+    fourier_phase_noise: 0.0 #0.5   # final (target) noise level
+    noise_ramp_start: 0.0 #0.2      # higher start: model prepared for diversity from step 0 used to be 0.2
+
+  feedback_control:
+    enabled: true         # set true to enable per-step MLP feedback controller
+    hidden_dim: 8          # hidden units in the 3→hidden→1 MLP
+    correction_scale: 0.4  # max additive correction magnitude (radians)
+
+  loss:
+    loss_mode: dcd  # sdf | pointcloud | dcd | hybrid
+    target_size: 128
+    sdf_cap: 8
+    curvature_scale: 0.6 # 1.2
+    distance_min: 0.1
+    distance_max: 4.0 # 8
+    smoothness_weight: 0.0  # L2 penalty on consecutive bending_rest_angle differences; 0 = disabled
+    max_dist_weight: 1.0       # weight for smooth-max (LogSumExp) penalty on worst-case nn distances
+    smooth_max_alpha: 0.1      # temperature: higher → sharper focus on true max
+    use_pca_rotation: false     # false → skip PCA rotation alignment in shape/max-dist losses (center-only)
+    num_eval_frames: 4  # frames used in shape loss, evenly spaced over second half of simulation
+    num_stability_frames: 4  # frames sampled across stability_steps window; >1 gives smoother stab gradients
+    stability_anchor_offset: 30  # second reference point N frames after last shape eval — blocks bounce-back exploit
+    pointcloud_num_points: 600
+    pointcloud_use_skeleton: true  # sample from skeletonized (1-px centerline) digit instead of full stroke
+    pointcloud_skeleton_erosion_iters: 0  # erode binary mask N times before skeletonizing; more = thinner/sparser skeleton
+
+simulation:
+  dt: 0.02
+  num_steps: 150  # 150
+  stability_steps: 30
+  extra_viz_steps: 80  # extra steps run only for the final GIF, not used in loss
+
+optimization:
+  num_steps: 150  # 300
+  learning_rate: 0.06
+  lr_min: 0.00003
+  warmup_steps: 15
+  grad_clip: 1.0
+  viz_every: 50
+  stability_weight: 1  # one worked best  1e-3
+  batch_size: 4
+  noise_ramp_steps: 207       # scaled with num_steps: 460/120 * 54 ≈ 207
+
+physics:
+  scheme: stable_cosserat  # pbd | stable_cosserat
+
+  pbd:
+    cycles_per_step: 5
+    stiffness_stretch: 1.0
+    stiffness_shear: 1.0
+    damping: 0.98
+
+  stable_cosserat:
+    cycles_per_step: 10
+    # k_s > w*l^2 = (1/dt^2) * init_line_distance^2 = (1/0.02^2) * 1^2 = 2500
+    stiffness_stretch: 55000.0
+    stiffness_shear: 1.0
+    damping: 0.98
+  
+  apply_steric_forces: true
+  steric_strength: 1300 # 1300.0          # was 10 — pair with smaller sigma so dense regions don't dominate
+  steric_sigma: 2.0 #1.5 # 1.5 was good             # was 5 — only acts at near-contact, lets strokes pack closely
+  steric_scatter_value: 1.0     # per-node weight on the density grid before Gaussian smoothing
+  steric_neighbor_skip: 3       # was 5 — looser so tight U-turns get repulsion too. 0 = no subtraction.

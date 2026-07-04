@@ -1,0 +1,11 @@
+defaults:
+  - experiment: worm_swim_example
+  - neat: medium
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${experiment.type}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: outputs/${experiment.type}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

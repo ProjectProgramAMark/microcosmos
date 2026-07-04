@@ -1,0 +1,8 @@
+profile: test
+pop_size: 10
+species_size: 2
+generation_limit: 3
+eval_pre_steps: 10
+eval_num_steps: 10
+random_energy_steps: 10
+fitness_target: 1.0

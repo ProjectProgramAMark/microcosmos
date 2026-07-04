@@ -1,0 +1,67 @@
+# @package _global_
+experiment:
+  type: swim_sweep
+  # swimmers: [ worm, tadpole, ray, cilia, jellyfish]  # squirt,
+  swimmers: [ worm]  # squirt,
+  # swimmers: [ worm, fast_worm, turbo_worm]  # squirt,
+  num_nodes: 100
+  grid_shape: [256, 256]
+  fluid_grid_shape: [256, 256]  # optional: LBM resolution (defaults to grid_shape)
+  init_line_distance: 0.8  # ideally this is around 1, or even a little smaller to get maximum fluid effect
+  displacement_start_step: 100  # skip initial transient
+  enable_animations: true
+  animation_subsample: 4
+  snapshot_step: 250
+  scheme: pbd  # 'pbd' or 'stable_cosserat'
+
+  # PBD stiffness (0-1 fractions)
+  stiffness_stretch_pbd: 0.6
+  stiffness_shear_pbd: 1.0
+
+  # Cosserat stiffness (physical units; scales as k_s ≈ l_e² · 1/dt²)
+  # l_e=0.8, dt=0.01 → w=10000, k_s/l²≈12500 → k_s≈8000
+  # stiffness_stretch_stable_cosserat: 8000.0
+  # stiffness_shear_stable_cosserat: 8000.0
+  stiffness_stretch_stable_cosserat: 550000.0
+  stiffness_shear_stable_cosserat: 550000.0
+
+  damping: 1.0
+  max_fluid_velocity: 0.3 # 0.2 is fastest ubt living on the edge
+  synthetic_node_width: 0.3 # 0.3 is fastest with 2! 0.5 is very good.
+  # ibm_kernel_size: [2,3,4,6]  # size 2 peskin is best. Also try larger peskin
+  ibm_kernel_size: 4  # size 2 hat is fastest for sine. size 4 peskin is best overal. Esp jelly
+                      # uneven not suitable for peksin
+
+  # viscosities: [10.0, 5.0, 2.0]
+  # viscosities: [2.0, 1.0, 0.5, 0.25, 0.1, 0.01, 0.001]
+  viscosities: [0.1]
+  # viscosities: [0.01]
+
+  # Ray-specific
+  frequency: 0.2
+  amplitude: 0.45
+  hinge_position: 0.5
+
+  # Sine / Tadpole-specific
+  num_wavelengths: 1
+  rotation_speed: 0.05
+
+  # Squirt-specific
+  contraction: 0.9        # fraction of rest_length to shorten body edges
+  gap_fraction: 0.167     # opening as fraction of full circle (~60° gap)
+
+  # Jellyfish-specific
+  jellyfish_curvature_boost: 0.03  # extra curvature tightening during bell contraction
+  jellyfish_contraction_asymmetry: 0.5  # fraction of cycle for contraction; 0.5 = symmetric
+
+  # Rower-specific
+  phase_offset: 1.5707963  # pi/2: quarter-period offset between adjacent fins
+
+  # Cilia-specific
+  num_metachronal_waves: 2  # number of beating waves around the body
+
+
+simulation:
+  dt: 0.01
+  num_steps: 1500
+  realtime: false

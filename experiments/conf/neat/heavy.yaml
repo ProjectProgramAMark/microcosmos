@@ -1,0 +1,8 @@
+profile: heavy
+pop_size: 1000
+species_size: 20
+generation_limit: 20
+eval_pre_steps: 30
+eval_num_steps: 300
+random_energy_steps: 300
+fitness_target: 9999

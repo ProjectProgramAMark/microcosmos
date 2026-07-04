@@ -1,0 +1,8 @@
+profile: medium
+pop_size: 200
+species_size: 10
+generation_limit: 10
+eval_pre_steps: 30
+eval_num_steps: 100
+random_energy_steps: 100
+fitness_target: 9999

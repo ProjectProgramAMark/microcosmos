@@ -1,0 +1,90 @@
+# @package _global_
+experiment:
+  type: filament_folding
+  grid_shape: [256, 256]
+  digit: 2
+  font: "/System/Library/Fonts/Helvetica.ttc"       # path to .ttf/.ttc font; if set, use font glyph instead of MNIST
+  character: "E"   # glyph to target when font is set (single capital letter or digit)
+  num_nodes: 600
+
+  initialization:
+    init_mode: fourier_series  # random_walk | fourier_series
+    init_line_distance: 1.0
+    walk_angle_std: 0.9
+    theta_pre_compute: true
+    overfit_single_init: false  # if true: fixes init seed, batch_size=1 (overfit to one orientation)
+    overfit_seed: 0
+    pin_middle_nodes: true  # if true: pin mid/mid+1 nodes + edge theta to anchor orientation
+    fourier_num_harmonics: 3
+    fourier_frequencies: [50, 8, 2]  # high-freq → serpentine rows, low-freq → global shape
+    fourier_amplitudes: [0.99, 1.8, 0.8]  # heading-angle amplitude (radians); keep below π to avoid coiling
+    fourier_phases: [0.0, 0.78, 0.0]  # base phases; global offset added on top in batch mode
+    fourier_randomize_phases: true  # false=fixed, true=global random offset, 0/1/2=randomize only that harmonic index
+    fourier_phase_noise: 0.6  # fraction of 2π for offset range, centered on base phase (1.0=full, 0.5=half, 0.1=10%)
+
+  loss:
+    loss_mode: pointcloud  # sdf | pointcloud
+    target_size: 128
+    sdf_cap: 8
+    curvature_scale: 1.0
+    distance_min: 0.01  
+    distance_max: 8.0
+    smoothness_weight: 0.0  # L2 penalty on consecutive bending_rest_angle differences; 0 = disabled
+    num_eval_frames: 4  # frames used in loss, evenly spaced over second half of simulation
+    pointcloud_num_points: 600
+    pointcloud_use_skeleton: true  # sample from skeletonized (1-px centerline) digit instead of full stroke
+    pointcloud_skeleton_erosion_iters: 0  # erode binary mask N times before skeletonizing; more = thinner/sparser skeleton
+
+  curriculum:
+    zero:
+      start: 0
+      params:
+        simulation.num_steps: 80
+        initialization.fourier_phase_noise: 0.0
+        optimization.batch_size: 1
+    one:
+      start: 80
+      params:
+        simulation.num_steps: 100
+        initialization.fourier_phase_noise: 0.3
+        optimization.batch_size: 4
+    two:
+      start: 140
+      params:
+        simulation.num_steps: 150
+        initialization.fourier_phase_noise: 0.6
+        optimization.batch_size: 8
+    three:
+      start: 210
+      params:
+        simulation.num_steps: 150
+        initialization.fourier_phase_noise: 0.6
+        optimization.batch_size: 8
+    four:
+      start: 330
+      params:
+        simulation.num_steps: 150
+        initialization.fourier_phase_noise: 0.6
+        optimization.batch_size: 8
+
+simulation:
+  dt: 0.02
+  num_steps: 150
+  stability_steps: 0
+
+optimization:
+  num_steps: 460
+  learning_rate: 0.06
+  lr_min: 0.0003
+  warmup_steps: 15
+  grad_clip: 1.0
+  viz_every: 50
+  stability_weight: 0e-3
+  batch_size: 4
+
+physics:
+  damping: 0.98
+  # Cosserat scheme needs physical stiffness (not PBD [0,1]).
+  # Rule: k_s > w*l^2 = (1/dt^2) * init_line_distance^2 = (1/0.01^2) * 2^2 = 40000.
+  stiffness_stretch: 60000.0  # works well for stable cosserat
+  # stiffness_shear: 1.0

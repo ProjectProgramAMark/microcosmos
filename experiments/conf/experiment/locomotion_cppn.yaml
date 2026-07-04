@@ -1,0 +1,45 @@
+# @package _global_
+experiment:
+  type: locomotion_cppn
+  num_nodes: 50
+  grid_shape: [256, 256]
+  initialization: line
+  init_line_distance: 0.8
+  num_wavelengths: 1  # Number of sine wave periods across the domain
+  rotation_speed: 0.05  # Phase change per step (radians)
+
+simulation:
+  dt: 0.01
+  num_steps: 600
+  subsample: 4
+  fps: 30
+
+neat:
+  random_seed: 42          # set to null for a non-deterministic run (seed is printed)
+
+  use_hyperneat: false
+  evolve_distances: false
+  fitness_weight_displacement: 0.5
+  fitness_weight_energy: 0.5
+  fitness_weight_approach: 0.1   # potential-based shaping: reward for closing distance to energy peak
+  clip:
+    method: tanh  # clip | tanh | none
+    max_curvature: 0.3
+    max_line_distance: 4.0
+    min_line_distance: 0.8
+  load_state: outputs/locomotion_cppn/latest_state.pkl
+  cont: false
+  verify_eval: false
+
+physics:
+  max_fluid_velocity: 0.3
+  synthetic_node_width: 0.3
+  ibm_kernel_size: 4
+
+energy:
+  use: true
+  sense: head-tail  # each | head | head-tail | head-tail-diff
+  init:
+    type: gaussian  # gaussian | cauchy | tent — cauchy has nonzero signal everywhere
+    size: 48
+    amplitude: 1.0

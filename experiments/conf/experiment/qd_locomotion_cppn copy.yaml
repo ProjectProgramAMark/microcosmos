@@ -1,0 +1,97 @@
+# @package _global_
+experiment:
+  type: qd_locomotion_cppn
+  # num_nodes: 100              # was 100 — halves edge/bending work
+  num_nodes: 100              # was 100 — halves edge/bending work
+  grid_shape: [256, 256]     # was [256, 256] — 4× smaller LBM grid
+  init_line_distance: 0.8
+  num_wavelengths: 1       # sine-wave periods across the filament
+  rotation_speed: 0.05     # phase advance per simulation step (rad)
+
+simulation:
+  dt: 0.01
+  num_steps: 400           # was 400 — elite animation rendering
+  subsample: 4
+  fps: 30
+
+neat:
+  evolve_distances: true   # if true, CPPN outputs curvature + edge length (2 outputs)
+  clip:
+    method: clip  # clip | tanh | none
+    max_curvature: 0.2
+    max_line_distance: 2.0
+    min_line_distance: 0.8
+
+qd:
+  # random_seed: 42          # set to null for a non-deterministic run (seed is printed)
+  # num_generations: 300     # MAP-Elites generations after seeding
+  # batch_size: 32           # candidates evaluated per generation
+  # init_batch_size: 200     # initial random population for seeding
+
+  # archive_bins: [20, 20]   # BD1 × BD2 grid resolution
+  # render_sample_grid: [1, 1]  # grid resolution for elite rendering at the end
+
+  random_seed: 43          # set to null for a non-deterministic run (seed is printed)
+  num_generations: 100
+  batch_size: 16
+  init_batch_size: 100
+
+  archive_bins: [10, 10]   # was [20, 20]
+  render_sample_grid: [1, 1]  # render one gif per archive cell (up to 100)
+
+  # ── Behavioral descriptors ────────────────────────────────────────────────
+  # Choose any two from:
+  #   speed           — avg displacement per step (units/step)
+  #   energy          — avg total energy spent per step (weighted effort + strain)
+  #   turning         — avg absolute change in locomotion direction (rad/step)
+  #                     low = straight-line travel, high = circular/spiral
+  #   spatial_freq    — avg fraction of joints with sign-reversed curvature (0–1)
+  #                     low = few bends (long wavelength), high = many bends
+  #   body_extension  — avg head-to-tail distance / arc length (0–1)
+  #                     low = coiled/compact body, high = fully extended
+  #   actuation_mode  — bend_effort / (bend_effort + stretch_effort) (0–1)
+  #                     high = pure bending, low = pure stretching
+  #   compliance      — efforts / (efforts + strains) (0–1)
+  #                     high = active/smooth, low = passive/struggling
+  #   bend_effort     — weight_BE·||Δcmd_curv||²  per step
+  #   bend_strain     — weight_BS·||cmd_curv − act_curv||²  per step
+  #   stretch_effort  — weight_SE·||Δcmd_dist||²  per step
+  #   stretch_strain  — weight_SS·||cmd_dist − act_dist||²  per step
+  #   efforts         — bend_effort + stretch_effort  per step
+  #   strains         — bend_strain + stretch_strain  per step
+  bd1: bend_effort
+  bd2: stretch_effort
+
+  # Range bounds for each BD axis.  Genomes outside the range are clipped to
+  # the nearest edge cell.  Run once with auto_calibrate_ranges: true to have
+  # the ranges set from the seeding population, then copy the printed values
+  # here for reproducible subsequent runs.
+  bd1_range: [0.0, 0.5]   # expected range for bd1
+  bd2_range: [0.0, 0.5]   # expected range for bd2
+
+  # Set to true to auto-set bd1_range / bd2_range from the p5–p95 of the
+  # seeding population.  Suggested values are always printed at seeding time.
+  auto_calibrate_ranges: true
+  calibrate_percentile: 95   # upper bound percentile used for calibration
+
+  eval_pre_steps: 200       # was 200 — warm-up before metrics
+  eval_num_steps: 300       # was 300 — 100 steps/eval total
+
+  # Fitness parameters
+  fitness_type: "speed"   # "speed", "speed-cost", or "speed/cost"
+
+  # Energy weights
+  weight_BE: 1.0    # bend effort weight
+  weight_BS: 1.0    # bend strain weight
+  weight_SE: 1.0    # stretch effort weight
+  weight_SS: 1.0    # stretch strain weight
+
+  latest_archive: outputs/qd/latest_archive.npz
+
+physics:
+  max_fluid_velocity: 0.16
+  synthetic_node_width: 0.3
+  ibm_kernel_size: 4       # was 4 — cheaper kernel on small grid
+
+energy:
+  use: false
