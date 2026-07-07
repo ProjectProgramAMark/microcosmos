@@ -1,6 +1,6 @@
 # Microcosmos 🦠🧬
 
-[Paper]() | [Blog](https://alife.institute/en/blog/microcosmos-release/) 
+[Paper](https://arxiv.org/abs/2607.02954v1) | [Blog](https://alife.institute/en/blog/microcosmos-release/) 
 
 Microcosmos (ALIFE Conference 2026) is a JAX-accelerated artificial life simulator for evolving and optimizing filament-based organisms in physically grounded environments. The engine is fully differentiable, supporting both gradient-based optimization and evolutionary search.
 
@@ -64,5 +64,13 @@ See [`experiments/README.md`](experiments/README.md) for instructions on reprodu
 If you use Microcosmos in your research, please cite our paper.
 
 ```bibtex
-% TODO
+@misc{tensen2026microcosmosreimaginingartificiallife,
+      title={Microcosmos: Reimagining Artificial Life for the GPU Era}, 
+      author={Mark Tensen and Ciaran Regan and Bert Wang-Chak Chan and Mizuki Oka and Kenneth O. Stanley and Grisha Szep},
+      year={2026},
+      eprint={2607.02954},
+      archivePrefix={arXiv},
+      primaryClass={cs.NE},
+      url={https://arxiv.org/abs/2607.02954}, 
+}
 ```
