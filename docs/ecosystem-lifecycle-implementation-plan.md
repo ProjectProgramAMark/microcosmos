@@ -2,16 +2,21 @@
 
 Technical implementation plan for adding birth, death, reproduction, heredity, and limited resources to Microcosmos.
 
-- Status: implemented and verified
+- Status: lifecycle baseline implemented; controller/resource details superseded
 - Prepared: 2026-07-10
 - Repository: `microcosmos`
 - Delivery model: dependency-ordered phases with a verifiable checkpoint after each phase
+
+> This document records the original fixed-capacity lifecycle implementation.
+> The controller, resource, RNG, and benchmark details are superseded by the
+> lifecycle remediation PRD in `../../plans/`; the fixed-slot lifecycle and
+> compatibility decisions remain the historical baseline.
 
 ## 1. Overview
 
 Add a new fixed-capacity `EcosystemEnv` supporting limited renewable resources, internal energy, death, asexual reproduction, heredity, mutation, and lineage tracking.
 
-The design preserves Microcosmos's GPU/JIT architecture by preallocating creature slots and activating or deactivating them with masks. Organisms share one fixed topology; controller and metabolic parameters are inherited and mutated.
+The design preserves Microcosmos's GPU/JIT architecture by preallocating creature slots and activating or deactivating them with masks. Organisms share one fixed topology; the compact controller genome is inherited and mutated while ecological rates remain fixed configuration.
 
 ## 2. Problem statement
 
@@ -32,7 +37,7 @@ If lifecycle events use fixed-capacity masked slots, Microcosmos can support con
 - Support resource competition with numerically conservative depletion.
 - Support starvation and age-based death.
 - Support in-world asexual reproduction.
-- Copy and mutate controller and metabolic genes at birth.
+- Copy and mutate the normalized controller genome at birth.
 - Maintain fixed array shapes as population size changes.
 - Preserve all existing environment and simulator behavior.
 - Produce deterministic lineage and ecosystem metrics.
@@ -47,8 +52,8 @@ If lifecycle events use fixed-capacity masked slots, Microcosmos can support con
 - Internal energy, age, maturity, reproduction threshold, and lifespan.
 - Asexual reproduction into available slots.
 - Fixed-size heritable genome.
-- Small fixed-topology neural controller.
-- Heritable uptake and metabolism parameters.
+- Compact fixed-topology traveling-wave controller.
+- Fixed configured uptake, assimilation, and metabolism parameters.
 - Gaussian mutation with configured bounds.
 - Individual IDs, parent IDs, and generations.
 - PBD, stable Cosserat, steric, and fluid activity masks.
@@ -393,33 +398,29 @@ Rollback: disable mortality in `EcosystemEnv` while retaining resource accountin
 
 ### Phase 6: Add the heritable controller and genome
 
-Objective: make inherited parameters affect behavior and metabolism.
+Objective: make inherited parameters affect behavior without encoding metabolic shortcuts.
 
-Use a fixed-size genome containing:
+Use a normalized `float32[23]` genome containing:
 
-- A one-hidden-layer MLP's weights and biases.
-- Oscillator-rate gene.
-- Uptake-rate gene.
-- Assimilation-efficiency gene.
-- Basal-metabolism gene.
+- Three traveling-wave modules in loci `0:12`.
+- Local-resource and head-tail-gradient polynomial corrections in `12:18`.
+- Curvature bias and positive gain in `18:20`.
+- Three action-neutral mutation-strategy loci in `20:23`.
 
-Controller inputs per bending pair:
-
-- Normalized body coordinate.
-- `sin(phase)` and `cos(phase)`.
-- Local normalized resource.
-- Internal energy fraction.
+Controller inputs per bending pair are normalized body coordinate, physical
+time, local normalized resource, and fixed-order head/tail resource samples.
+Energy is not a controller input.
 
 Controller output:
 
 - One bounded bending-angle delta.
 - Rest-length actuation remains zero in v1.
 
-Mutation:
+Trusted development mutation:
 
 - Independent Bernoulli mutation mask per gene.
 - Gaussian noise for selected genes.
-- Clip genes to configured bounds.
+- Clip every gene to `[-1, 1]`.
 - No structural mutation or crossover.
 
 Acceptance checkpoint:

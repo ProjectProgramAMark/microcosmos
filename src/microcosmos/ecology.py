@@ -6,7 +6,7 @@ import math
 import jax
 import jax.numpy as jnp
 
-from microcosmos.controller import GenomeConfig, mutate_genome
+from microcosmos.controller import GenomeConfig, gene_bounds
 from microcosmos.structs.population import PopulationState
 
 
@@ -147,6 +147,25 @@ def actuation_energy_by_slot(
     return power * power_coefficient * dt
 
 
+def _fixed_gaussian_child(
+    key: jax.Array,
+    parent_genome: jax.Array,
+    config: GenomeConfig,
+) -> jax.Array:
+    """Trusted development baseline; not a candidate-facing heredity seam."""
+    if config.mutation_std == 0.0 or config.mutation_probability == 0.0:
+        return parent_genome
+    key_mask, key_noise = jax.random.split(key)
+    mask = jax.random.bernoulli(
+        key_mask, config.mutation_probability, parent_genome.shape
+    )
+    noise = jax.random.normal(
+        key_noise, parent_genome.shape, dtype=parent_genome.dtype
+    ) * config.mutation_std
+    lower, upper = gene_bounds()
+    return jnp.clip(parent_genome + mask * noise, lower, upper)
+
+
 def energy_and_death_step(
     population: PopulationState,
     gross_uptake: jax.Array,
@@ -200,7 +219,7 @@ def reproduction_step(
 
     parent_safe = jnp.maximum(parent_slots, 0)
     keys = jax.random.split(key, capacity)
-    mutated = jax.vmap(lambda k, g: mutate_genome(k, g, genome_config))(
+    mutated = jax.vmap(lambda k, g: _fixed_gaussian_child(k, g, genome_config))(
         keys, population.genome[parent_safe]
     )
 

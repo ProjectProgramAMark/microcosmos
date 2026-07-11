@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from experiments.base_experiment import Experiment
-from microcosmos.gym import EcosystemEnv, LineTopology, RingTopology
+from microcosmos.gym import EcosystemEnv, LineTopology
 from microcosmos.rendering import animate
 from microcosmos.solver.config import PBD_SCHEME, PBD_SCHEME_NO_FLUID
 
@@ -15,8 +15,9 @@ from microcosmos.solver.config import PBD_SCHEME, PBD_SCHEME_NO_FLUID
 class EcosystemExperiment(Experiment):
     def setup(self):
         cfg = self.cfg.experiment
-        topology_cls = RingTopology if str(cfg.get("topology", "line")) == "ring" else LineTopology
-        topology = topology_cls(
+        if str(cfg.get("topology", "line")) != "line":
+            raise ValueError("ecosystem controller requires topology=line")
+        topology = LineTopology(
             num_nodes=int(cfg.get("nodes_per_creature", 8)),
             spacing=float(cfg.get("spacing", 2.0)),
             bending_stiffness=float(cfg.get("bending_stiffness", 0.5)),
@@ -66,6 +67,8 @@ class EcosystemExperiment(Experiment):
             maximum_lifespan=int(cfg.get("maximum_lifespan", 10_000)),
             mutation_probability=float(cfg.get("mutation_probability", 0.05)),
             mutation_std=float(cfg.get("mutation_std", 0.05)),
+            max_bending_delta=float(cfg.get("max_bending_delta", 0.35)),
+            resource_reference=float(cfg.get("resource_reference", 0.5)),
             uptake_rate=float(cfg.get("uptake_rate", 0.5)),
             assimilation_efficiency=float(cfg.get("assimilation_efficiency", 0.8)),
             basal_metabolism=float(cfg.get("basal_metabolism", 0.05)),

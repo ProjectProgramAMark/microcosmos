@@ -9,7 +9,6 @@ import numpy as np
 from microcosmos.controller import (
     GenomeConfig,
     controller_action,
-    decode_metabolism,
     initialize_genomes,
 )
 from microcosmos.ecology import (
@@ -60,10 +59,10 @@ class EcosystemEnv(Environment):
         reproduction_cost: float = 2.0,
         maturity_age: int = 100,
         maximum_lifespan: int = 10_000,
-        controller_hidden_size: int = 8,
         mutation_probability: float = 0.05,
         mutation_std: float = 0.05,
-        oscillator_rate: float = 1.0,
+        max_bending_delta: float = 0.35,
+        resource_reference: float = 0.5,
         uptake_rate: float = 0.5,
         assimilation_efficiency: float = 0.8,
         basal_metabolism: float = 0.05,
@@ -116,7 +115,6 @@ class EcosystemEnv(Environment):
             ("initial_resource", initial_resource),
             ("initial_energy", initial_energy),
             ("actuation_power_coefficient", actuation_power_coefficient),
-            ("oscillator_rate", oscillator_rate),
             ("uptake_rate", uptake_rate),
             ("assimilation_efficiency", assimilation_efficiency),
             ("basal_metabolism", basal_metabolism),
@@ -127,6 +125,8 @@ class EcosystemEnv(Environment):
                 raise ValueError(f"{name} must be non-negative")
         if not 0.0 <= assimilation_efficiency <= 1.0:
             raise ValueError("assimilation_efficiency must be within [0, 1]")
+        if not isinstance(topology, LineTopology):
+            raise ValueError("ecosystem controller requires LineTopology")
         if initial_resource > resource_capacity:
             raise ValueError("initial_resource must not exceed resource_capacity")
         if resource_diffusion_rate * dt > 1.0:
@@ -167,34 +167,24 @@ class EcosystemEnv(Environment):
             birth_transfer_efficiency=birth_transfer_efficiency,
         )
         self.genome_config = GenomeConfig(
-            hidden_size=controller_hidden_size,
             mutation_probability=mutation_probability,
             mutation_std=mutation_std,
+            max_bending_delta=max_bending_delta,
+            resource_reference=resource_reference,
         )
-        phenotype_bounds = (
-            ("oscillator_rate", oscillator_rate, self.genome_config.oscillator_min, self.genome_config.oscillator_max),
-            ("uptake_rate", uptake_rate, self.genome_config.uptake_min, self.genome_config.uptake_max),
-            (
-                "assimilation_efficiency",
-                assimilation_efficiency,
-                self.genome_config.assimilation_min,
-                self.genome_config.assimilation_max,
-            ),
-            (
-                "basal_metabolism",
-                basal_metabolism,
-                self.genome_config.metabolism_min,
-                self.genome_config.metabolism_max,
-            ),
+        self.uptake_rate = float(uptake_rate)
+        self.assimilation_efficiency = float(assimilation_efficiency)
+        self.basal_metabolism = float(basal_metabolism)
+        self._uptake_rate_by_slot = jnp.full(
+            self.max_creatures, self.uptake_rate, dtype=jnp.float32
         )
-        for name, value, lower, upper in phenotype_bounds:
-            if not lower <= value <= upper:
-                raise ValueError(f"{name} must be within [{lower}, {upper}]")
-        self._initial_phenotype = dict(
-            oscillator_rate=oscillator_rate,
-            uptake_rate=uptake_rate,
-            assimilation_efficiency=assimilation_efficiency,
-            basal_metabolism=basal_metabolism,
+        self._assimilation_by_slot = jnp.full(
+            self.max_creatures,
+            self.assimilation_efficiency,
+            dtype=jnp.float32,
+        )
+        self._metabolism_by_slot = jnp.full(
+            self.max_creatures, self.basal_metabolism, dtype=jnp.float32
         )
 
         local_pairs, departure_angles = topology.edges()
@@ -415,12 +405,7 @@ class EcosystemEnv(Environment):
             bending_rest_angles=self._bending_rest_angles,
             bending_stiffness=self._bending_stiffness,
         )
-        genomes = initialize_genomes(
-            key_genomes,
-            self.max_creatures,
-            self.genome_config,
-            **self._initial_phenotype,
-        )
+        genomes = initialize_genomes(key_genomes, self.max_creatures)
         population = PopulationState(
             alive=alive,
             energy=jnp.where(alive, self.initial_energy, 0.0),
@@ -563,27 +548,24 @@ class EcosystemEnv(Environment):
         pop = state.population
         # Population occupancy is authoritative at every transition boundary.
         nodes = replace(state.nodes, active=pop.alive[self.node_slot])
-        phenotype = decode_metabolism(pop.genome, self.genome_config)
-        energy_fraction = jnp.clip(
-            pop.energy / max(self.lifecycle_config.reproduction_threshold, 1e-6),
+        normalized_node_resource = jnp.clip(
+            sample_grid_nearest(state.fields.energy, nodes.position)
+            / max(self.resource_config.capacity, 1e-8),
             0.0,
             1.0,
-        )
-        phase = (
-            state.time.astype(jnp.float32)
-            * self.dt
-            * phenotype.oscillator_rate
-        )
-        local_resource = sample_grid_nearest(
-            state.fields.energy, nodes.position[self._bending_node]
-        ) / max(self.resource_config.capacity, 1e-8)
+        ).reshape(self.max_creatures, self._nodes_per_slot)
+        local_resource = normalized_node_resource.reshape(-1)[self._bending_node]
+        sensor_width = min(2, self._nodes_per_slot)
+        head_resource = jnp.mean(normalized_node_resource[:, :sensor_width], axis=1)
+        tail_resource = jnp.mean(normalized_node_resource[:, -sensor_width:], axis=1)
         bend_action = controller_action(
             pop.genome,
             self._bending_coordinate,
             self.bending_slot,
-            phase,
+            state.time.astype(jnp.float32) * self.dt,
             local_resource,
-            energy_fraction,
+            head_resource,
+            tail_resource,
             pop.alive,
             self.genome_config,
         )
@@ -611,7 +593,7 @@ class EcosystemEnv(Environment):
             nodes.position,
             nodes.active,
             self.node_slot,
-            phenotype.uptake_rate,
+            self._uptake_rate_by_slot,
             self.dt,
             self.resource_config,
         )
@@ -626,8 +608,8 @@ class EcosystemEnv(Environment):
         population, died, death_ids = energy_and_death_step(
             pop,
             gross_uptake,
-            phenotype.assimilation_efficiency,
-            phenotype.basal_metabolism,
+            self._assimilation_by_slot,
+            self._metabolism_by_slot,
             bending_energy,
             self.dt,
             self.lifecycle_config.maximum_lifespan,

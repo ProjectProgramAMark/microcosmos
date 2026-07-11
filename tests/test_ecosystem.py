@@ -5,7 +5,13 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from microcosmos.gym import EcosystemEnv, EcosystemState, LineTopology, make
+from microcosmos.gym import (
+    EcosystemEnv,
+    EcosystemState,
+    LineTopology,
+    RingTopology,
+    make,
+)
 from microcosmos.rendering import render_fields
 from microcosmos.solver.config import PBD_SCHEME_NO_FLUID
 from microcosmos.utils import displacement
@@ -57,7 +63,9 @@ def test_reset_is_deterministic_and_uses_capacity_shapes():
     assert isinstance(state_a, EcosystemState)
     assert int(jnp.sum(state_a.population.alive)) == env.initial_population
     assert state_a.nodes.position.shape == (env.max_creatures * 4, 2)
-    assert state_a.population.genome.shape[0] == env.max_creatures
+    assert state_a.population.genome.shape == (env.max_creatures, 23)
+    assert state_a.population.genome.dtype == jnp.float32
+    assert jnp.all(jnp.abs(state_a.population.genome) <= 1.0)
     assert jnp.array_equal(obs_a, obs_b)
     assert jnp.array_equal(state_a.nodes.position, state_b.nodes.position)
     centers = env._slot_centers(state_a.nodes.position)
@@ -201,6 +209,37 @@ def test_one_compiled_step_accepts_empty_partial_and_full_occupancy():
     assert all(state.population.genome.shape == partial.population.genome.shape for state in states)
 
 
+def test_genome_loci_cannot_change_fixed_ecological_traits():
+    env = _env(max_bending_delta=0.0)
+    _, initial = env.reset(jax.random.PRNGKey(40))
+    low = replace(
+        initial,
+        population=replace(
+            initial.population,
+            genome=jnp.full_like(initial.population.genome, -1.0),
+        ),
+    )
+    high = replace(
+        initial,
+        population=replace(
+            initial.population,
+            genome=jnp.full_like(initial.population.genome, 1.0),
+        ),
+    )
+    key = jax.random.PRNGKey(41)
+    _, low_result, _, _, _ = env.step(key, low)
+    _, high_result, _, _, _ = env.step(key, high)
+    assert jnp.array_equal(low_result.fields.energy, high_result.fields.energy)
+    assert jnp.array_equal(
+        low_result.population.energy, high_result.population.energy
+    )
+
+
+def test_ecosystem_controller_rejects_unsupported_topology():
+    with pytest.raises(ValueError, match="LineTopology"):
+        _env(topology=RingTopology(num_nodes=4))
+
+
 def test_render_omits_inactive_slots():
     env = _env(initial_population=1)
     _, state = env.reset(jax.random.PRNGKey(0))
@@ -277,6 +316,8 @@ def test_birth_remains_finite_when_ideal_clearance_is_impossible():
         ({"assimilation_efficiency": 1.1}, "assimilation_efficiency"),
         ({"uptake_rate": -0.1}, "uptake_rate"),
         ({"basal_metabolism": -0.1}, "basal_metabolism"),
+        ({"max_bending_delta": -0.1}, "max_bending_delta"),
+        ({"resource_reference": 1.1}, "resource_reference"),
         (
             {"dt": 1.0, "resource_diffusion_rate": 1.1},
             "resource_diffusion_rate",

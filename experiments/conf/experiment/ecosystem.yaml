@@ -21,6 +21,8 @@ experiment:
   maximum_lifespan: 10000
   mutation_probability: 0.05
   mutation_std: 0.05
+  max_bending_delta: 0.35
+  resource_reference: 0.5
   uptake_rate: 0.5
   assimilation_efficiency: 0.8
   basal_metabolism: 0.05

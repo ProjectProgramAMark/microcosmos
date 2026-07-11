@@ -4,10 +4,11 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from microcosmos.controller import GenomeConfig, controller_action, initialize_genomes, mutate_genome
+from microcosmos.controller import GenomeConfig, initialize_genomes
 from microcosmos.ecology import (
     LifecycleConfig,
     ResourceConfig,
+    _fixed_gaussian_child,
     actuation_energy_by_slot,
     energy_and_death_step,
     reproduction_step,
@@ -19,7 +20,7 @@ from microcosmos.structs.population import PopulationState
 def _population(energy=(5.0, 0.0, 0.0)):
     count = len(energy)
     alive = jnp.arange(count) == 0
-    genomes = initialize_genomes(jax.random.PRNGKey(0), count, GenomeConfig(hidden_size=2))
+    genomes = initialize_genomes(jax.random.PRNGKey(0), count)
     return PopulationState(
         alive=alive,
         energy=jnp.asarray(energy),
@@ -85,7 +86,7 @@ def test_lifespan_death_occurs_at_exact_configured_age():
 
 
 def test_reproduction_assigns_lineage_and_charges_only_success():
-    genome_config = GenomeConfig(hidden_size=2, mutation_std=0.0)
+    genome_config = GenomeConfig(mutation_std=0.0)
     population = replace(_population(), age=jnp.array([5, 0, 0]))
     lifecycle = LifecycleConfig(
         maturity_age=1,
@@ -109,7 +110,7 @@ def test_reproduction_assigns_lineage_and_charges_only_success():
 
 
 def test_birth_is_an_energy_transfer_and_cannot_create_organism_energy():
-    genome_config = GenomeConfig(hidden_size=2, mutation_std=0.0)
+    genome_config = GenomeConfig(mutation_std=0.0)
     population = replace(_population(), age=jnp.array([5, 0, 0]))
     lifecycle = LifecycleConfig(
         maturity_age=1,
@@ -188,12 +189,12 @@ def test_lifecycle_config_rejects_invalid_values(kwargs, message):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"hidden_size": 0}, "hidden_size"),
-        ({"neural_bound": 0.0}, "neural_bound"),
         ({"mutation_probability": -0.1}, "mutation_probability"),
         ({"mutation_probability": 1.1}, "mutation_probability"),
         ({"mutation_std": -0.1}, "mutation_std"),
-        ({"assimilation_max": 1.1}, "assimilation_max"),
+        ({"max_bending_delta": -0.1}, "max_bending_delta"),
+        ({"resource_reference": -0.1}, "resource_reference"),
+        ({"resource_reference": 1.1}, "resource_reference"),
     ],
 )
 def test_genome_config_rejects_invalid_values(kwargs, message):
@@ -202,30 +203,13 @@ def test_genome_config_rejects_invalid_values(kwargs, message):
 
 
 def test_mutation_is_deterministic_bounded_and_zero_std_is_exact():
-    genome = initialize_genomes(jax.random.PRNGKey(0), 1, GenomeConfig(hidden_size=2))[0]
-    config = GenomeConfig(hidden_size=2, mutation_probability=1.0, mutation_std=100.0)
-    a = mutate_genome(jax.random.PRNGKey(4), genome, config)
-    b = mutate_genome(jax.random.PRNGKey(4), genome, config)
+    genome = initialize_genomes(jax.random.PRNGKey(0), 1)[0]
+    config = GenomeConfig(mutation_probability=1.0, mutation_std=100.0)
+    a = _fixed_gaussian_child(jax.random.PRNGKey(4), genome, config)
+    b = _fixed_gaussian_child(jax.random.PRNGKey(4), genome, config)
     assert jnp.array_equal(a, b)
     assert jnp.all(jnp.isfinite(a))
-    clone = mutate_genome(jax.random.PRNGKey(5), genome, GenomeConfig(hidden_size=2, mutation_std=0.0))
-    assert jnp.array_equal(clone, genome)
-
-
-def test_controller_depends_on_genome_and_masks_inactive_slots():
-    config = GenomeConfig(hidden_size=2)
-    genomes = jnp.zeros_like(initialize_genomes(jax.random.PRNGKey(0), 2, config))
-    genomes = genomes.at[0, -5].set(-2.0).at[1, -5].set(2.0)
-    common = dict(
-        genomes=genomes,
-        normalized_coordinate=jnp.array([0.0, 0.0]),
-        bending_slot=jnp.array([0, 1]),
-        phase=jnp.zeros(2),
-        local_resource=jnp.zeros(2),
-        energy_fraction=jnp.ones(2),
-        config=config,
+    clone = _fixed_gaussian_child(
+        jax.random.PRNGKey(5), genome, GenomeConfig(mutation_std=0.0)
     )
-    action = controller_action(alive=jnp.array([True, True]), **common)
-    masked = controller_action(alive=jnp.array([True, False]), **common)
-    assert action[0] != action[1]
-    assert masked[1] == 0.0
+    assert jnp.array_equal(clone, genome)

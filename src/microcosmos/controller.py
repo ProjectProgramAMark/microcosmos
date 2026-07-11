@@ -1,229 +1,177 @@
-"""Fixed-topology heritable neural controller."""
+"""Compact fixed-layout traveling-wave controller."""
 
 from dataclasses import dataclass
-import functools
 import math
 
 import jax
 import jax.numpy as jnp
 
 
-CONTROLLER_INPUTS = 5
+GENOME_SIZE = 23
+PHENOTYPE_LOCI = slice(0, 20)
+WAVE_LOCI = slice(0, 12)
+LOCAL_RESOURCE_LOCI = slice(12, 15)
+RESOURCE_GRADIENT_LOCI = slice(15, 18)
+BIAS_LOCUS = slice(18, 19)
+GAIN_LOCUS = slice(19, 20)
+STRATEGY_LOCI = slice(20, 23)
+
+PHENOTYPE_MODULES = (
+    WAVE_LOCI,
+    LOCAL_RESOURCE_LOCI,
+    RESOURCE_GRADIENT_LOCI,
+    BIAS_LOCUS,
+    GAIN_LOCUS,
+)
+NUM_WAVES = 3
+WAVE_PARAMETERS = 4
+
+GENE_MIN = -1.0
+GENE_MAX = 1.0
+AMPLITUDE_RANGE = (-0.5, 0.5)
+SPATIAL_FREQUENCY_RANGE = (0.0, 4.0 * math.pi)
+TEMPORAL_FREQUENCY_RANGE = (0.0, 4.0)
+PHASE_RANGE = (-math.pi, math.pi)
+SENSORY_COEFFICIENT_RANGE = (-1.0, 1.0)
+BIAS_RANGE = (-1.0, 1.0)
+GAIN_RANGE = (0.0, 2.0)
+INITIALIZATION_STD = 0.1
 
 
 @dataclass(frozen=True)
 class GenomeConfig:
-    hidden_size: int = 8
-    neural_bound: float = 2.0
-    oscillator_min: float = 0.0
-    oscillator_max: float = 4.0
-    uptake_min: float = 0.0
-    uptake_max: float = 2.0
-    assimilation_min: float = 0.0
-    assimilation_max: float = 1.0
-    metabolism_min: float = 0.0
-    metabolism_max: float = 1.0
+    """Fixed controller limits plus the trusted development mutation settings."""
+
     mutation_probability: float = 0.05
     mutation_std: float = 0.05
     max_bending_delta: float = 0.35
+    resource_reference: float = 0.5
 
     def __post_init__(self) -> None:
-        if not isinstance(self.hidden_size, int) or isinstance(self.hidden_size, bool):
-            raise ValueError("hidden_size must be an integer")
-        if self.hidden_size < 1:
-            raise ValueError("hidden_size must be at least one")
-
-        finite_fields = {
-            "neural_bound": self.neural_bound,
-            "oscillator_min": self.oscillator_min,
-            "oscillator_max": self.oscillator_max,
-            "uptake_min": self.uptake_min,
-            "uptake_max": self.uptake_max,
-            "assimilation_min": self.assimilation_min,
-            "assimilation_max": self.assimilation_max,
-            "metabolism_min": self.metabolism_min,
-            "metabolism_max": self.metabolism_max,
-            "mutation_probability": self.mutation_probability,
-            "mutation_std": self.mutation_std,
-            "max_bending_delta": self.max_bending_delta,
-        }
-        for name, value in finite_fields.items():
+        for name, value in (
+            ("mutation_probability", self.mutation_probability),
+            ("mutation_std", self.mutation_std),
+            ("max_bending_delta", self.max_bending_delta),
+            ("resource_reference", self.resource_reference),
+        ):
             if not math.isfinite(value):
                 raise ValueError(f"{name} must be finite")
-
-        if self.neural_bound <= 0.0:
-            raise ValueError("neural_bound must be positive")
-        for name, lower, upper in (
-            ("oscillator", self.oscillator_min, self.oscillator_max),
-            ("uptake", self.uptake_min, self.uptake_max),
-            ("assimilation", self.assimilation_min, self.assimilation_max),
-            ("metabolism", self.metabolism_min, self.metabolism_max),
-        ):
-            if lower < 0.0 or upper < lower:
-                raise ValueError(
-                    f"{name} bounds must be non-negative and ordered"
-                )
-        if self.assimilation_max > 1.0:
-            raise ValueError("assimilation_max must be at most one")
         if not 0.0 <= self.mutation_probability <= 1.0:
             raise ValueError("mutation_probability must be within [0, 1]")
         if self.mutation_std < 0.0:
             raise ValueError("mutation_std must be non-negative")
         if self.max_bending_delta < 0.0:
             raise ValueError("max_bending_delta must be non-negative")
+        if not 0.0 <= self.resource_reference <= 1.0:
+            raise ValueError("resource_reference must be within [0, 1]")
 
 
-@functools.partial(
-    jax.tree_util.register_dataclass,
-    meta_fields=[],
-    data_fields=[
-        "oscillator_rate",
-        "uptake_rate",
-        "assimilation_efficiency",
-        "basal_metabolism",
-    ],
-)
-@dataclass
-class MetabolicPhenotype:
-    oscillator_rate: jax.Array
-    uptake_rate: jax.Array
-    assimilation_efficiency: jax.Array
-    basal_metabolism: jax.Array
+def genome_size() -> int:
+    """Return the immutable scalar genome length."""
+    return GENOME_SIZE
 
 
-def genome_size(config: GenomeConfig = GenomeConfig()) -> int:
-    """Number of scalar genes for the configured controller."""
-    hidden = config.hidden_size
-    return CONTROLLER_INPUTS * hidden + hidden + hidden + 1 + 4
-
-
-def _metabolic_start(config: GenomeConfig) -> int:
-    return genome_size(config) - 4
-
-
-def gene_bounds(config: GenomeConfig) -> tuple[jax.Array, jax.Array]:
-    """Per-gene lower and upper bounds."""
-    metabolic_start = _metabolic_start(config)
-    lower = jnp.full(genome_size(config), -config.neural_bound)
-    upper = jnp.full(genome_size(config), config.neural_bound)
-    lower = lower.at[metabolic_start:].set(
-        jnp.array(
-            [
-                config.oscillator_min,
-                config.uptake_min,
-                config.assimilation_min,
-                config.metabolism_min,
-            ]
-        )
-    )
-    upper = upper.at[metabolic_start:].set(
-        jnp.array(
-            [
-                config.oscillator_max,
-                config.uptake_max,
-                config.assimilation_max,
-                config.metabolism_max,
-            ]
-        )
-    )
-    return lower, upper
-
-
-def initialize_genomes(
-    key: jax.Array,
-    count: int,
-    config: GenomeConfig = GenomeConfig(),
-    *,
-    oscillator_rate: float = 1.0,
-    uptake_rate: float = 0.5,
-    assimilation_efficiency: float = 0.8,
-    basal_metabolism: float = 0.05,
-) -> jax.Array:
-    """Create bounded genomes with small random controller weights."""
-    size = genome_size(config)
-    genomes = jax.random.normal(key, (count, size)) * 0.1
-    phenotype = jnp.array(
-        [oscillator_rate, uptake_rate, assimilation_efficiency, basal_metabolism]
-    )
-    genomes = genomes.at[:, -4:].set(phenotype)
-    lower, upper = gene_bounds(config)
-    return jnp.clip(genomes, lower, upper)
-
-
-def decode_metabolism(
-    genome: jax.Array, config: GenomeConfig = GenomeConfig()
-) -> MetabolicPhenotype:
-    """Decode and defensively bound metabolic genes."""
-    metabolic = genome[..., -4:]
-    return MetabolicPhenotype(
-        oscillator_rate=jnp.clip(
-            metabolic[..., 0], config.oscillator_min, config.oscillator_max
-        ),
-        uptake_rate=jnp.clip(
-            metabolic[..., 1], config.uptake_min, config.uptake_max
-        ),
-        assimilation_efficiency=jnp.clip(
-            metabolic[..., 2], config.assimilation_min, config.assimilation_max
-        ),
-        basal_metabolism=jnp.clip(
-            metabolic[..., 3], config.metabolism_min, config.metabolism_max
-        ),
+def gene_bounds() -> tuple[jax.Array, jax.Array]:
+    """Return the normalized bounds shared by every locus."""
+    return (
+        jnp.full(GENOME_SIZE, GENE_MIN, dtype=jnp.float32),
+        jnp.full(GENOME_SIZE, GENE_MAX, dtype=jnp.float32),
     )
 
 
-def mutate_genome(
-    key: jax.Array,
-    genome: jax.Array,
-    config: GenomeConfig = GenomeConfig(),
-) -> jax.Array:
-    """Apply independent Bernoulli/Gaussian mutation and clip to bounds."""
-    if config.mutation_std == 0.0 or config.mutation_probability == 0.0:
-        return genome
-    key_mask, key_noise = jax.random.split(key)
-    mask = jax.random.bernoulli(
-        key_mask, config.mutation_probability, genome.shape
+def initialize_genomes(key: jax.Array, count: int) -> jax.Array:
+    """Create small random normalized genomes with an explicit float32 shape."""
+    if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+        raise ValueError("count must be a non-negative integer")
+    genomes = jax.random.normal(key, (count, GENOME_SIZE), dtype=jnp.float32)
+    return jnp.clip(genomes * INITIALIZATION_STD, GENE_MIN, GENE_MAX)
+
+
+def _finite_clip(value: jax.Array, lower: float, upper: float) -> jax.Array:
+    return jnp.nan_to_num(
+        jnp.clip(value, lower, upper), nan=0.0, posinf=upper, neginf=lower
     )
-    noise = jax.random.normal(key_noise, genome.shape) * config.mutation_std
-    lower, upper = gene_bounds(config)
-    return jnp.clip(genome + mask * noise, lower, upper)
+
+
+def _affine_decode(gene: jax.Array, lower: float, upper: float) -> jax.Array:
+    normalized = _finite_clip(gene, GENE_MIN, GENE_MAX)
+    return lower + 0.5 * (normalized - GENE_MIN) * (upper - lower)
+
+
+def _polynomial(coefficients: jax.Array, coordinate: jax.Array) -> jax.Array:
+    return (
+        coefficients[:, 0]
+        + coefficients[:, 1] * coordinate
+        + coefficients[:, 2] * coordinate**2
+    )
 
 
 def controller_action(
     genomes: jax.Array,
     normalized_coordinate: jax.Array,
     bending_slot: jax.Array,
-    phase: jax.Array,
+    time: jax.Array,
     local_resource: jax.Array,
-    energy_fraction: jax.Array,
+    head_resource: jax.Array,
+    tail_resource: jax.Array,
     alive: jax.Array,
     config: GenomeConfig = GenomeConfig(),
 ) -> jax.Array:
-    """Evaluate one shared-shape MLP per bending pair."""
-    hidden = config.hidden_size
+    """Decode three waves and two resource corrections for each body hinge."""
     slot_genomes = genomes[bending_slot]
-    offset = 0
-    w1_size = CONTROLLER_INPUTS * hidden
-    w1 = slot_genomes[:, offset : offset + w1_size].reshape(
-        -1, CONTROLLER_INPUTS, hidden
-    )
-    offset += w1_size
-    b1 = slot_genomes[:, offset : offset + hidden]
-    offset += hidden
-    w2 = slot_genomes[:, offset : offset + hidden]
-    offset += hidden
-    b2 = slot_genomes[:, offset]
+    count = slot_genomes.shape[0]
+    coordinate = _finite_clip(normalized_coordinate, -1.0, 1.0)
+    slot_alive = alive[bending_slot].astype(slot_genomes.dtype)
 
-    slot_phase = phase[bending_slot]
-    inputs = jnp.stack(
-        [
-            normalized_coordinate,
-            jnp.sin(slot_phase),
-            jnp.cos(slot_phase),
-            local_resource,
-            energy_fraction[bending_slot],
-        ],
+    wave_genes = slot_genomes[:, WAVE_LOCI].reshape(
+        count, NUM_WAVES, WAVE_PARAMETERS
+    )
+    amplitude = _affine_decode(wave_genes[..., 0], *AMPLITUDE_RANGE)
+    spatial_frequency = _affine_decode(
+        wave_genes[..., 1], *SPATIAL_FREQUENCY_RANGE
+    )
+    temporal_frequency = _affine_decode(
+        wave_genes[..., 2], *TEMPORAL_FREQUENCY_RANGE
+    )
+    phase_offset = _affine_decode(wave_genes[..., 3], *PHASE_RANGE)
+
+    time = jnp.asarray(time, dtype=slot_genomes.dtype)
+    slot_time = time if time.ndim == 0 else time[bending_slot]
+    slot_time = jnp.nan_to_num(slot_time, nan=0.0, posinf=0.0, neginf=0.0)
+    wave = jnp.sum(
+        amplitude
+        * jnp.sin(
+            spatial_frequency * coordinate[:, None]
+            - temporal_frequency * slot_time[..., None]
+            + phase_offset
+        ),
         axis=-1,
     )
-    hidden_value = jnp.tanh(jnp.einsum("bi,bih->bh", inputs, w1) + b1)
-    output = jnp.tanh(jnp.sum(hidden_value * w2, axis=-1) + b2)
-    return output * config.max_bending_delta * alive[bending_slot]
+
+    local_coefficients = _affine_decode(
+        slot_genomes[:, LOCAL_RESOURCE_LOCI], *SENSORY_COEFFICIENT_RANGE
+    )
+    gradient_coefficients = _affine_decode(
+        slot_genomes[:, RESOURCE_GRADIENT_LOCI],
+        *SENSORY_COEFFICIENT_RANGE,
+    )
+    local_value = _finite_clip(local_resource, 0.0, 1.0) * slot_alive
+    head_value = (
+        _finite_clip(head_resource[bending_slot], 0.0, 1.0) * slot_alive
+    )
+    tail_value = (
+        _finite_clip(tail_resource[bending_slot], 0.0, 1.0) * slot_alive
+    )
+    local_correction = (local_value - config.resource_reference) * _polynomial(
+        local_coefficients, coordinate
+    )
+    gradient_correction = (head_value - tail_value) * _polynomial(
+        gradient_coefficients, coordinate
+    )
+
+    bias = _affine_decode(slot_genomes[:, BIAS_LOCUS.start], *BIAS_RANGE)
+    gain = _affine_decode(slot_genomes[:, GAIN_LOCUS.start], *GAIN_RANGE)
+    raw = bias + wave + local_correction + gradient_correction
+    return (
+        config.max_bending_delta * jnp.tanh(gain * raw) * slot_alive
+    )
