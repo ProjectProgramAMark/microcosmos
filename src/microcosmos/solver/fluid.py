@@ -6,6 +6,7 @@ from microcosmos.structs.fields import Fields
 from dataclasses import replace
 from microcosmos.utils import EPSIL, displacement
 from typing import TYPE_CHECKING
+from microcosmos.solver.masks import ActivityMasks, activity_masks
 
 if TYPE_CHECKING:
     from .config import ConstraintSolverConfig
@@ -205,7 +206,8 @@ def immersed_boundary_interaction(
     fields: Fields,
     f_grid: jax.Array,
     dt: float,
-    solver_config: "ConstraintSolverConfig"
+    solver_config: "ConstraintSolverConfig",
+    masks: ActivityMasks | None = None,
 ) -> tuple[Nodes, Fields, jax.Array]:
     """Combined IBM + LBM step with properly integrated Guo forcing.
 
@@ -221,6 +223,10 @@ def immersed_boundary_interaction(
     6. Node drag (Newton's 3rd law)
     """
     h, w = f_grid.shape[1], f_grid.shape[2]
+    if masks is None and nodes.active is not None:
+        masks = activity_masks(nodes, edges)
+    node_mask = None if masks is None else masks[0]
+    edge_mask = None if masks is None else masks[1]
 
     scale_x = w / fields.grid_shape[0]
     scale_y = h / fields.grid_shape[1]
@@ -248,6 +254,8 @@ def immersed_boundary_interaction(
         # chain normal is derived from actual connectivity, not storage order.
         src, tgt = edges.pairs[:, 0], edges.pairs[:, 1]
         edge_vecs = displacement(fields.grid_shape, nodes.position[tgt], nodes.position[src])
+        if edge_mask is not None:
+            edge_vecs = edge_vecs * edge_mask[:, None]
         tangents_raw = jnp.zeros_like(nodes.position)
         tangents_raw = tangents_raw.at[src].add(edge_vecs)
         tangents_raw = tangents_raw.at[tgt].add(edge_vecs)
@@ -263,16 +271,14 @@ def immersed_boundary_interaction(
         ibm_vel = jnp.tile(node_vel_lattice, (2, 1))  # (2N, 2)
         ibm_active = (
             None
-            if nodes.active is None
-            else jnp.tile(nodes.active.astype(node_vel_lattice.dtype), 2)
+            if node_mask is None
+            else jnp.tile(node_mask.astype(node_vel_lattice.dtype), 2)
         )
     else:
         ibm_pos = grid_pos        # (N, 2)
         ibm_vel = node_vel_lattice  # (N, 2)
         ibm_active = (
-            None
-            if nodes.active is None
-            else nodes.active.astype(node_vel_lattice.dtype)
+            None if node_mask is None else node_mask.astype(node_vel_lattice.dtype)
         )
 
     f = jnp.maximum(f_grid, EPSIL)
@@ -388,8 +394,8 @@ def immersed_boundary_interaction(
     # The caller does `velocity - node_delta_v`, so no extra negation needed here.
     # Convert to physical: Δv_phys = Δv_lat / (scale · dt)
     node_delta_v = (node_force_lattice / node_mass_lattice) / (scale * dt)
-    if nodes.active is not None:
-        node_delta_v = node_delta_v * nodes.active[:, None]
+    if node_mask is not None:
+        node_delta_v = node_delta_v * node_mask[:, None]
 
     nodes_new = replace(nodes, velocity=nodes.velocity - node_delta_v)
 

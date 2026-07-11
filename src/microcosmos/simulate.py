@@ -11,12 +11,23 @@ from dataclasses import replace
 from microcosmos.solver.config import ConstraintSolverConfig
 from microcosmos.structs.fields import Fields
 from microcosmos.solver.fluid import immersed_boundary_interaction
+from microcosmos.solver.masks import PhysicsContext, activity_masks
 
 @functools.partial(jax.jit, static_argnames=["dt", "num_steps", "solver_config"])
-def simulate(nodes: Nodes, edges: Edges, fields: Fields, dt: float, num_steps: int, solver_config: ConstraintSolverConfig) -> tuple[Nodes, Fields]:
+def simulate(
+    nodes: Nodes,
+    edges: Edges,
+    fields: Fields,
+    dt: float,
+    num_steps: int,
+    solver_config: ConstraintSolverConfig,
+    physics_context: PhysicsContext | None = None,
+) -> tuple[Nodes, Fields]:
     def scan_step(carry, t: float) -> tuple[tuple[Nodes, Edges, Fields], tuple[Nodes, Fields]]:
         nodes, edges, fields = carry
-        nodes, edges, fields = step(nodes, edges, fields, dt, solver_config)
+        nodes, edges, fields = step(
+            nodes, edges, fields, dt, solver_config, physics_context
+        )
 
         # OPTIMIZATION: Only save what we render
         # Drop f_grid from history to save VRAM.
@@ -35,7 +46,14 @@ def simulate(nodes: Nodes, edges: Edges, fields: Fields, dt: float, num_steps: i
     return nodes_timeseries, fields_timeseries
 
 @functools.partial(jax.jit, static_argnames=["dt", "solver_config"])
-def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: ConstraintSolverConfig) -> tuple[Nodes, Edges, Fields]:
+def step(
+    nodes: Nodes,
+    edges: Edges,
+    fields: Fields,
+    dt: float,
+    solver_config: ConstraintSolverConfig,
+    physics_context: PhysicsContext | None = None,
+) -> tuple[Nodes, Edges, Fields]:
 
     # 1. Reset debug vector
     nodes = replace(nodes, debug_vector=jnp.zeros_like(nodes.position))
@@ -44,6 +62,7 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
         if nodes.active is None
         else nodes.active.astype(nodes.position.dtype)[:, None]
     )
+    masks = None if nodes.active is None else activity_masks(nodes, edges)
 
     # 2. Store previous position (UNWRAPPED)
     # We need this to calculate the TRUE distance traveled later.
@@ -67,6 +86,8 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
             sigma=solver_config.steric_sigma,
             neighbor_skip=solver_config.steric_neighbor_skip,
             scatter_value=solver_config.steric_scatter_value,
+            masks=masks,
+            physics_context=physics_context,
         )
         predicted_position += f_steric * solver_config.steric_strength * dt
     if active is not None:
@@ -81,7 +102,16 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
     if solver_config.solver_type == "cosserat":
         nodes = replace(nodes, debug_vector=nodes.position)
 
-    bending_fn = functools.partial(solver_config.bending_constraint, config=solver_config, grid_shape=fields.grid_shape)
+    bending_kwargs = {
+        "config": solver_config,
+        "grid_shape": fields.grid_shape,
+    }
+    if masks is not None:
+        bending_kwargs["masks"] = masks
+    bending_fn = functools.partial(
+        solver_config.bending_constraint,
+        **bending_kwargs,
+    )
 
     carry = (nodes, edges)
     carry = jax.lax.fori_loop(0, solver_config.cycles_per_step, bending_fn, carry)
@@ -99,7 +129,7 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
     if solver_config.enable_fluid:
         # Combined IBM + LBM with properly integrated Guo forcing
         nodes, fields, f_grid_new = immersed_boundary_interaction(
-            nodes, edges, fields, fields.f_grid, dt, solver_config
+            nodes, edges, fields, fields.f_grid, dt, solver_config, masks
         )
         fields = replace(fields, f_grid=f_grid_new)
 

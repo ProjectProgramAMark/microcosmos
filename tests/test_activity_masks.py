@@ -15,13 +15,14 @@ from microcosmos.solver.masks import (
 )
 
 
-def _environment(enable_fluid=False):
+def _environment(enable_fluid=False, synthetic_node_width=0.0):
     solver = replace(
         PBD_SCHEME_NO_FLUID,
         enable_fluid=enable_fluid,
         cycles_per_step=1,
         ibm_iterations=1,
         ibm_kernel_size=2,
+        synthetic_node_width=synthetic_node_width,
     )
     return EcosystemEnv(
         topology=LineTopology(num_nodes=4),
@@ -85,6 +86,49 @@ def test_inactive_positions_do_not_change_fluid_field():
     _, _, fields_b = step(moved, state.edges, state.fields, env.dt, env.solver_config)
     assert jnp.allclose(fields_a.fluid_velocity, fields_b.fluid_velocity, atol=1e-7)
     assert jnp.allclose(fields_a.f_grid, fields_b.f_grid, atol=1e-7)
+
+
+def test_inactive_incident_edge_does_not_change_synthetic_fluid_tangent():
+    env = _environment(enable_fluid=True, synthetic_node_width=1.0)
+    _, state = env.reset(jax.random.PRNGKey(30))
+    active = state.nodes.active.at[env.node_slices[0].stop - 1].set(False)
+    inactive_endpoint = env.node_slices[0].stop - 1
+    nodes_a = replace(state.nodes, active=active)
+    nodes_b = replace(
+        nodes_a,
+        position=nodes_a.position.at[inactive_endpoint].add(jnp.array([5.0, 7.0])),
+    )
+    result_a, _, fields_a = step(
+        nodes_a, state.edges, state.fields, env.dt, env.solver_config
+    )
+    result_b, _, fields_b = step(
+        nodes_b, state.edges, state.fields, env.dt, env.solver_config
+    )
+    active_reaction_difference = jnp.max(
+        jnp.abs(result_a.velocity[active] - result_b.velocity[active])
+    )
+    assert active_reaction_difference <= 1e-7
+    assert jnp.allclose(fields_a.fluid_velocity, fields_b.fluid_velocity, atol=1e-7)
+    assert jnp.allclose(fields_a.f_grid, fields_b.f_grid, atol=1e-7)
+
+
+def test_ecosystem_population_activity_is_authoritative_at_step_entry():
+    env = _environment()
+    _, state = env.reset(jax.random.PRNGKey(31))
+    inconsistent = replace(
+        state,
+        nodes=replace(state.nodes, active=~state.nodes.active),
+    )
+    key = jax.random.PRNGKey(32)
+    _, canonical_result, _, _, _ = env.step(key, state)
+    _, repaired_result, _, _, _ = env.step(key, inconsistent)
+    assert jnp.array_equal(
+        repaired_result.nodes.active,
+        repaired_result.population.alive[env.node_slot],
+    )
+    assert jnp.allclose(
+        canonical_result.nodes.position, repaired_result.nodes.position, atol=1e-7
+    )
 
 
 def test_masked_continuous_physics_has_finite_gradients():

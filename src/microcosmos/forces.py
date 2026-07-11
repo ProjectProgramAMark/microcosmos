@@ -13,6 +13,7 @@ from microcosmos.utils import (
 )
 
 if TYPE_CHECKING:
+    from microcosmos.solver.masks import ActivityMasks, PhysicsContext
     from microcosmos.structs.fields import Fields
     from microcosmos.structs.nodes import Nodes
 
@@ -44,38 +45,56 @@ def compute_field_steric_force_corrected(
     sigma: float,
     neighbor_skip: int,
     scatter_value: float = 1.0,
+    masks: ActivityMasks | None = None,
+    physics_context: PhysicsContext | None = None,
 ) -> tuple[Fields, jax.Array]:
     """FFT-Gaussian field with analytic self + n-neighbor contribution subtracted.
 
     Build smoothed density (each node scattered as a unit-area Gaussian of weight
     `scatter_value`). Bilinearly sample force = −∇V at each node, then subtract the
-    analytic contribution from j ∈ {i−n, …, i+n}:
+    analytic contribution from graph-neighborhood nodes supplied by
+    ``physics_context`` (or storage neighbors for the legacy no-context path):
 
-        f_corr_i = f_interp_i − (w/σ²) · Σ_{|i−j|≤n} K_σ(r_ij) · r_ij
+        f_corr_i = f_interp_i − (w/σ²) · Σ_{j∈N_n(i)} K_σ(r_ij) · r_ij
 
     where K_σ(r) = exp(−|r|²/2σ²) / (2π σ²) and r_ij = x_i − x_j under PBC.
-    Self term (j=i) has r=0 → contributes nothing; included for index symmetry.
+    Self term (j=i) has r=0 → contributes nothing; included for shape symmetry.
     `neighbor_skip=0` disables the subtraction entirely (each node feels its
     own deposited bump plus its neighbors').
     """
-    fields = update_steric_potential(nodes, fields, sigma=sigma, scatter_value=scatter_value)
+    node_mask = None
+    if masks is not None:
+        node_mask = masks[0]
+    elif nodes.active is not None:
+        node_mask = nodes.active.astype(jnp.bool_)
+    fields = update_steric_potential(
+        nodes,
+        fields,
+        sigma=sigma,
+        scatter_value=scatter_value,
+        node_mask=node_mask,
+    )
 
     pos = periodic_boundary(fields.grid_shape, nodes.position)
     raw = force_interp(pos, fields.steric)  # (N, 2)
 
-    N = pos.shape[0]
-    offsets = jnp.arange(-neighbor_skip, neighbor_skip + 1)        # (2n+1,)
-    j_idx   = jnp.arange(N)[:, None] + offsets[None, :]            # (N, 2n+1)
-    valid = (j_idx >= 0) & (j_idx < N)  # line topology
-    j_safe  = jnp.clip(j_idx, 0, N - 1)
+    if physics_context is None:
+        # Legacy fallback for callers without a precomputed topology context.
+        N = pos.shape[0]
+        offsets = jnp.arange(-neighbor_skip, neighbor_skip + 1)
+        j_idx = jnp.arange(N)[:, None] + offsets[None, :]
+        valid = (j_idx >= 0) & (j_idx < N)
+        j_safe = jnp.clip(j_idx, 0, N - 1)
+        if nodes.component_id is not None:
+            valid = valid & (
+                nodes.component_id[:, None] == nodes.component_id[j_safe]
+            )
+    else:
+        j_safe = physics_context.steric_exclusion_indices
+        valid = physics_context.steric_exclusion_valid
 
-    if nodes.active is not None:
-        active = nodes.active.astype(jnp.bool_)
-        valid = valid & active[:, None] & active[j_safe]
-    if nodes.component_id is not None:
-        valid = valid & (
-            nodes.component_id[:, None] == nodes.component_id[j_safe]
-        )
+    if node_mask is not None:
+        valid = valid & node_mask[:, None] & node_mask[j_safe]
     valid = valid.astype(pos.dtype)
 
     # Bilinear scatter + spectral gradient + bilinear sample is self-consistent at
@@ -88,8 +107,8 @@ def compute_field_steric_force_corrected(
     )                                                              # (N, 2)
 
     corrected = raw - neighbor_contrib
-    if nodes.active is not None:
-        corrected = corrected * nodes.active[:, None]
+    if node_mask is not None:
+        corrected = corrected * node_mask[:, None]
     return fields, corrected
 
 
@@ -98,6 +117,7 @@ def update_steric_potential(
     fields: Fields,
     sigma: float = 12.5,
     scatter_value: float = 8.0,
+    node_mask: jax.Array | None = None,
 ) -> Fields:
     """Build a smoothed density field via bilinear (Cloud-In-Cell) deposition +
     Gaussian filter. Bilinear scatter matches the bilinear sampling in force_interp
@@ -120,8 +140,10 @@ def update_steric_potential(
     w10 = dx * (1.0 - dy) * scatter_value
     w01 = (1.0 - dx) * dy * scatter_value
     w11 = dx * dy * scatter_value
-    if nodes.active is not None:
-        activity = nodes.active.astype(pos.dtype)
+    if node_mask is None and nodes.active is not None:
+        node_mask = nodes.active
+    if node_mask is not None:
+        activity = node_mask.astype(pos.dtype)
         w00 = w00 * activity
         w10 = w10 * activity
         w01 = w01 * activity

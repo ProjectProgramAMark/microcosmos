@@ -5,7 +5,7 @@ from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.edges import Edges
 import jax.numpy as jnp
 from microcosmos.utils import displacement
-from microcosmos.solver.masks import activity_masks
+from microcosmos.solver.masks import ActivityMasks, activity_masks
 
 if TYPE_CHECKING:
     from microcosmos.solver.config import ConstraintSolverConfig
@@ -16,6 +16,7 @@ def stable_cosserat_constraint(
     carry: tuple[Nodes, Edges],
     config: ConstraintSolverConfig,
     grid_shape: tuple,
+    masks: ActivityMasks | None = None,
 ) -> tuple[Nodes, Edges]:
     """
     Stable Cosserat rod solver via Projective Dynamics (2D JAX port of YarnBall cosserat.cu).
@@ -48,9 +49,11 @@ def stable_cosserat_constraint(
     bp_e_in  = edges.bending_pairs[:, 0]  # (B,)
     bp_e_out = edges.bending_pairs[:, 1]  # (B,)
     k_b = edges.bending_stiffness         # (B,)
-    masked = nodes.active is not None
+    masked = masks is not None or nodes.active is not None
     if masked:
-        node_mask, edge_mask, bend_mask = activity_masks(nodes, edges)
+        node_mask, edge_mask, bend_mask = (
+            activity_masks(nodes, edges) if masks is None else masks
+        )
         node_mask = node_mask.astype(x.dtype)
         edge_mask = edge_mask.astype(x.dtype)
         bend_mask = bend_mask.astype(x.dtype)

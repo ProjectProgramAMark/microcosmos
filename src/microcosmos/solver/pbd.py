@@ -5,13 +5,19 @@ from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.edges import Edges
 import jax.numpy as jnp
 from microcosmos.utils import displacement
-from microcosmos.solver.masks import activity_masks
+from microcosmos.solver.masks import ActivityMasks, activity_masks
 
 if TYPE_CHECKING:
     from microcosmos.solver.config import ConstraintSolverConfig
 
 
-def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: ConstraintSolverConfig, grid_shape: tuple) -> tuple[Nodes, Edges]:
+def pbd_rod_constraint(
+    iter: int,
+    carry: tuple[Nodes, Edges],
+    config: ConstraintSolverConfig,
+    grid_shape: tuple,
+    masks: ActivityMasks | None = None,
+) -> tuple[Nodes, Edges]:
 
     nodes, edges = carry
     src = edges.pairs[:, 0]  # (E,)
@@ -22,9 +28,11 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     # --------------------------------------------------------
     bp_e_in = edges.bending_pairs[:, 0]   # (B,) edge indices
     bp_e_out = edges.bending_pairs[:, 1]  # (B,) edge indices
-    masked = nodes.active is not None
+    masked = masks is not None or nodes.active is not None
     if masked:
-        node_mask, edge_mask, bend_mask = activity_masks(nodes, edges)
+        node_mask, edge_mask, bend_mask = (
+            activity_masks(nodes, edges) if masks is None else masks
+        )
         node_mask = node_mask.astype(nodes.position.dtype)
         edge_mask = edge_mask.astype(nodes.position.dtype)
         bend_mask = bend_mask.astype(nodes.position.dtype)

@@ -24,6 +24,7 @@ from microcosmos.ecology import (
 from microcosmos.graph import compute_bending_pairs, make_fields
 from microcosmos.simulate import step as physics_step
 from microcosmos.solver.config import ConstraintSolverConfig, PBD_SCHEME_NO_FLUID
+from microcosmos.solver.masks import build_replicated_physics_context
 from microcosmos.structs.edges import Edges
 from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.population import (
@@ -257,6 +258,12 @@ class EcosystemEnv(Environment):
         )
         self.bending_slot = jnp.repeat(
             jnp.arange(self.max_creatures, dtype=jnp.int32), bending_per_slot
+        )
+        self.physics_context = build_replicated_physics_context(
+            local_pairs,
+            topology.num_nodes,
+            self.max_creatures,
+            solver_config.steric_neighbor_skip,
         )
         if bending_per_slot:
             local_coordinate = jnp.linspace(-1.0, 1.0, bending_per_slot)
@@ -554,6 +561,8 @@ class EcosystemEnv(Environment):
     ) -> tuple[jax.Array, EcosystemState, jax.Array, jax.Array, dict]:
         key_birth, key_spawn = jax.random.split(key)
         pop = state.population
+        # Population occupancy is authoritative at every transition boundary.
+        nodes = replace(state.nodes, active=pop.alive[self.node_slot])
         phenotype = decode_metabolism(pop.genome, self.genome_config)
         energy_fraction = jnp.clip(
             pop.energy / max(self.lifecycle_config.reproduction_threshold, 1e-6),
@@ -566,7 +575,7 @@ class EcosystemEnv(Environment):
             * phenotype.oscillator_rate
         )
         local_resource = sample_grid_nearest(
-            state.fields.energy, state.nodes.position[self._bending_node]
+            state.fields.energy, nodes.position[self._bending_node]
         ) / max(self.resource_config.capacity, 1e-8)
         bend_action = controller_action(
             pop.genome,
@@ -589,7 +598,12 @@ class EcosystemEnv(Environment):
             bending_rest_angles=state.base_bending_rest_angles + bend_action,
         )
         nodes, edges, fields = physics_step(
-            state.nodes, acted_edges, state.fields, self.dt, self.solver_config
+            nodes,
+            acted_edges,
+            state.fields,
+            self.dt,
+            self.solver_config,
+            self.physics_context,
         )
 
         resource, gross_uptake = resource_step(
