@@ -14,7 +14,7 @@ experiment:
   resource_regeneration_rate: 0.01
   resource_diffusion_rate: 0.0
   initial_energy: 2.0
-  offspring_initial_energy: 1.0
+  birth_transfer_efficiency: 0.5
   reproduction_threshold: 4.0
   reproduction_cost: 2.0
   maturity_age: 100
@@ -24,7 +24,7 @@ experiment:
   uptake_rate: 0.5
   assimilation_efficiency: 0.8
   basal_metabolism: 0.05
-  actuation_cost: 0.01
+  actuation_power_coefficient: 0.01
   placement_candidates: 16
 
 simulation:

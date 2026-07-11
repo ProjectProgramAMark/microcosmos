@@ -15,6 +15,7 @@ from microcosmos.controller import (
 from microcosmos.ecology import (
     LifecycleConfig,
     ResourceConfig,
+    actuation_energy_by_slot,
     energy_and_death_step,
     reproduction_step,
     resource_step,
@@ -53,7 +54,7 @@ class EcosystemEnv(Environment):
         resource_regeneration_rate: float = 0.01,
         resource_diffusion_rate: float = 0.0,
         initial_energy: float = 2.0,
-        offspring_initial_energy: float = 1.0,
+        birth_transfer_efficiency: float = 0.5,
         reproduction_threshold: float = 4.0,
         reproduction_cost: float = 2.0,
         maturity_age: int = 100,
@@ -65,23 +66,70 @@ class EcosystemEnv(Environment):
         uptake_rate: float = 0.5,
         assimilation_efficiency: float = 0.8,
         basal_metabolism: float = 0.05,
-        actuation_cost: float = 0.01,
+        actuation_power_coefficient: float = 0.01,
         spawn_separation: float | None = None,
         placement_candidates: int = 16,
         position_margin: float = 1.0,
     ):
         if topology is None:
             topology = LineTopology(num_nodes=8)
+        if (
+            not isinstance(grid_shape, tuple)
+            or len(grid_shape) != 2
+            or any(
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value <= 0
+                for value in grid_shape
+            )
+        ):
+            raise ValueError("grid_shape must contain two positive integers")
+        if not np.isfinite(dt) or dt <= 0.0:
+            raise ValueError("dt must be finite and positive")
+        if not isinstance(max_steps, int) or isinstance(max_steps, bool):
+            raise ValueError("max_steps must be an integer")
+        if max_steps < 1:
+            raise ValueError("max_steps must be at least one")
+        if not isinstance(max_creatures, int) or isinstance(max_creatures, bool):
+            raise ValueError("max_creatures must be an integer")
         if max_creatures < 1:
             raise ValueError("max_creatures must be at least one")
+        if not isinstance(initial_population, int) or isinstance(
+            initial_population, bool
+        ):
+            raise ValueError("initial_population must be an integer")
         if not 0 <= initial_population <= max_creatures:
             raise ValueError("initial_population must be within ecosystem capacity")
         if topology.num_nodes < 2:
             raise ValueError("ecosystem topology requires at least two nodes")
-        if resource_capacity < 0.0:
-            raise ValueError("resource_capacity must be non-negative")
-        if initial_resource < 0.0:
-            raise ValueError("initial_resource must be non-negative")
+        if not np.isfinite(topology.spacing) or topology.spacing <= 0.0:
+            raise ValueError("topology spacing must be finite and positive")
+        if (
+            not np.isfinite(topology.bending_stiffness)
+            or topology.bending_stiffness < 0.0
+        ):
+            raise ValueError(
+                "topology bending_stiffness must be finite and non-negative"
+            )
+        for name, value in (
+            ("initial_resource", initial_resource),
+            ("initial_energy", initial_energy),
+            ("actuation_power_coefficient", actuation_power_coefficient),
+            ("oscillator_rate", oscillator_rate),
+            ("uptake_rate", uptake_rate),
+            ("assimilation_efficiency", assimilation_efficiency),
+            ("basal_metabolism", basal_metabolism),
+        ):
+            if not np.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+            if value < 0.0:
+                raise ValueError(f"{name} must be non-negative")
+        if not 0.0 <= assimilation_efficiency <= 1.0:
+            raise ValueError("assimilation_efficiency must be within [0, 1]")
+        if initial_resource > resource_capacity:
+            raise ValueError("initial_resource must not exceed resource_capacity")
+        if resource_diffusion_rate * dt > 1.0:
+            raise ValueError("resource_diffusion_rate * dt must be at most one")
         if not np.isfinite(position_margin) or position_margin < 0.0:
             raise ValueError("position_margin must be finite and non-negative")
         if placement_candidates < 1:
@@ -102,7 +150,7 @@ class EcosystemEnv(Environment):
         self.initial_population = int(initial_population)
         self.initial_resource = float(initial_resource)
         self.initial_energy = float(initial_energy)
-        self.actuation_cost = float(actuation_cost)
+        self.actuation_power_coefficient = float(actuation_power_coefficient)
         self.position_margin = float(position_margin)
         self.placement_candidates = int(placement_candidates)
         self.resource_config = ResourceConfig(
@@ -115,13 +163,32 @@ class EcosystemEnv(Environment):
             maturity_age=maturity_age,
             reproduction_threshold=reproduction_threshold,
             reproduction_cost=reproduction_cost,
-            offspring_initial_energy=offspring_initial_energy,
+            birth_transfer_efficiency=birth_transfer_efficiency,
         )
         self.genome_config = GenomeConfig(
             hidden_size=controller_hidden_size,
             mutation_probability=mutation_probability,
             mutation_std=mutation_std,
         )
+        phenotype_bounds = (
+            ("oscillator_rate", oscillator_rate, self.genome_config.oscillator_min, self.genome_config.oscillator_max),
+            ("uptake_rate", uptake_rate, self.genome_config.uptake_min, self.genome_config.uptake_max),
+            (
+                "assimilation_efficiency",
+                assimilation_efficiency,
+                self.genome_config.assimilation_min,
+                self.genome_config.assimilation_max,
+            ),
+            (
+                "basal_metabolism",
+                basal_metabolism,
+                self.genome_config.metabolism_min,
+                self.genome_config.metabolism_max,
+            ),
+        )
+        for name, value, lower, upper in phenotype_bounds:
+            if not lower <= value <= upper:
+                raise ValueError(f"{name} must be within [{lower}, {upper}]")
         self._initial_phenotype = dict(
             oscillator_rate=oscillator_rate,
             uptake_rate=uptake_rate,
@@ -535,15 +602,19 @@ class EcosystemEnv(Environment):
             self.resource_config,
         )
         fields = replace(fields, energy=resource)
-        bending_cost = jnp.zeros(self.max_creatures).at[self.bending_slot].add(
-            bend_action**2
-        ) * self.actuation_cost
+        bending_energy = actuation_energy_by_slot(
+            bend_action,
+            self.bending_slot,
+            self.max_creatures,
+            self.actuation_power_coefficient,
+            self.dt,
+        )
         population, died, death_ids = energy_and_death_step(
             pop,
             gross_uptake,
             phenotype.assimilation_efficiency,
             phenotype.basal_metabolism,
-            bending_cost,
+            bending_energy,
             self.dt,
             self.lifecycle_config.maximum_lifespan,
         )

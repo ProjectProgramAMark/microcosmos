@@ -3,6 +3,7 @@ from dataclasses import replace
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from microcosmos.gym import EcosystemEnv, EcosystemState, LineTopology, make
 from microcosmos.rendering import render_fields
@@ -94,7 +95,7 @@ def test_birth_occurs_at_end_of_step_with_correct_lineage():
         initial_energy=5.0,
         reproduction_threshold=4.0,
         reproduction_cost=2.0,
-        offspring_initial_energy=1.0,
+        birth_transfer_efficiency=0.5,
         basal_metabolism=0.0,
         uptake_rate=0.0,
     )
@@ -120,7 +121,7 @@ def test_simultaneous_births_reserve_distinct_centers_and_lineage():
         initial_energy=5.0,
         reproduction_threshold=4.0,
         reproduction_cost=2.0,
-        offspring_initial_energy=1.0,
+        birth_transfer_efficiency=0.5,
         basal_metabolism=0.0,
         uptake_rate=0.0,
     )
@@ -256,3 +257,34 @@ def test_birth_remains_finite_when_ideal_clearance_is_impossible():
     assert int(info["birth_count"]) == 1
     assert jnp.all(jnp.isfinite(state.nodes.position))
     assert jnp.all(jnp.isfinite(state.population.energy))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"grid_shape": (0, 24)}, "grid_shape"),
+        ({"dt": 0.0}, "dt"),
+        ({"max_steps": 0}, "max_steps"),
+        ({"max_creatures": 0}, "max_creatures"),
+        ({"initial_population": -1}, "initial_population"),
+        ({"initial_resource": -0.1}, "initial_resource"),
+        (
+            {"resource_capacity": 1.0, "initial_resource": 1.1},
+            "initial_resource",
+        ),
+        ({"initial_energy": -0.1}, "initial_energy"),
+        ({"actuation_power_coefficient": -0.1}, "actuation_power_coefficient"),
+        ({"assimilation_efficiency": 1.1}, "assimilation_efficiency"),
+        ({"uptake_rate": -0.1}, "uptake_rate"),
+        ({"basal_metabolism": -0.1}, "basal_metabolism"),
+        (
+            {"dt": 1.0, "resource_diffusion_rate": 1.1},
+            "resource_diffusion_rate",
+        ),
+        ({"placement_candidates": 0}, "placement_candidates"),
+        ({"spawn_separation": -1.0}, "spawn_separation"),
+    ],
+)
+def test_environment_rejects_invalid_configuration(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        _env(**kwargs)

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import functools
+import math
 
 import jax
 import jax.numpy as jnp
@@ -25,6 +26,51 @@ class GenomeConfig:
     mutation_probability: float = 0.05
     mutation_std: float = 0.05
     max_bending_delta: float = 0.35
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.hidden_size, int) or isinstance(self.hidden_size, bool):
+            raise ValueError("hidden_size must be an integer")
+        if self.hidden_size < 1:
+            raise ValueError("hidden_size must be at least one")
+
+        finite_fields = {
+            "neural_bound": self.neural_bound,
+            "oscillator_min": self.oscillator_min,
+            "oscillator_max": self.oscillator_max,
+            "uptake_min": self.uptake_min,
+            "uptake_max": self.uptake_max,
+            "assimilation_min": self.assimilation_min,
+            "assimilation_max": self.assimilation_max,
+            "metabolism_min": self.metabolism_min,
+            "metabolism_max": self.metabolism_max,
+            "mutation_probability": self.mutation_probability,
+            "mutation_std": self.mutation_std,
+            "max_bending_delta": self.max_bending_delta,
+        }
+        for name, value in finite_fields.items():
+            if not math.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+
+        if self.neural_bound <= 0.0:
+            raise ValueError("neural_bound must be positive")
+        for name, lower, upper in (
+            ("oscillator", self.oscillator_min, self.oscillator_max),
+            ("uptake", self.uptake_min, self.uptake_max),
+            ("assimilation", self.assimilation_min, self.assimilation_max),
+            ("metabolism", self.metabolism_min, self.metabolism_max),
+        ):
+            if lower < 0.0 or upper < lower:
+                raise ValueError(
+                    f"{name} bounds must be non-negative and ordered"
+                )
+        if self.assimilation_max > 1.0:
+            raise ValueError("assimilation_max must be at most one")
+        if not 0.0 <= self.mutation_probability <= 1.0:
+            raise ValueError("mutation_probability must be within [0, 1]")
+        if self.mutation_std < 0.0:
+            raise ValueError("mutation_std must be non-negative")
+        if self.max_bending_delta < 0.0:
+            raise ValueError("max_bending_delta must be non-negative")
 
 
 @functools.partial(

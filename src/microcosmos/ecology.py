@@ -1,6 +1,7 @@
 """Resource, mortality, mutation, and fixed-shape birth operations."""
 
 from dataclasses import dataclass, replace
+import math
 
 import jax
 import jax.numpy as jnp
@@ -16,6 +17,24 @@ class ResourceConfig:
     diffusion_rate: float = 0.0
     eps: float = 1e-8
 
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("capacity", self.capacity),
+            ("regeneration_rate", self.regeneration_rate),
+            ("diffusion_rate", self.diffusion_rate),
+            ("eps", self.eps),
+        ):
+            if not math.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+        if self.capacity < 0.0:
+            raise ValueError("capacity must be non-negative")
+        if self.regeneration_rate < 0.0:
+            raise ValueError("regeneration_rate must be non-negative")
+        if self.diffusion_rate < 0.0:
+            raise ValueError("diffusion_rate must be non-negative")
+        if self.eps <= 0.0:
+            raise ValueError("eps must be positive")
+
 
 @dataclass(frozen=True)
 class LifecycleConfig:
@@ -23,7 +42,43 @@ class LifecycleConfig:
     maturity_age: int = 100
     reproduction_threshold: float = 4.0
     reproduction_cost: float = 2.0
-    offspring_initial_energy: float = 1.0
+    birth_transfer_efficiency: float = 0.5
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.maximum_lifespan, int) or isinstance(
+            self.maximum_lifespan, bool
+        ):
+            raise ValueError("maximum_lifespan must be an integer")
+        if not isinstance(self.maturity_age, int) or isinstance(
+            self.maturity_age, bool
+        ):
+            raise ValueError("maturity_age must be an integer")
+        if self.maximum_lifespan <= 0:
+            raise ValueError("maximum_lifespan must be positive")
+        if not 0 <= self.maturity_age < self.maximum_lifespan:
+            raise ValueError(
+                "maturity_age must be non-negative and less than maximum_lifespan"
+            )
+
+        for name, value in (
+            ("reproduction_threshold", self.reproduction_threshold),
+            ("reproduction_cost", self.reproduction_cost),
+            ("birth_transfer_efficiency", self.birth_transfer_efficiency),
+        ):
+            if not math.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+        if self.reproduction_cost <= 0.0:
+            raise ValueError("reproduction_cost must be positive")
+        if self.reproduction_threshold < self.reproduction_cost:
+            raise ValueError(
+                "reproduction_threshold must be at least reproduction_cost"
+            )
+        if not 0.0 < self.birth_transfer_efficiency <= 1.0:
+            raise ValueError("birth_transfer_efficiency must be within (0, 1]")
+
+    @property
+    def child_initial_energy(self) -> float:
+        return self.reproduction_cost * self.birth_transfer_efficiency
 
 
 def sample_grid_nearest(field: jax.Array, positions: jax.Array) -> jax.Array:
@@ -78,12 +133,26 @@ def resource_step(
     return jnp.maximum(regenerated, 0.0), gross_uptake
 
 
+def actuation_energy_by_slot(
+    bending_delta: jax.Array,
+    bending_slot: jax.Array,
+    num_slots: int,
+    power_coefficient: float,
+    dt: float,
+) -> jax.Array:
+    """Convert squared bending commands into per-slot energy for one step."""
+    power = jnp.zeros(num_slots, dtype=bending_delta.dtype).at[bending_slot].add(
+        bending_delta**2
+    )
+    return power * power_coefficient * dt
+
+
 def energy_and_death_step(
     population: PopulationState,
     gross_uptake: jax.Array,
     assimilation_efficiency: jax.Array,
     basal_metabolism: jax.Array,
-    actuation_cost: jax.Array,
+    actuation_energy: jax.Array,
     dt: float,
     maximum_lifespan: int,
 ) -> tuple[PopulationState, jax.Array, jax.Array]:
@@ -92,7 +161,7 @@ def energy_and_death_step(
     energy = population.energy + alive * (
         gross_uptake * assimilation_efficiency
         - basal_metabolism * dt
-        - actuation_cost
+        - actuation_energy
     )
     age = population.age + alive.astype(jnp.int32)
     died = alive & ((energy <= 0.0) | (age >= maximum_lifespan))
@@ -161,7 +230,7 @@ def reproduction_step(
         mode="drop",
     )
     energy = population.energy - parent_cost
-    energy = jnp.where(child_present, lifecycle.offspring_initial_energy, energy)
+    energy = jnp.where(child_present, lifecycle.child_initial_energy, energy)
     age = jnp.where(child_present, 0, population.age)
     generation = jnp.where(
         child_present, population.generation[parent_for_child] + 1, population.generation

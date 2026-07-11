@@ -57,7 +57,9 @@ class EcosystemExperiment(Experiment):
             resource_regeneration_rate=float(cfg.get("resource_regeneration_rate", 0.01)),
             resource_diffusion_rate=float(cfg.get("resource_diffusion_rate", 0.0)),
             initial_energy=float(cfg.get("initial_energy", 2.0)),
-            offspring_initial_energy=float(cfg.get("offspring_initial_energy", 1.0)),
+            birth_transfer_efficiency=float(
+                cfg.get("birth_transfer_efficiency", 0.5)
+            ),
             reproduction_threshold=float(cfg.get("reproduction_threshold", 4.0)),
             reproduction_cost=float(cfg.get("reproduction_cost", 2.0)),
             maturity_age=int(cfg.get("maturity_age", 100)),
@@ -67,7 +69,9 @@ class EcosystemExperiment(Experiment):
             uptake_rate=float(cfg.get("uptake_rate", 0.5)),
             assimilation_efficiency=float(cfg.get("assimilation_efficiency", 0.8)),
             basal_metabolism=float(cfg.get("basal_metabolism", 0.05)),
-            actuation_cost=float(cfg.get("actuation_cost", 0.01)),
+            actuation_power_coefficient=float(
+                cfg.get("actuation_power_coefficient", 0.01)
+            ),
             spawn_separation=cfg.get("spawn_separation"),
             placement_candidates=int(cfg.get("placement_candidates", 16)),
         )
