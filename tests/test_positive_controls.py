@@ -46,11 +46,11 @@ def test_foraging_patch_starts_outside_the_body_and_is_map_bounded():
     _, state = env.reset(jax.random.PRNGKey(0))
     patched = with_relative_resource_patch(env, state)
     body_center = env._slot_centers(state.nodes.position)[0]
-    patch_center = body_center + jnp.array([-11.0, 0.0])
+    patch_center = body_center + jnp.array([-11.5, 0.0])
     node_distance = jnp.linalg.norm(
         displacement(env.grid_shape, state.nodes.position, patch_center), axis=-1
     )
-    assert jnp.min(node_distance) > 3.0
+    assert jnp.min(node_distance) > 4.0
     assert jnp.array_equal(
         patched.fields.energy, patched.resource_capacity_map
     )

@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 
 from microcosmos.controller import GenomeConfig, gene_bounds
+from microcosmos.rng import RNGTag, keys_for_identities
 from microcosmos.structs.population import PopulationState
 
 
@@ -214,6 +215,7 @@ def reproduction_step(
     population: PopulationState,
     lifecycle: LifecycleConfig,
     genome_config: GenomeConfig,
+    timestep: int | jax.Array = 0,
 ) -> tuple[PopulationState, dict[str, jax.Array]]:
     """Rank parents and free slots, then create a fixed-shape birth batch."""
     capacity = population.alive.shape[0]
@@ -238,7 +240,10 @@ def reproduction_step(
     child_slots = jnp.where(valid, child_order, -1)
 
     parent_safe = jnp.maximum(parent_slots, 0)
-    keys = jax.random.split(key, capacity)
+    child_ids_ranked = population.next_individual_id + slots
+    keys = keys_for_identities(
+        key, RNGTag.MUTATION, timestep, child_ids_ranked
+    )
     mutated = jax.vmap(lambda k, g: _fixed_gaussian_child(k, g, genome_config))(
         keys, population.genome[parent_safe]
     )
@@ -256,7 +261,6 @@ def reproduction_step(
     child_genome = jnp.zeros_like(population.genome).at[child_scatter].set(
         mutated, mode="drop"
     )
-    child_ids_ranked = population.next_individual_id + slots
     child_ids = jnp.zeros(capacity, dtype=jnp.int32).at[child_scatter].set(
         child_ids_ranked, mode="drop"
     )

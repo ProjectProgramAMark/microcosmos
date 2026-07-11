@@ -113,8 +113,8 @@ def foraging_control_environment(horizon: int = 5_000) -> EcosystemEnv:
 def with_relative_resource_patch(
     env: EcosystemEnv,
     state,
-    offset: tuple[float, float] = (-11.0, 0.0),
-    radius: float = 3.0,
+    offset: tuple[float, float] = (-11.5, 0.0),
+    radius: float = 4.0,
 ):
     """Place a full compact patch at a declared offset from the body center."""
     center = env._slot_centers(state.nodes.position)[0] + jnp.asarray(offset)

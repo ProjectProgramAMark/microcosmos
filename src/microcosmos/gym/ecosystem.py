@@ -23,6 +23,7 @@ from microcosmos.ecology import (
 )
 from microcosmos.graph import compute_bending_pairs, make_fields
 from microcosmos.simulate import step as physics_step
+from microcosmos.rng import RNGTag, derive_key, keys_for_identities
 from microcosmos.solver.config import ConstraintSolverConfig, PBD_SCHEME_NO_FLUID
 from microcosmos.solver.masks import build_replicated_physics_context
 from microcosmos.structs.edges import Edges
@@ -399,7 +400,9 @@ class EcosystemEnv(Environment):
         ).reshape(-1)
 
     def reset(self, key: jax.Array) -> tuple[jax.Array, EcosystemState]:
-        key_centers, key_genomes = jax.random.split(key)
+        initialization_key = derive_key(key, RNGTag.INITIALIZATION)
+        key_centers = jax.random.fold_in(initialization_key, 0)
+        key_genomes = jax.random.fold_in(initialization_key, 1)
         centers = self._centers(key_centers)
         positions = (
             centers[:, None, :] + self._local_positions[None, :, :]
@@ -469,6 +472,7 @@ class EcosystemEnv(Environment):
         edges: Edges,
         population: PopulationState,
         events: dict[str, jax.Array],
+        timestep: int | jax.Array,
     ) -> tuple[Nodes, Edges]:
         valid = events["child_slots"] >= 0
         parent_safe = jnp.maximum(events["parent_slots"], 0)
@@ -483,12 +487,18 @@ class EcosystemEnv(Environment):
         )
         slot_centers = self._slot_centers(nodes.position)
         def place_births(_):
-            phase = jax.random.uniform(
-                key,
-                (self.max_creatures, 1),
-                minval=0.0,
-                maxval=2.0 * jnp.pi,
+            child_ids = jnp.maximum(events["child_ids"], 0)
+            phase_keys = keys_for_identities(
+                key, RNGTag.SPAWN, timestep, child_ids
             )
+            phase = jax.vmap(
+                lambda phase_key: jax.random.uniform(
+                    phase_key,
+                    (1,),
+                    minval=0.0,
+                    maxval=2.0 * jnp.pi,
+                )
+            )(phase_keys)
             angles = phase + (
                 2.0
                 * jnp.pi
@@ -573,7 +583,6 @@ class EcosystemEnv(Environment):
         state: EcosystemState,
         action: dict[str, jax.Array] | None = None,
     ) -> tuple[jax.Array, EcosystemState, jax.Array, jax.Array, dict]:
-        key_birth, key_spawn = jax.random.split(key)
         pop = state.population
         # Population occupancy is authoritative at every transition boundary.
         nodes = replace(state.nodes, active=pop.alive[self.node_slot])
@@ -651,10 +660,19 @@ class EcosystemEnv(Environment):
             self.lifecycle_config.maximum_lifespan,
         )
         population, birth_events = reproduction_step(
-            key_birth, population, self.lifecycle_config, self.genome_config
+            key,
+            population,
+            self.lifecycle_config,
+            self.genome_config,
+            state.time,
         )
         nodes, edges = self._spawn_children(
-            key_spawn, nodes, edges, population, birth_events
+            key,
+            nodes,
+            edges,
+            population,
+            birth_events,
+            state.time,
         )
 
         alive_count = jnp.sum(population.alive).astype(jnp.int32)

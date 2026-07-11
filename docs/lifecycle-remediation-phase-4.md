@@ -14,7 +14,7 @@
   `EcosystemState` arrays.
 - One mouth at topology node 0 withdraws concurrent proportional demand.
 - Focused Phase 4 CPU suite: `83 passed`.
-- Complete CPU suite: `249 passed in 95.43s`.
+- Complete CPU suite at the Phase 4 checkpoint: `249 passed in 95.43s`.
 - Native-renderer equivalence remained green in the complete suite.
 
 ## Guarded positive controls
@@ -31,19 +31,19 @@ systemd-run --user --scope --quiet \
 
 Movement control:
 
-- prescribed wave displacement: `1.9097157`;
+- prescribed wave displacement after the Phase 5 tagged-initialization rerun: `2.8855577`;
 - zero-action displacement: `0.0`;
-- body-length fraction: `0.1364083` (gate `>= 0.1`);
+- body-length fraction: `0.2061113` (gate `>= 0.1`);
 - wave/zero drift criterion: passed;
 - all final state and trace values finite.
 
 Eight-world paired mouth uptake:
 
-- sensory uptake: `[3.6031, 1.9300, 4.4076, 4.6560, 3.0544, 5.1003, 3.6467, 0.0]`;
-- matched sensor-disabled uptake: `[0.9722, 0.4037, 1.0879, 0.9641, 0.7844, 1.2340, 0.4166, 0.0]`;
-- mean improvement: `350.26%`;
-- median improvement: `314.63%`;
-- paired wins: `7/8`;
+- sensory uptake: `[4.1475, 4.6738, 5.0146, 4.4094, 5.0436, 4.9673, 5.1179, 3.4291]`;
+- matched sensor-disabled uptake: `[0.8928, 0.7772, 1.5870, 0.1833, 0.9135, 0.1029, 1.5828, 0.6354]`;
+- mean improvement: `451.38%`;
+- median improvement: `477.30%`;
+- paired wins: `8/8`;
 - all acquisition traces finite.
 
 The runner writes ignored local artifacts under
