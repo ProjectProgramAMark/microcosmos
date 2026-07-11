@@ -10,7 +10,9 @@ Technical implementation plan for adding birth, death, reproduction, heredity, a
 > This document records the original fixed-capacity lifecycle implementation.
 > The controller, resource, RNG, and benchmark details are superseded by the
 > lifecycle remediation PRD in `../../plans/`; the fixed-slot lifecycle and
-> compatibility decisions remain the historical baseline.
+> compatibility decisions remain the historical baseline. All unchecked boxes
+> below are archival design-era checkpoints, not active acceptance criteria;
+> current completion evidence is in `lifecycle-remediation-audit.md`.
 
 ## 1. Overview
 

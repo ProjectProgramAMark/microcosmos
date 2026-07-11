@@ -35,7 +35,7 @@ item remains accidentally active or unowned.
 ## Final evidence summary
 
 - Baseline ref: `lifecycle-baseline-20260711` at `28c8311`.
-- Green phase commits: `b497b64`, `c972663`, `f0b47b2`, `41311d8`, `cf34143`.
+- Green phase commits: `b497b64`, `c972663`, `f0b47b2`, `41311d8`, `cf34143`, `9286c41`.
 - Legacy no-context fluid/no-fluid checkpoint comparison: bit-for-bit identical.
 - Guarded topology/mask smoke: 1,000 steps, finite and shape-stable.
 - Guarded movement/acquisition controls: both pass; 8/8 paired acquisition wins.
