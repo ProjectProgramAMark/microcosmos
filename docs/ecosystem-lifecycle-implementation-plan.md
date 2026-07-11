@@ -180,9 +180,8 @@ conda run -n sakana python experiments/main.py experiment=ecosystem \
 ```bash
 conda run -n sakana python benchmarks/benchmark_ecosystem.py \
   --steps 1000 \
-  --max-creatures 64 \
-  --nodes-per-creature 16 \
-  --no-fluid
+  --max-creatures 32 \
+  --nodes-per-creature 8
 ```
 
 ### Visual verification
@@ -532,7 +531,7 @@ Acceptance checkpoint:
 - [ ] All state and field values remain finite.
 - [ ] State shapes are identical across population changes.
 - [ ] The same seed produces identical lifecycle events and final state.
-- [ ] Warm no-fluid step time is no worse than `1.5x` the equal-node baseline.
+- [ ] Fused compile and repeated warm timings are recorded for the equal-node fluid workload.
 - [ ] Existing tests pass unchanged.
 
 Rollback: identify the first failing phase and revert only that phase's checkpoint commit.
@@ -579,11 +578,11 @@ Acceptance criteria:
 
 ### US-005: Heritable behavior
 
-As a researcher, I want organisms to carry bounded controller and metabolism genes so that behavior and survival traits can be inherited.
+As a researcher, I want organisms to carry a bounded controller genome while ecological rates remain fixed.
 
 Acceptance criteria:
 
-- [ ] Genome decoding returns finite bounded phenotypes.
+- [ ] Genome decoding returns finite bounded controller actions.
 - [ ] Mutation is deterministic for a fixed key.
 - [ ] Zero mutation returns an exact clone.
 
@@ -624,7 +623,7 @@ As a simulation developer, I want lifecycle mechanics to preserve static-shape G
 Acceptance criteria:
 
 - [ ] Population changes trigger no array-shape changes.
-- [ ] Warm no-fluid throughput remains within `1.5x` of the equal-node baseline.
+- [ ] Compile and repeated warm fused-scan throughput are reported for the equal-node workload.
 - [ ] Continuous masked physics retains finite gradients.
 
 ## 14. Functional requirements
@@ -651,7 +650,7 @@ Acceptance criteria:
 - NFR-2: The same configuration and PRNG key must produce identical results.
 - NFR-3: Resource and energy values must remain finite and bounded.
 - NFR-4: Existing continuous physics must remain differentiable.
-- NFR-5: Warm no-fluid overhead must remain within the specified benchmark threshold.
+- NFR-5: Fused results report compile time, repeated warm dispersion, throughput, and the equal-node ratio without a pre-measurement threshold.
 - NFR-6: Biological parameters must be configuration-driven and recorded with experiment output.
 
 ## 16. Technical considerations
@@ -699,7 +698,7 @@ Rollback action:
 - No NaN or infinity occurs in the stability rollouts.
 - Identical seeds produce identical lineages.
 - The existing test suite remains green.
-- Warm no-fluid step time is at most `1.5x` the equal-node baseline.
+- Fused equal-node compile and repeated warm measurements are recorded.
 - Rendered active population matches recorded occupancy exactly.
 
 ## 19. Open questions

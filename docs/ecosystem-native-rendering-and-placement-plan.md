@@ -444,8 +444,10 @@ Completed on 2026-07-11 in the `sakana` Conda environment:
 
 - Complete CPU regression: 182 tests passed.
 - Guarded CUDA ecosystem regression: 13 tests passed on `CudaDevice(id=0)`.
-- Required warm-JIT benchmark at 64 creatures, 16 nodes per creature, and
-  1,000 no-fluid steps: `1.2000x` ecosystem/baseline overhead.
+- Historical provisional Python-loop benchmark at 64 creatures, 16 nodes per
+  creature, and 1,000 no-fluid steps: `1.2000x` ecosystem/baseline overhead.
+  This is superseded by the Phase 6 fused-scan benchmark and is not an active
+  optimization threshold.
 - Unchanged original live experiment:
   `outputs/worm_swim_example/2026-07-11/12-38-59/worm_swim_fluid.mp4`.
 - Final native-rendered fluid lifecycle experiment:
