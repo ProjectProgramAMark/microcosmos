@@ -5,6 +5,7 @@ from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.edges import Edges
 import jax.numpy as jnp
 from microcosmos.utils import displacement
+from microcosmos.solver.masks import activity_masks
 
 if TYPE_CHECKING:
     from microcosmos.solver.config import ConstraintSolverConfig
@@ -42,19 +43,26 @@ def stable_cosserat_constraint(
 
     src = edges.pairs[:, 0]     # (E,)
     tgt = edges.pairs[:, 1]     # (E,)
-    l = edges.rest_lengths      # (E,)
+    lengths = edges.rest_lengths      # (E,)
 
     bp_e_in  = edges.bending_pairs[:, 0]  # (B,)
     bp_e_out = edges.bending_pairs[:, 1]  # (B,)
     k_b = edges.bending_stiffness         # (B,)
+    masked = nodes.active is not None
+    if masked:
+        node_mask, edge_mask, bend_mask = activity_masks(nodes, edges)
+        node_mask = node_mask.astype(x.dtype)
+        edge_mask = edge_mask.astype(x.dtype)
+        bend_mask = bend_mask.astype(x.dtype)
 
     # ----------------------------------------------------------------
     # Phase 1: theta update — pure bending pass (identical to pbd.py).
     # ----------------------------------------------------------------
 
     edge_bending_degree = jnp.zeros(edges.theta.shape[0])
-    edge_bending_degree = edge_bending_degree.at[bp_e_in].add(1.0)
-    edge_bending_degree = edge_bending_degree.at[bp_e_out].add(1.0)
+    degree_weight = bend_mask if masked else 1.0
+    edge_bending_degree = edge_bending_degree.at[bp_e_in].add(degree_weight)
+    edge_bending_degree = edge_bending_degree.at[bp_e_out].add(degree_weight)
     edge_bending_degree = jnp.maximum(edge_bending_degree, 1.0)
 
     theta_in  = edges.theta[bp_e_in]
@@ -63,6 +71,8 @@ def stable_cosserat_constraint(
     diff = (diff + jnp.pi) % (2 * jnp.pi) - jnp.pi  # wrap to [-π, π]
 
     correction = (diff - edges.bending_rest_angles) * k_b * 0.5
+    if masked:
+        correction = correction * bend_mask
 
     delta = jnp.zeros_like(edges.theta)
     delta = delta.at[bp_e_in].add(correction)
@@ -77,6 +87,8 @@ def stable_cosserat_constraint(
     seg_vec = displacement(grid_shape, x[tgt], x[src])
     alpha = jnp.arctan2(seg_vec[:, 1], seg_vec[:, 0])
     shear_pull = (alpha - theta_new + jnp.pi) % (2 * jnp.pi) - jnp.pi
+    if masked:
+        shear_pull = shear_pull * edge_mask
     theta_new = theta_new + shear_pull * 0.05
 
     edges = edges.__replace__(theta=theta_new)
@@ -98,14 +110,20 @@ def stable_cosserat_constraint(
     d_y = jnp.sin(theta_new)       # (E,)
 
     r = displacement(grid_shape, x[tgt], x[src])               # (E, 2)
-    c = r / l[:, None] - jnp.stack([d_x, d_y], axis=-1)       # (E, 2)
+    c = r / lengths[:, None] - jnp.stack([d_x, d_y], axis=-1)       # (E, 2)
 
-    f_edge = (k_s / l)[:, None] * c    # (E, 2) — restoring force per edge
-    H_edge = k_s / (l ** 2)            # (E,)  — Hessian contribution per edge
+    f_edge = (k_s / lengths)[:, None] * c
+    H_edge = k_s / (lengths ** 2)
+    if masked:
+        f_edge = f_edge * edge_mask[:, None]
+        H_edge = H_edge * edge_mask
 
     # Inertia: pulls position toward the inertial prediction y
-    f_node = w * (y - x)               # (N, 2)
-    H_node = jnp.full(x.shape[0], w)  # (N,)
+    f_node = w * (y - x)
+    H_node = jnp.full(x.shape[0], w)
+    if masked:
+        f_node = f_node * node_mask[:, None]
+        H_node = jnp.where(node_mask, H_node, 1.0)
 
     # Scatter: r = x_tgt − x_src, so restoring force is +c on src, −c on tgt
     f_node = f_node.at[src].add( f_edge)
@@ -113,7 +131,10 @@ def stable_cosserat_constraint(
     H_node = H_node.at[src].add(H_edge)
     H_node = H_node.at[tgt].add(H_edge)
 
-    x_new = x + f_node / H_node[:, None]
+    position_update = f_node / H_node[:, None]
+    if masked:
+        position_update = position_update * node_mask[:, None]
+    x_new = x + position_update
     nodes = nodes.__replace__(position=x_new)
 
     return nodes, edges

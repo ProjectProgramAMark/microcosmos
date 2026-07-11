@@ -5,6 +5,7 @@ from .multi_agent import MultiAgentEnv
 from .random_food import RandomFoodLineEnv
 from .ring import RingEnv
 from .tadpole import TadpoleEnv
+from .ecosystem import EcosystemEnv
 
 
 _REGISTRY: dict[str, type[Environment]] = {
@@ -14,6 +15,7 @@ _REGISTRY: dict[str, type[Environment]] = {
     "multi-agent": MultiAgentEnv,
     "ring": RingEnv,
     "tadpole": TadpoleEnv,
+    "ecosystem": EcosystemEnv,
 }
 
 

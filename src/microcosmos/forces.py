@@ -66,8 +66,17 @@ def compute_field_steric_force_corrected(
     N = pos.shape[0]
     offsets = jnp.arange(-neighbor_skip, neighbor_skip + 1)        # (2n+1,)
     j_idx   = jnp.arange(N)[:, None] + offsets[None, :]            # (N, 2n+1)
-    valid   = ((j_idx >= 0) & (j_idx < N)).astype(pos.dtype)       # line topology
+    valid = (j_idx >= 0) & (j_idx < N)  # line topology
     j_safe  = jnp.clip(j_idx, 0, N - 1)
+
+    if nodes.active is not None:
+        active = nodes.active.astype(jnp.bool_)
+        valid = valid & active[:, None] & active[j_safe]
+    if nodes.component_id is not None:
+        valid = valid & (
+            nodes.component_id[:, None] == nodes.component_id[j_safe]
+        )
+    valid = valid.astype(pos.dtype)
 
     # Bilinear scatter + spectral gradient + bilinear sample is self-consistent at
     # continuous positions — use exact x_j (no floor) to cancel neighbor contribution.
@@ -78,7 +87,10 @@ def compute_field_steric_force_corrected(
         (K * valid)[..., None] * r, axis=1
     )                                                              # (N, 2)
 
-    return fields, raw - neighbor_contrib
+    corrected = raw - neighbor_contrib
+    if nodes.active is not None:
+        corrected = corrected * nodes.active[:, None]
+    return fields, corrected
 
 
 def update_steric_potential(
@@ -108,6 +120,12 @@ def update_steric_potential(
     w10 = dx * (1.0 - dy) * scatter_value
     w01 = (1.0 - dx) * dy * scatter_value
     w11 = dx * dy * scatter_value
+    if nodes.active is not None:
+        activity = nodes.active.astype(pos.dtype)
+        w00 = w00 * activity
+        w10 = w10 * activity
+        w01 = w01 * activity
+        w11 = w11 * activity
 
     steric = steric.at[y0, x0].add(w00)
     steric = steric.at[y0, x1].add(w10)

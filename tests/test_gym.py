@@ -42,7 +42,9 @@ def _zero_action(env):
 
 
 def test_registered_envs():
-    assert set(registered_envs()) == set(ENV_NAMES + ["line-random-food"])
+    assert set(registered_envs()) == set(
+        ENV_NAMES + ["line-random-food", "ecosystem"]
+    )
 
 
 

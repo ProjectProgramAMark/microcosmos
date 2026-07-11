@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from microcosmos.forces import compute_field_steric_force_corrected
 from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.edges import Edges
-from microcosmos.utils import periodic_boundary, displacement
+from microcosmos.utils import periodic_boundary
 from dataclasses import replace
 from microcosmos.solver.config import ConstraintSolverConfig
 from microcosmos.structs.fields import Fields
@@ -39,11 +39,19 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
 
     # 1. Reset debug vector
     nodes = replace(nodes, debug_vector=jnp.zeros_like(nodes.position))
+    active = (
+        None
+        if nodes.active is None
+        else nodes.active.astype(nodes.position.dtype)[:, None]
+    )
 
     # 2. Store previous position (UNWRAPPED)
     # We need this to calculate the TRUE distance traveled later.
     prev_position = nodes.position
-    nodes = replace(nodes, velocity=nodes.velocity * solver_config.damping)
+    damped_velocity = nodes.velocity * solver_config.damping
+    if active is not None:
+        damped_velocity = damped_velocity * active
+    nodes = replace(nodes, velocity=damped_velocity)
 
     # --- INERTIA STEP ---
     # Apply velocity. Note: We do NOT wrap the position here yet.
@@ -61,6 +69,8 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
             scatter_value=solver_config.steric_scatter_value,
         )
         predicted_position += f_steric * solver_config.steric_strength * dt
+    if active is not None:
+        predicted_position = jnp.where(active.astype(jnp.bool_), predicted_position, prev_position)
     # Update nodes with this temporary unwrapped position for the solver
     nodes = replace(nodes, position=predicted_position)
 
@@ -81,6 +91,8 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
     # NOW we calculate velocity. Since we haven't wrapped yet,
     # (nodes.position - prev_position) is the true physical vector.
     current_velocity = (nodes.position - prev_position) / dt
+    if active is not None:
+        current_velocity = current_velocity * active
     nodes = replace(nodes, velocity=current_velocity)
 
     # 6. Fluid Evolution + Immersed Boundary Coupling
@@ -95,6 +107,11 @@ def step(nodes: Nodes, edges: Edges, fields: Fields, dt: float, solver_config: C
     # After all physics (pos -> constraints -> vel) are done,
     # wrap the position back into the box for the next frame.
     final_wrapped_position = periodic_boundary(fields.grid_shape, nodes.position)
+    if active is not None:
+        final_wrapped_position = jnp.where(
+            active.astype(jnp.bool_), final_wrapped_position, prev_position
+        )
+        nodes = replace(nodes, velocity=nodes.velocity * active)
     nodes = replace(nodes, position=final_wrapped_position)
 
     return nodes, edges, fields

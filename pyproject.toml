@@ -1,7 +1,8 @@
 [tool.uv]
 environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'", # macbooks
-    "sys_platform == 'linux' and platform_machine == 'x86_64'"  # CUDA machines
+    "sys_platform == 'linux' and platform_machine == 'x86_64'", # CUDA workstations
+    "sys_platform == 'linux' and platform_machine == 'aarch64'" # DGX Spark
 ]
 
 [project]
@@ -37,6 +38,9 @@ dev = [
 dev = [
     "pytest>=9.0.1",
     "ruff>=0.9.0",
+]
+gpu = [
+    "jax[cuda13] ; sys_platform == 'linux'",
 ]
 
 [build-system]

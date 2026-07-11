@@ -4,6 +4,7 @@ from .filament_folding.experiment import FilamentFoldingExperiment
 from .encodings.locomotion_cppn import LocomotionCPPNExperiment
 from .encodings.qd_locomotion_cppn import QDLocomotionCPPNExperiment
 from .text_filaments.experiment import TextFilamentsExperiment
+from .ecosystem.experiment import EcosystemExperiment
 
 EXPERIMENTS = {
     "swim_sweep": SwimSweepExperiment,
@@ -12,4 +13,5 @@ EXPERIMENTS = {
     "locomotion_cppn": LocomotionCPPNExperiment,
     "qd_locomotion_cppn": QDLocomotionCPPNExperiment,
     "text_filaments": TextFilamentsExperiment,
+    "ecosystem": EcosystemExperiment,
 }

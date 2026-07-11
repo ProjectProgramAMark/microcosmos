@@ -4,8 +4,6 @@ import time
 
 import jax
 import cv2
-import matplotlib.pyplot as plt
-from matplotlib import cm
 
 import jax.numpy as jnp
 import numpy as np
@@ -15,6 +13,51 @@ from microcosmos.utils import jax_timer
 
 BASE_COLOR = jnp.array([0.3, 0.6, 0.9])
 COLOR_VARIATION = jnp.array([0.3, 0.2, 0.0])
+
+
+def _write_mp4(frames: np.ndarray, filename: str, fps: int) -> None:
+    """Write RGB uint8 frames through the project's ffmpeg pipeline."""
+    if len(frames) == 0:
+        raise ValueError("cannot write an empty animation")
+    frame_h, frame_w = frames.shape[1:3]
+    proc = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-s",
+            f"{frame_w}x{frame_h}",
+            "-pix_fmt",
+            "rgb24",
+            "-r",
+            str(fps),
+            "-i",
+            "pipe:0",
+            "-vf",
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "20",
+            filename,
+        ],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    if proc.stdin is None:
+        raise RuntimeError("ffmpeg stdin was not created")
+    for frame in frames:
+        proc.stdin.write(np.asarray(frame, dtype=np.uint8).tobytes())
+    proc.stdin.close()
+    return_code = proc.wait()
+    if return_code != 0:
+        raise RuntimeError(f"ffmpeg exited with status {return_code}")
+
 
 @functools.partial(jax.jit, static_argnames=["sz", "render_particles", "uniform_color"])
 def render(node_timeseries, field_timeseries, sz, render_particles=True, uniform_color=False) -> jax.Array:
@@ -34,6 +77,11 @@ def render(node_timeseries, field_timeseries, sz, render_particles=True, uniform
 
         pixel_x = jnp.clip(pixel_pos[..., 0], 0, W - 1)
         pixel_y = jnp.clip(pixel_pos[..., 1], 0, H - 1)
+        if node_timeseries.active is not None:
+            # Send inactive updates out of bounds and explicitly drop them. This
+            # keeps particle arrays static without painting padded slots.
+            pixel_x = jnp.where(node_timeseries.active, pixel_x, W)
+            pixel_y = jnp.where(node_timeseries.active, pixel_y, H)
 
         # Generate particle colors and frame indices
         num_particles = pixel_pos.shape[1]
@@ -52,7 +100,7 @@ def render(node_timeseries, field_timeseries, sz, render_particles=True, uniform
         colors = jnp.broadcast_to(particle_colors[None, :, :], (frames, num_particles, 3))
 
         # Set particle colors
-        render_tex = render_tex.at[indices].set(colors)
+        render_tex = render_tex.at[indices].set(colors, mode="drop")
 
         # Render debug vectors
         # Calculate absolute position: Node Position + Debug Displacement
@@ -60,6 +108,9 @@ def render(node_timeseries, field_timeseries, sz, render_particles=True, uniform
 
         debug_x = jnp.clip(debug_pos[..., 0], 0, W - 1)
         debug_y = jnp.clip(debug_pos[..., 1], 0, H - 1)
+        if node_timeseries.active is not None:
+            debug_x = jnp.where(node_timeseries.active, debug_x, W)
+            debug_y = jnp.where(node_timeseries.active, debug_y, H)
 
         debug_indices = (
             frame_indices.repeat(num_particles, axis=1),
@@ -70,7 +121,7 @@ def render(node_timeseries, field_timeseries, sz, render_particles=True, uniform
         debug_color = jnp.array([1.0, 0.0, 0.0]) # Red
         debug_colors = jnp.broadcast_to(debug_color[None, None, :], (frames, num_particles, 3))
 
-        render_tex = render_tex.at[debug_indices].set(debug_colors)
+        render_tex = render_tex.at[debug_indices].set(debug_colors, mode="drop")
 
     # Convert to uint8 and resize, preserving the H:W aspect ratio
     render_tex = jnp.clip(render_tex * 255.0, 0, 255).astype(jnp.uint8)
@@ -108,6 +159,11 @@ def render_fields(fields_timeseries, nodes_timeseries, sz=512, animate_energy=Fa
     fluid_vel = np.array(fields_timeseries.fluid_velocity)  # Shape: (frames, 2, h, w)
     energy = np.array(fields_timeseries.energy)  # Shape: (frames, h, w)
     node_positions = np.array(nodes_timeseries.position)  # Shape: (frames, num_nodes, 2)
+    node_active = (
+        None
+        if nodes_timeseries.active is None
+        else np.array(nodes_timeseries.active, dtype=bool)
+    )
 
     # Compute velocity magnitude
     vel_mag_all = np.sqrt(fluid_vel[:, 0]**2 + fluid_vel[:, 1]**2)
@@ -158,7 +214,8 @@ def render_fields(fields_timeseries, nodes_timeseries, sz=512, animate_energy=Fa
                 for xi in x_indices:
                     v_x = vx[yi, xi]
                     v_y = vy[yi, xi]
-                    if v_x**2 + v_y**2 < 1e-10: continue  # Skip near-zero vectors
+                    if v_x**2 + v_y**2 < 1e-10:
+                        continue  # Skip near-zero vectors
 
                     start_x = int((xi + 0.5) * scale_x)
                     start_y = int((yi + 0.5) * scale_y)
@@ -169,6 +226,8 @@ def render_fields(fields_timeseries, nodes_timeseries, sz=512, animate_energy=Fa
 
         # Nodes
         nodes = node_positions[frame_idx]
+        if node_active is not None:
+            nodes = nodes[node_active[frame_idx]]
         for node in nodes:
             nx, ny = node
             px = int(nx * scale_x)
@@ -225,7 +284,6 @@ def animate(
 
     if animate_filament:
         frames = np.array(frames, dtype=np.uint8)
-        frame_h, frame_w = frames.shape[1], frames.shape[2]
 
     # frames = np.array(frames, dtype=np.uint8)
     # frame_h, frame_w = frames.shape[1], frames.shape[2]
@@ -275,25 +333,10 @@ def animate(
             print('Rendering fluid velocity field...')
 
         fluid_frames = render_fields(fields_subsampled, nodes_subsampled, sz=fluid_world_size, animate_energy=animate_energy, animate_arrows=animate_arrows)
-        fluid_h, fluid_w = fluid_frames.shape[1], fluid_frames.shape[2]
 
         if save_to_mp4:
             fluid_mp4 = base_filename + '_fluid.mp4'
-            proc = subprocess.Popen([
-                "ffmpeg", "-y",
-                "-f", "rawvideo", "-vcodec", "rawvideo",
-                "-s", f"{fluid_w}x{fluid_h}",
-                "-pix_fmt", "rgb24",
-                "-r", str(fps),
-                "-i", "pipe:0",
-                "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
-                fluid_mp4,
-            ], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            for frame in fluid_frames:
-                proc.stdin.write(frame.tobytes())
-            proc.stdin.close()
-            proc.wait()
+            _write_mp4(fluid_frames, fluid_mp4, fps)
 
         if save_to_gif:
             fluid_gif = base_filename + '_fluid.gif'
@@ -316,7 +359,7 @@ def check_cv2_window_closed(window_name):
     try:
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             return True
-    except:
+    except Exception:
         return True
     return False
 
@@ -346,7 +389,7 @@ def animate_realtime(
     try:
         cv2.displayStatusBar('Microcosmos', "", delayms=0)
         can_set_status_bar = True
-    except:
+    except Exception:
         can_set_status_bar = False
 
     while True:

@@ -261,9 +261,19 @@ def immersed_boundary_interaction(
             grid_pos - d * perp * mean_scale,
         ], axis=0))  # (2N, 2)
         ibm_vel = jnp.tile(node_vel_lattice, (2, 1))  # (2N, 2)
+        ibm_active = (
+            None
+            if nodes.active is None
+            else jnp.tile(nodes.active.astype(node_vel_lattice.dtype), 2)
+        )
     else:
         ibm_pos = grid_pos        # (N, 2)
         ibm_vel = node_vel_lattice  # (N, 2)
+        ibm_active = (
+            None
+            if nodes.active is None
+            else nodes.active.astype(node_vel_lattice.dtype)
+        )
 
     f = jnp.maximum(f_grid, EPSIL)
 
@@ -272,8 +282,6 @@ def immersed_boundary_interaction(
     vel_mag = jnp.sqrt(jnp.sum(velocity**2, axis=0) + EPSIL)
     vel_clamp = jnp.minimum(1.0, max_fluid_vel / (vel_mag + EPSIL))
     velocity = velocity * vel_clamp[None, :, :]
-    total_momentum = jnp.sum(vel_mag * density)
-    momentum_removed = jnp.sum((1.0 - vel_clamp) * vel_mag * density)
 
     # 2. IBM: multi-direct forcing to compute velocity correction
     relaxation = solver_config.ibm_relaxation
@@ -282,6 +290,8 @@ def immersed_boundary_interaction(
     # These depend only on ibm_pos (which is stop_gradient'd and constant
     # within this function), so reusing them avoids 10+ redundant evaluations.
     all_flat_indices, all_kernel_weights = _precompute_ibm_weights(ibm_pos, h, w, solver_config.ibm_kernel_size)
+    if ibm_active is not None:
+        all_kernel_weights = all_kernel_weights * ibm_active[:, None]
 
     # Kernel weight field: how much total kernel coverage each grid cell receives
     # from all Lagrangian nodes. Dense nodes (spacing < kernel width) produce
@@ -378,6 +388,8 @@ def immersed_boundary_interaction(
     # The caller does `velocity - node_delta_v`, so no extra negation needed here.
     # Convert to physical: Δv_phys = Δv_lat / (scale · dt)
     node_delta_v = (node_force_lattice / node_mass_lattice) / (scale * dt)
+    if nodes.active is not None:
+        node_delta_v = node_delta_v * nodes.active[:, None]
 
     nodes_new = replace(nodes, velocity=nodes.velocity - node_delta_v)
 

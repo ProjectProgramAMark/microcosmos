@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING
 
 from microcosmos.structs.nodes import Nodes
 from microcosmos.structs.edges import Edges
-import jax
 import jax.numpy as jnp
 from microcosmos.utils import displacement
+from microcosmos.solver.masks import activity_masks
 
 if TYPE_CHECKING:
     from microcosmos.solver.config import ConstraintSolverConfig
@@ -22,11 +22,18 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     # --------------------------------------------------------
     bp_e_in = edges.bending_pairs[:, 0]   # (B,) edge indices
     bp_e_out = edges.bending_pairs[:, 1]  # (B,) edge indices
+    masked = nodes.active is not None
+    if masked:
+        node_mask, edge_mask, bend_mask = activity_masks(nodes, edges)
+        node_mask = node_mask.astype(nodes.position.dtype)
+        edge_mask = edge_mask.astype(nodes.position.dtype)
+        bend_mask = bend_mask.astype(nodes.position.dtype)
 
     # Edge bending degree: how many bending pairs each edge participates in
     edge_bending_degree = jnp.zeros(edges.theta.shape[0])
-    edge_bending_degree = edge_bending_degree.at[bp_e_in].add(1.0)
-    edge_bending_degree = edge_bending_degree.at[bp_e_out].add(1.0)
+    degree_weight = bend_mask if masked else 1.0
+    edge_bending_degree = edge_bending_degree.at[bp_e_in].add(degree_weight)
+    edge_bending_degree = edge_bending_degree.at[bp_e_out].add(degree_weight)
     edge_bending_degree = jnp.maximum(edge_bending_degree, 1.0)
 
     theta_in = edges.theta[bp_e_in]    # (B,)
@@ -37,7 +44,11 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     diff = (diff + jnp.pi) % (2 * jnp.pi) - jnp.pi  # wrap to [-pi, pi]
 
     # Correction: push toward bending rest angle
-    correction = (diff - edges.bending_rest_angles) * edges.bending_stiffness * 0.5  # (B,)
+    correction = (
+        (diff - edges.bending_rest_angles) * edges.bending_stiffness * 0.5
+    )  # (B,)
+    if masked:
+        correction = correction * bend_mask
 
     # Scatter: e_in gets +correction, e_out gets -correction
     omega = 1.8
@@ -53,8 +64,9 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     # --------------------------------------------------------
     # Node degree: number of edges incident on each node
     node_degree = jnp.zeros(nodes.position.shape[0])
-    node_degree = node_degree.at[src].add(1.0)
-    node_degree = node_degree.at[tgt].add(1.0)
+    degree_weight = edge_mask if masked else 1.0
+    node_degree = node_degree.at[src].add(degree_weight)
+    node_degree = node_degree.at[tgt].add(degree_weight)
     node_degree = jnp.maximum(node_degree, 1.0)
 
     # Direction from per-edge theta (material frame)
@@ -78,7 +90,13 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     # Shear: directional mismatch between geometric tangent and material frame
     shear = (current_vecs - target_vecs) - stretch  # (E, 2)
 
-    forces = (stretch + shear * config.stiffness_shear) * config.stiffness_stretch * 0.5  # (E, 2)
+    forces = (
+        (stretch + shear * config.stiffness_shear)
+        * config.stiffness_stretch
+        * 0.5
+    )  # (E, 2)
+    if masked:
+        forces = forces * edge_mask[:, None]
 
     # Scatter: src gets +forces, tgt gets -forces
     disp = jnp.zeros_like(nodes.position)
@@ -86,6 +104,8 @@ def pbd_rod_constraint(iter: int, carry: tuple[Nodes, Edges], config: Constraint
     disp = disp.at[tgt].add(-forces)
     disp = disp / node_degree[:, None]
 
+    if masked:
+        disp = disp * node_mask[:, None]
     nodes = nodes.__replace__(position=nodes.position + disp)
 
     return (nodes, edges)

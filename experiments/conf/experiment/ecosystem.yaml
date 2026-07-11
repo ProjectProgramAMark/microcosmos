@@ -1,0 +1,38 @@
+# @package _global_
+experiment:
+  type: ecosystem
+  seed: 0
+  topology: line
+  nodes_per_creature: 8
+  spacing: 2.0
+  bending_stiffness: 0.5
+  grid_shape: [64, 64]
+  max_creatures: 16
+  initial_population: 4
+  resource_capacity: 1.0
+  initial_resource: 0.5
+  resource_regeneration_rate: 0.01
+  resource_diffusion_rate: 0.0
+  initial_energy: 2.0
+  offspring_initial_energy: 1.0
+  reproduction_threshold: 4.0
+  reproduction_cost: 2.0
+  maturity_age: 100
+  maximum_lifespan: 10000
+  mutation_probability: 0.05
+  mutation_std: 0.05
+  uptake_rate: 0.5
+  assimilation_efficiency: 0.8
+  basal_metabolism: 0.05
+  actuation_cost: 0.01
+  placement_candidates: 16
+
+simulation:
+  dt: 0.01
+  num_steps: 1000
+  subsample: 4
+  fps: 30
+
+physics:
+  enable_fluid: false
+  enable_steric: true
