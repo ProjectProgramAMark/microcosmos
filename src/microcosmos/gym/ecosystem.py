@@ -16,6 +16,7 @@ from microcosmos.ecology import (
     ResourceConfig,
     actuation_energy_by_slot,
     energy_and_death_step,
+    make_periodic_resource_patch,
     reproduction_step,
     resource_step,
     sample_grid_nearest,
@@ -53,6 +54,8 @@ class EcosystemEnv(Environment):
         initial_resource: float = 1.0,
         resource_regeneration_rate: float = 0.01,
         resource_diffusion_rate: float = 0.0,
+        resource_patch_center: tuple[float, float] | None = None,
+        resource_patch_radius: float | None = None,
         initial_energy: float = 2.0,
         birth_transfer_efficiency: float = 0.5,
         reproduction_threshold: float = 4.0,
@@ -62,7 +65,7 @@ class EcosystemEnv(Environment):
         mutation_probability: float = 0.05,
         mutation_std: float = 0.05,
         max_bending_delta: float = 0.35,
-        resource_reference: float = 0.5,
+        resource_reference: float = 0.0,
         uptake_rate: float = 0.5,
         assimilation_efficiency: float = 0.8,
         basal_metabolism: float = 0.05,
@@ -131,6 +134,18 @@ class EcosystemEnv(Environment):
             raise ValueError("initial_resource must not exceed resource_capacity")
         if resource_diffusion_rate * dt > 1.0:
             raise ValueError("resource_diffusion_rate * dt must be at most one")
+        if resource_patch_center is None:
+            resource_patch_center = (grid_shape[1] / 2.0, grid_shape[0] / 2.0)
+        if (
+            not isinstance(resource_patch_center, tuple)
+            or len(resource_patch_center) != 2
+            or any(not np.isfinite(value) for value in resource_patch_center)
+        ):
+            raise ValueError("resource_patch_center must contain two finite values")
+        if resource_patch_radius is None:
+            resource_patch_radius = min(grid_shape) / 4.0
+        if not np.isfinite(resource_patch_radius) or resource_patch_radius <= 0.0:
+            raise ValueError("resource_patch_radius must be finite and positive")
         if not np.isfinite(position_margin) or position_margin < 0.0:
             raise ValueError("position_margin must be finite and non-negative")
         if placement_candidates < 1:
@@ -150,6 +165,10 @@ class EcosystemEnv(Environment):
         self.max_creatures = int(max_creatures)
         self.initial_population = int(initial_population)
         self.initial_resource = float(initial_resource)
+        self.resource_patch_center = tuple(
+            float(value) for value in resource_patch_center
+        )
+        self.resource_patch_radius = float(resource_patch_radius)
         self.initial_energy = float(initial_energy)
         self.actuation_power_coefficient = float(actuation_power_coefficient)
         self.position_margin = float(position_margin)
@@ -416,12 +435,20 @@ class EcosystemEnv(Environment):
             genome=genomes,
             next_individual_id=jnp.array(self.initial_population, dtype=jnp.int32),
         )
-        resource = jnp.full(
+        capacity_map, regeneration_map = make_periodic_resource_patch(
             self.grid_shape,
-            min(self.initial_resource, self.resource_config.capacity),
-            dtype=jnp.float32,
+            self.resource_patch_center,
+            self.resource_patch_radius,
+            self.resource_config.capacity,
+            self.resource_config.regeneration_rate,
         )
-        fields = replace(make_fields(self.grid_shape), energy=resource)
+        initial_fraction = (
+            0.0
+            if self.resource_config.capacity == 0.0
+            else min(self.initial_resource / self.resource_config.capacity, 1.0)
+        )
+        resource_stock = capacity_map * initial_fraction
+        fields = replace(make_fields(self.grid_shape), energy=resource_stock)
         state = EcosystemState(
             nodes=nodes,
             edges=edges,
@@ -430,6 +457,8 @@ class EcosystemEnv(Environment):
             time=jnp.array(0, dtype=jnp.int32),
             base_rest_lengths=edges.rest_lengths,
             base_bending_rest_angles=edges.bending_rest_angles,
+            resource_capacity_map=capacity_map,
+            resource_regeneration_map=regeneration_map,
         )
         return self._observation(state), state
 
@@ -548,9 +577,12 @@ class EcosystemEnv(Environment):
         pop = state.population
         # Population occupancy is authoritative at every transition boundary.
         nodes = replace(state.nodes, active=pop.alive[self.node_slot])
+        node_stock = sample_grid_nearest(state.fields.energy, nodes.position)
+        node_capacity = sample_grid_nearest(
+            state.resource_capacity_map, nodes.position
+        )
         normalized_node_resource = jnp.clip(
-            sample_grid_nearest(state.fields.energy, nodes.position)
-            / max(self.resource_config.capacity, 1e-8),
+            node_stock / (node_capacity + self.resource_config.eps),
             0.0,
             1.0,
         ).reshape(self.max_creatures, self._nodes_per_slot)
@@ -588,11 +620,15 @@ class EcosystemEnv(Environment):
             self.physics_context,
         )
 
+        mouth_positions = nodes.position.reshape(
+            self.max_creatures, self._nodes_per_slot, 2
+        )[:, 0, :]
         resource, gross_uptake = resource_step(
             fields.energy,
-            nodes.position,
-            nodes.active,
-            self.node_slot,
+            state.resource_capacity_map,
+            state.resource_regeneration_map,
+            mouth_positions,
+            pop.alive,
             self._uptake_rate_by_slot,
             self.dt,
             self.resource_config,
@@ -656,6 +692,8 @@ class EcosystemEnv(Environment):
             time=state.time + 1,
             base_rest_lengths=state.base_rest_lengths,
             base_bending_rest_angles=state.base_bending_rest_angles,
+            resource_capacity_map=state.resource_capacity_map,
+            resource_regeneration_map=state.resource_regeneration_map,
         )
         observation = self._observation(new_state)
         reward = jnp.sum(gross_uptake)

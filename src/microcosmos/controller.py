@@ -45,7 +45,7 @@ class GenomeConfig:
     mutation_probability: float = 0.05
     mutation_std: float = 0.05
     max_bending_delta: float = 0.35
-    resource_reference: float = 0.5
+    resource_reference: float = 0.0
 
     def __post_init__(self) -> None:
         for name, value in (

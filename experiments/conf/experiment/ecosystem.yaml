@@ -13,6 +13,8 @@ experiment:
   initial_resource: 0.5
   resource_regeneration_rate: 0.01
   resource_diffusion_rate: 0.0
+  resource_patch_center: [48.0, 32.0]
+  resource_patch_radius: 12.0
   initial_energy: 2.0
   birth_transfer_efficiency: 0.5
   reproduction_threshold: 4.0
@@ -22,7 +24,7 @@ experiment:
   mutation_probability: 0.05
   mutation_std: 0.05
   max_bending_delta: 0.35
-  resource_reference: 0.5
+  resource_reference: 0.0
   uptake_rate: 0.5
   assimilation_efficiency: 0.8
   basal_metabolism: 0.05
@@ -36,5 +38,5 @@ simulation:
   fps: 30
 
 physics:
-  enable_fluid: false
+  enable_fluid: true
   enable_steric: true

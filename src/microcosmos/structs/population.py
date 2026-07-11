@@ -47,6 +47,8 @@ class PopulationState:
         "time",
         "base_rest_lengths",
         "base_bending_rest_angles",
+        "resource_capacity_map",
+        "resource_regeneration_map",
     ],
 )
 @dataclass
@@ -58,6 +60,8 @@ class EcosystemState:
     time: jax.Array
     base_rest_lengths: jax.Array
     base_bending_rest_angles: jax.Array
+    resource_capacity_map: jax.Array
+    resource_regeneration_map: jax.Array
 
 
 @functools.partial(

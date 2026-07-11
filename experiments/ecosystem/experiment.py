@@ -57,6 +57,15 @@ class EcosystemExperiment(Experiment):
             initial_resource=float(cfg.get("initial_resource", 1.0)),
             resource_regeneration_rate=float(cfg.get("resource_regeneration_rate", 0.01)),
             resource_diffusion_rate=float(cfg.get("resource_diffusion_rate", 0.0)),
+            resource_patch_center=tuple(
+                cfg.get(
+                    "resource_patch_center",
+                    (cfg.grid_shape[1] / 2.0, cfg.grid_shape[0] / 2.0),
+                )
+            ),
+            resource_patch_radius=float(
+                cfg.get("resource_patch_radius", min(cfg.grid_shape) / 4.0)
+            ),
             initial_energy=float(cfg.get("initial_energy", 2.0)),
             birth_transfer_efficiency=float(
                 cfg.get("birth_transfer_efficiency", 0.5)
@@ -68,7 +77,7 @@ class EcosystemExperiment(Experiment):
             mutation_probability=float(cfg.get("mutation_probability", 0.05)),
             mutation_std=float(cfg.get("mutation_std", 0.05)),
             max_bending_delta=float(cfg.get("max_bending_delta", 0.35)),
-            resource_reference=float(cfg.get("resource_reference", 0.5)),
+            resource_reference=float(cfg.get("resource_reference", 0.0)),
             uptake_rate=float(cfg.get("uptake_rate", 0.5)),
             assimilation_efficiency=float(cfg.get("assimilation_efficiency", 0.8)),
             basal_metabolism=float(cfg.get("basal_metabolism", 0.05)),

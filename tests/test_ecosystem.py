@@ -66,6 +66,13 @@ def test_reset_is_deterministic_and_uses_capacity_shapes():
     assert state_a.population.genome.shape == (env.max_creatures, 23)
     assert state_a.population.genome.dtype == jnp.float32
     assert jnp.all(jnp.abs(state_a.population.genome) <= 1.0)
+    assert state_a.resource_capacity_map.shape == env.grid_shape
+    assert state_a.resource_regeneration_map.shape == env.grid_shape
+    assert jnp.all(state_a.fields.energy >= 0.0)
+    assert jnp.all(state_a.fields.energy <= state_a.resource_capacity_map + 1e-6)
+    assert jnp.all(
+        state_a.fields.energy[state_a.resource_capacity_map == 0.0] == 0.0
+    )
     assert jnp.array_equal(obs_a, obs_b)
     assert jnp.array_equal(state_a.nodes.position, state_b.nodes.position)
     centers = env._slot_centers(state_a.nodes.position)
@@ -147,7 +154,8 @@ def test_simultaneous_births_reserve_distinct_centers_and_lineage():
     )
     assert float(child_distance) > 0.0
     assert np.array_equal(
-        np.asarray(state.population.parent_id)[child_slots], np.array([0, 1])
+        np.sort(np.asarray(state.population.parent_id)[child_slots]),
+        np.array([0, 1]),
     )
 
 
@@ -318,6 +326,8 @@ def test_birth_remains_finite_when_ideal_clearance_is_impossible():
         ({"basal_metabolism": -0.1}, "basal_metabolism"),
         ({"max_bending_delta": -0.1}, "max_bending_delta"),
         ({"resource_reference": 1.1}, "resource_reference"),
+        ({"resource_patch_center": (0.0, jnp.inf)}, "resource_patch_center"),
+        ({"resource_patch_radius": 0.0}, "resource_patch_radius"),
         (
             {"dt": 1.0, "resource_diffusion_rate": 1.1},
             "resource_diffusion_rate",

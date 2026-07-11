@@ -89,22 +89,44 @@ def sample_grid_nearest(field: jax.Array, positions: jax.Array) -> jax.Array:
     return field[y, x]
 
 
+def make_periodic_resource_patch(
+    grid_shape: tuple[int, int],
+    center: tuple[float, float] | jax.Array,
+    radius: float,
+    peak_capacity: float,
+    peak_regeneration: float,
+) -> tuple[jax.Array, jax.Array]:
+    """Construct compact paraboloid capacity/regeneration maps under PBC."""
+    height, width = grid_shape
+    center = jnp.asarray(center, dtype=jnp.float32)
+    y, x = jnp.meshgrid(
+        jnp.arange(height, dtype=jnp.float32),
+        jnp.arange(width, dtype=jnp.float32),
+        indexing="ij",
+    )
+    dx = (x - center[0] + width / 2.0) % width - width / 2.0
+    dy = (y - center[1] + height / 2.0) % height - height / 2.0
+    weight = jnp.maximum(0.0, 1.0 - (dx**2 + dy**2) / radius**2)
+    return peak_capacity * weight, peak_regeneration * weight
+
+
 def resource_step(
     resource: jax.Array,
-    positions: jax.Array,
-    node_active: jax.Array,
-    node_slot: jax.Array,
+    capacity_map: jax.Array,
+    regeneration_map: jax.Array,
+    mouth_positions: jax.Array,
+    organism_alive: jax.Array,
     uptake_rate: jax.Array,
     dt: float,
     config: ResourceConfig,
 ) -> tuple[jax.Array, jax.Array]:
-    """Conservatively fulfill concurrent demand, then diffuse and regenerate."""
+    """Withdraw at mouths, diffuse conservatively, regenerate, and map-clip."""
     h, w = resource.shape
-    x = jnp.floor(positions[:, 0] + 0.5).astype(jnp.int32) % w
-    y = jnp.floor(positions[:, 1] + 0.5).astype(jnp.int32) % h
+    x = jnp.floor(mouth_positions[:, 0] + 0.5).astype(jnp.int32) % w
+    y = jnp.floor(mouth_positions[:, 1] + 0.5).astype(jnp.int32) % h
     flat_index = y * w + x
 
-    demand = node_active.astype(resource.dtype) * uptake_rate[node_slot] * dt
+    demand = organism_alive.astype(resource.dtype) * uptake_rate * dt
     demand_by_cell = jnp.zeros(h * w, dtype=resource.dtype).at[flat_index].add(demand)
     resource_flat = resource.reshape(-1)
     fulfillment = jnp.minimum(
@@ -126,11 +148,9 @@ def resource_step(
         diffusion = jnp.clip(config.diffusion_rate * dt, 0.0, 1.0)
         depleted = depleted + diffusion * (neighbor_mean - depleted)
 
-    regenerated = jnp.minimum(
-        depleted + config.regeneration_rate * dt, config.capacity
-    )
-    gross_uptake = jnp.zeros_like(uptake_rate).at[node_slot].add(node_uptake)
-    return jnp.maximum(regenerated, 0.0), gross_uptake
+    regenerated = depleted + regeneration_map * dt
+    updated = jnp.clip(regenerated, 0.0, capacity_map)
+    return updated, node_uptake
 
 
 def actuation_energy_by_slot(

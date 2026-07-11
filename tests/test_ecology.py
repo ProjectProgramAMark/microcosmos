@@ -11,6 +11,7 @@ from microcosmos.ecology import (
     _fixed_gaussian_child,
     actuation_energy_by_slot,
     energy_and_death_step,
+    make_periodic_resource_patch,
     reproduction_step,
     resource_step,
 )
@@ -37,9 +38,10 @@ def test_resource_contention_is_proportional_and_conservative():
     resource = jnp.zeros((4, 4)).at[1, 1].set(1.0)
     updated, uptake = resource_step(
         resource,
+        jnp.ones((4, 4)),
+        jnp.zeros((4, 4)),
         jnp.array([[1.0, 1.0], [1.1, 1.1]]),
         jnp.array([True, True]),
-        jnp.array([0, 1]),
         jnp.array([1.0, 3.0]),
         1.0,
         ResourceConfig(capacity=1.0, regeneration_rate=0.0),
@@ -52,15 +54,108 @@ def test_resource_contention_is_proportional_and_conservative():
 def test_inactive_nodes_consume_zero_and_regeneration_is_capped():
     updated, uptake = resource_step(
         jnp.full((2, 2), 0.9),
+        jnp.ones((2, 2)),
+        jnp.ones((2, 2)) * 2.0,
         jnp.array([[0.0, 0.0]]),
         jnp.array([False]),
-        jnp.array([0]),
         jnp.array([10.0]),
         1.0,
         ResourceConfig(capacity=1.0, regeneration_rate=2.0),
     )
     assert uptake[0] == 0.0
     assert jnp.max(updated) <= 1.0 + 1e-6
+
+
+def test_periodic_resource_patch_translates_across_boundaries():
+    boundary_capacity, boundary_regeneration = make_periodic_resource_patch(
+        (16, 16), (15.0, 8.0), 4.0, 2.0, 0.25
+    )
+    interior_capacity, interior_regeneration = make_periodic_resource_patch(
+        (16, 16), (7.0, 8.0), 4.0, 2.0, 0.25
+    )
+    assert jnp.array_equal(jnp.roll(boundary_capacity, -8, axis=1), interior_capacity)
+    assert jnp.array_equal(
+        jnp.roll(boundary_regeneration, -8, axis=1), interior_regeneration
+    )
+
+
+def test_resource_step_clips_stock_to_capacity_and_zero_capacity_regions():
+    capacity, regeneration = make_periodic_resource_patch(
+        (9, 9), (4.0, 4.0), 2.5, 1.0, 0.0
+    )
+    updated, uptake = resource_step(
+        jnp.full((9, 9), 5.0),
+        capacity,
+        regeneration,
+        jnp.array([[4.0, 4.0]]),
+        jnp.array([False]),
+        jnp.array([1.0]),
+        1.0,
+        ResourceConfig(capacity=1.0, regeneration_rate=0.0),
+    )
+    assert uptake[0] == 0.0
+    assert jnp.min(updated) >= -1e-6
+    assert jnp.all(updated <= capacity + 1e-6)
+    assert jnp.all(updated[capacity == 0.0] == 0.0)
+
+
+def test_one_mouth_demand_does_not_scale_with_body_node_count():
+    resource = jnp.zeros((5, 5)).at[2, 2].set(1.0)
+    capacity = jnp.ones((5, 5))
+    regeneration = jnp.zeros((5, 5))
+
+    def uptake_for_body_size(node_count):
+        body = jnp.tile(jnp.array([[2.0, 2.0]]), (node_count, 1))
+        mouth_positions = body.reshape(1, node_count, 2)[:, 0, :]
+        return resource_step(
+            resource,
+            capacity,
+            regeneration,
+            mouth_positions,
+            jnp.array([True]),
+            jnp.array([0.4]),
+            1.0,
+            ResourceConfig(capacity=1.0, regeneration_rate=0.0),
+        )[1][0]
+
+    assert uptake_for_body_size(4) == uptake_for_body_size(12) == 0.4
+
+
+def test_resource_diffusion_is_conservative_before_inactive_map_clipping():
+    resource = jnp.arange(25, dtype=jnp.float32).reshape(5, 5) / 100.0
+    updated, _ = resource_step(
+        resource,
+        jnp.ones((5, 5)),
+        jnp.zeros((5, 5)),
+        jnp.array([[0.0, 0.0]]),
+        jnp.array([False]),
+        jnp.array([0.0]),
+        0.5,
+        ResourceConfig(
+            capacity=1.0,
+            regeneration_rate=0.0,
+            diffusion_rate=0.5,
+        ),
+    )
+    assert jnp.isclose(jnp.sum(updated), jnp.sum(resource), atol=1e-6)
+
+
+def test_zero_regeneration_allows_a_finite_patch_to_fully_deplete():
+    capacity, regeneration = make_periodic_resource_patch(
+        (5, 5), (2.0, 2.0), 0.75, 1.0, 0.0
+    )
+    updated, uptake = resource_step(
+        capacity,
+        capacity,
+        regeneration,
+        jnp.array([[2.0, 2.0]]),
+        jnp.array([True]),
+        jnp.array([2.0]),
+        1.0,
+        ResourceConfig(capacity=1.0, regeneration_rate=0.0),
+    )
+    assert jnp.isclose(uptake[0], 1.0)
+    assert jnp.sum(updated) == 0.0
 
 
 def test_death_event_is_emitted_once():

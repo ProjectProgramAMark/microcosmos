@@ -109,7 +109,8 @@ Additional constraints:
 - Reproduction cost is charged only when a free slot is successfully assigned.
 - Physics remains differentiable between lifecycle events; lifecycle decisions are discrete.
 - Resource depletion uses nearest-cell accounting for exact conservation in v1.
-- Resource regeneration is enabled; diffusion is configurable and defaults to zero.
+- Resource capacity and regeneration are compact periodic maps; diffusion is configurable and defaults to zero.
+- Topology node 0 is the sole mouth, so demand does not scale with body-node count.
 - One parent may produce at most one child per step.
 
 ## 9. Planned files
@@ -329,32 +330,34 @@ Add the following core function:
 
 ```python
 resource_step(
-    resource,
-    positions,
-    node_active,
-    node_slot,
+    resource_stock,
+    capacity_map,
+    regeneration_map,
+    mouth_positions,
+    organism_alive,
     uptake_rate,
     dt,
     config,
 ) -> tuple[new_resource, gross_uptake_by_slot]
 ```
 
-For each node:
+For each organism mouth:
 
-1. Compute demand `d_i = active_i * uptake_rate[slot_i] * dt`.
+1. Compute demand `d_i = alive_i * uptake_rate[i] * dt`.
 2. Scatter demand into its nearest grid cell.
 3. Compute the cell fulfillment ratio `f_c = min(1, resource_c / (demand_c + eps))`.
-4. Give node `i` uptake `d_i * f_cell(i)`.
+4. Give organism `i` uptake `d_i * f_cell(i)`.
 5. Subtract fulfilled demand from the field.
-6. Regenerate each cell up to `resource_capacity`.
+6. Optionally diffuse, add the regeneration map, and clip to the capacity map.
 
 Acceptance checkpoint:
 
 - [ ] Resources never fall below `-1e-6`.
-- [ ] Resources never exceed capacity by more than `1e-6`.
+- [ ] Resources never exceed the capacity map by more than `1e-6`.
 - [ ] Pre-regeneration field loss equals gross uptake within relative error `1e-5`.
 - [ ] Two organisms in one cell divide insufficient resource proportionally.
-- [ ] Inactive nodes consume exactly zero resource.
+- [ ] Inactive mouths consume exactly zero resource.
+- [ ] Body-node count does not change maximum demand.
 
 Rollback: retain ecosystem state but restore an unchanged resource field.
 
@@ -611,7 +614,7 @@ As a researcher, I want a lifecycle animation so that resource competition and p
 Acceptance criteria:
 
 - [ ] Inactive slots are never visible.
-- [ ] Resource depletion and regeneration are visible.
+- [ ] Resource stock/capacity diagnostics agree with raw uptake traces.
 - [ ] Birth and death counters agree with the recorded trace.
 
 ### US-009: Performance preservation
