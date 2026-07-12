@@ -1,0 +1,17 @@
+{
+  "date_utc": "2026-07-12",
+  "protocol_hash": "67f4f184e500ac0906f342a86d4c960a68fc400d02ac20ae0070e7894f7c4441",
+  "status": "no_viable_configuration",
+  "integrity_passed_all_worlds_for_all_candidates": true,
+  "reason_for_amendment": "The first panel increased mortality before reducing maintenance cost. Births emerged, but no setting sustained descendants through the 8000-step horizon. A second preregistered panel tests lower maintenance cost and longer founder lifespans without changing physics, gates, seeds, controller, or heredity.",
+  "attempts": [
+    {"candidate_id":"c00_reference","birth_worlds":0,"generation_3_worlds":0,"post_burn_in_birth_worlds":0,"surviving_worlds":0},
+    {"candidate_id":"c01_more_stock","birth_worlds":1,"generation_3_worlds":0,"post_burn_in_birth_worlds":0,"surviving_worlds":0},
+    {"candidate_id":"c02_more_regeneration","birth_worlds":2,"generation_3_worlds":0,"post_burn_in_birth_worlds":0,"surviving_worlds":0},
+    {"candidate_id":"c03_stronger_acquisition","birth_worlds":3,"generation_3_worlds":1,"post_burn_in_birth_worlds":1,"surviving_worlds":0},
+    {"candidate_id":"c04_earlier_birth","birth_worlds":4,"generation_3_worlds":1,"post_burn_in_birth_worlds":2,"surviving_worlds":0},
+    {"candidate_id":"c05_faster_turnover","birth_worlds":3,"generation_3_worlds":0,"post_burn_in_birth_worlds":1,"surviving_worlds":0},
+    {"candidate_id":"c06_higher_density","birth_worlds":5,"generation_3_worlds":0,"post_burn_in_birth_worlds":1,"surviving_worlds":0},
+    {"candidate_id":"c07_high_flux","birth_worlds":5,"generation_3_worlds":0,"post_burn_in_birth_worlds":0,"surviving_worlds":0}
+  ]
+}

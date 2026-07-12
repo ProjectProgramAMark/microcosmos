@@ -1,0 +1,203 @@
+import math
+
+import jax
+import jax.numpy as jnp
+import pytest
+
+from microcosmos.cppn import (
+    CONNECTION_INPUT,
+    CONNECTION_OUTPUT,
+    CONNECTION_WEIGHT,
+    HIDDEN_ROW,
+    IDENTITY_ACTIVATION,
+    MAX_CONNECTIONS,
+    MAX_NODES,
+    NODE_ACTIVATION,
+    NODE_AGGREGATION,
+    NODE_BIAS,
+    NODE_KEY,
+    NODE_RESPONSE,
+    NUM_INPUTS,
+    OUTPUT_ROW,
+    SINE_ACTIVATION,
+    SUM_AGGREGATION,
+    CPPNGenome,
+    cached_genome_valid,
+    canonical_cppn_genome,
+    controller_action,
+    genome_numeric_valid,
+    initialize_cppn_population,
+    transform_and_validate_genome,
+    transform_population,
+)
+
+
+def _equal_with_nan(left: jax.Array, right: jax.Array) -> bool:
+    return bool(jnp.all((jnp.isnan(left) & jnp.isnan(right)) | (left == right)))
+
+
+def test_canonical_cppn_layout_is_exact_and_valid():
+    genome = canonical_cppn_genome()
+
+    assert genome.node_genes.shape == (MAX_NODES, 5)
+    assert genome.connection_genes.shape == (MAX_CONNECTIONS, 3)
+    assert genome.node_genes.dtype == jnp.float32
+    assert genome.connection_genes.dtype == jnp.float32
+    assert jnp.array_equal(
+        genome.node_genes[:6, NODE_KEY],
+        jnp.arange(6, dtype=jnp.float32),
+    )
+    assert jnp.all(jnp.isnan(genome.node_genes[6:]))
+    assert jnp.all(genome.node_genes[:6, NODE_BIAS] == 0.0)
+    assert jnp.all(genome.node_genes[:6, NODE_RESPONSE] == 1.0)
+    assert jnp.all(genome.node_genes[:6, NODE_AGGREGATION] == SUM_AGGREGATION)
+    assert jnp.all(genome.node_genes[:NUM_INPUTS, NODE_ACTIVATION] == IDENTITY_ACTIVATION)
+    assert genome.node_genes[HIDDEN_ROW, NODE_ACTIVATION] == SINE_ACTIVATION
+    assert genome.node_genes[OUTPUT_ROW, NODE_ACTIVATION] == IDENTITY_ACTIVATION
+
+    expected_connections = jnp.array(
+        [
+            [0.0, 4.0, math.pi],
+            [1.0, 4.0, -0.80],
+            [4.0, 5.0, 1.00],
+            [2.0, 5.0, 1.00],
+            [3.0, 5.0, 0.50],
+        ],
+        dtype=jnp.float32,
+    )
+    assert jnp.allclose(genome.connection_genes[:5], expected_connections)
+    assert jnp.all(jnp.isnan(genome.connection_genes[5:]))
+
+    canonical, order, connection_index, valid = transform_and_validate_genome(genome)
+    assert valid
+    assert cached_genome_valid(canonical, order, connection_index)
+
+
+def test_founder_panel_is_deterministic_and_only_living_slots_are_varied():
+    first = initialize_cppn_population(capacity=5, initial_population=3)
+    second = initialize_cppn_population(capacity=5, initial_population=3)
+    canonical = canonical_cppn_genome()
+
+    assert _equal_with_nan(first.node_genes, second.node_genes)
+    assert _equal_with_nan(first.connection_genes, second.connection_genes)
+    for slot in range(3, 5):
+        assert _equal_with_nan(first.node_genes[slot], canonical.node_genes)
+        assert _equal_with_nan(first.connection_genes[slot], canonical.connection_genes)
+    assert any(not _equal_with_nan(first.connection_genes[slot], canonical.connection_genes) for slot in range(3))
+
+
+@pytest.mark.parametrize(
+    ("capacity", "initial_population"),
+    [(0, 0), (True, 0), (2, -1), (2, 3), (2, True)],
+)
+def test_founder_panel_rejects_invalid_capacity_or_population(capacity, initial_population):
+    with pytest.raises(ValueError):
+        initialize_cppn_population(capacity=capacity, initial_population=initial_population)
+
+
+def test_interleaved_all_nan_holes_are_legal_but_partial_nan_rows_are_not():
+    genome = canonical_cppn_genome()
+    nodes = genome.node_genes.at[10].set(genome.node_genes[HIDDEN_ROW]).at[HIDDEN_ROW].set(jnp.nan)
+    connections = genome.connection_genes.at[10].set(genome.connection_genes[0]).at[0].set(jnp.nan)
+    interleaved = CPPNGenome(nodes, connections)
+
+    assert genome_numeric_valid(interleaved)
+    assert transform_and_validate_genome(interleaved)[-1]
+
+    partial_node = CPPNGenome(nodes.at[7, NODE_KEY].set(12.0), connections)
+    partial_connection = CPPNGenome(nodes, connections.at[7, CONNECTION_INPUT].set(0.0))
+    assert not genome_numeric_valid(partial_node)
+    assert not genome_numeric_valid(partial_connection)
+
+
+def test_positional_inputs_and_output_are_mandatory():
+    genome = canonical_cppn_genome()
+    swapped_inputs = CPPNGenome(
+        genome.node_genes.at[0].set(genome.node_genes[1]).at[1].set(genome.node_genes[0]),
+        genome.connection_genes,
+    )
+    wrong_output = CPPNGenome(
+        genome.node_genes.at[OUTPUT_ROW, NODE_KEY].set(12.0),
+        genome.connection_genes,
+    )
+
+    assert not transform_and_validate_genome(swapped_inputs)[-1]
+    assert not transform_and_validate_genome(wrong_output)[-1]
+
+
+def test_cached_transform_detects_stale_topology_but_accepts_current_cache():
+    genome = canonical_cppn_genome()
+    _, old_order, old_connection_index, valid = transform_and_validate_genome(genome)
+    assert valid
+
+    moved_connections = genome.connection_genes.at[10].set(genome.connection_genes[0]).at[0].set(jnp.nan)
+    moved = CPPNGenome(genome.node_genes, moved_connections)
+    canonical, order, connection_index, valid = transform_and_validate_genome(moved)
+
+    assert valid
+    assert cached_genome_valid(canonical, order, connection_index)
+    assert not cached_genome_valid(canonical, old_order, old_connection_index)
+
+
+def test_controller_is_eager_jit_equivalent_finite_bounded_and_alive_masked():
+    genomes = initialize_cppn_population(capacity=3, initial_population=3)
+    order, connection_index = transform_population(genomes)
+    coordinates = jnp.tile(jnp.array([-0.8, 0.0, 0.8], dtype=jnp.float32), 3)
+    local_resource = jnp.array(
+        [0.0, 0.5, 1.0, -jnp.inf, jnp.inf, 0.3, 0.9, 0.2, 0.6],
+        dtype=jnp.float32,
+    )
+    head_resource = jnp.array([0.9, jnp.inf, 0.1], dtype=jnp.float32)
+    tail_resource = jnp.array([0.1, -jnp.inf, 0.8], dtype=jnp.float32)
+    alive = jnp.array([True, False, True])
+    bound = 0.27
+
+    def act():
+        return controller_action(
+            genomes,
+            order,
+            connection_index,
+            coordinates,
+            jnp.array(0.75, dtype=jnp.float32),
+            local_resource,
+            head_resource,
+            tail_resource,
+            alive,
+            bound,
+        )
+
+    eager = act()
+    compiled = jax.jit(act)()
+    assert eager.shape == coordinates.shape
+    assert jnp.all(jnp.isfinite(eager))
+    assert jnp.all(jnp.abs(eager) <= bound)
+    assert jnp.all(eager[3:6] == 0.0)
+    assert jnp.allclose(eager, compiled, atol=1e-7, rtol=1e-6)
+
+
+@pytest.mark.parametrize("defect", ["duplicate_node", "dangling_endpoint", "duplicate_connection", "cycle"])
+def test_full_validation_rejects_invalid_graphs(defect):
+    genome = canonical_cppn_genome()
+    nodes = genome.node_genes
+    connections = genome.connection_genes
+    if defect == "duplicate_node":
+        nodes = nodes.at[6].set(nodes[HIDDEN_ROW])
+    elif defect == "dangling_endpoint":
+        connections = connections.at[0, CONNECTION_OUTPUT].set(99.0)
+    elif defect == "duplicate_connection":
+        connections = connections.at[5].set(connections[0])
+    else:
+        connections = connections.at[5].set(jnp.array([5.0, 4.0, 1.0], dtype=jnp.float32))
+
+    assert not transform_and_validate_genome(CPPNGenome(nodes, connections))[-1]
+
+
+def test_full_validation_rejects_out_of_bounds_attributes():
+    genome = canonical_cppn_genome()
+    bad_node = CPPNGenome(genome.node_genes.at[HIDDEN_ROW, NODE_BIAS].set(6.0), genome.connection_genes)
+    bad_connection = CPPNGenome(
+        genome.node_genes,
+        genome.connection_genes.at[0, CONNECTION_WEIGHT].set(6.0),
+    )
+    assert not transform_and_validate_genome(bad_node)[-1]
+    assert not transform_and_validate_genome(bad_connection)[-1]

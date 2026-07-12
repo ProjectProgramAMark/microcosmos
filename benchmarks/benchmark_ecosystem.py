@@ -66,11 +66,7 @@ def run_benchmark(args) -> dict:
 
     solver = PBD_SCHEME_NO_FLUID if args.no_fluid else PBD_SCHEME
     grid_shape = (args.grid_size, args.grid_size)
-    initial_population = (
-        max(1, args.max_creatures // 2)
-        if args.initial_population is None
-        else args.initial_population
-    )
+    initial_population = max(1, args.max_creatures // 2) if args.initial_population is None else args.initial_population
     env = EcosystemEnv(
         topology=LineTopology(num_nodes=args.nodes_per_creature),
         max_creatures=args.max_creatures,
@@ -80,10 +76,7 @@ def run_benchmark(args) -> dict:
         max_steps=args.steps,
     )
     baseline = MultiAgentEnv(
-        creatures=tuple(
-            LineTopology(num_nodes=args.nodes_per_creature)
-            for _ in range(args.max_creatures)
-        ),
+        creatures=tuple(LineTopology(num_nodes=args.nodes_per_creature) for _ in range(args.max_creatures)),
         solver_config=solver,
         grid_shape=grid_shape,
         max_steps=args.steps,
@@ -98,17 +91,13 @@ def run_benchmark(args) -> dict:
 
     def baseline_chunk(state, scan_keys):
         def scan_step(current, key):
-            _, next_state, _, _, _ = baseline.step(
-                key, current, baseline_action
-            )
+            _, next_state, _, _, _ = baseline.step(key, current, baseline_action)
             return next_state, None
 
         final_state, _ = jax.lax.scan(scan_step, state, scan_keys)
         return final_state
 
-    ecosystem_compiled = jax.jit(
-        lambda state, scan_keys: run_ecosystem_chunk(env, state, scan_keys)
-    )
+    ecosystem_compiled = jax.jit(lambda state, scan_keys: run_ecosystem_chunk(env, state, scan_keys))
     baseline_compiled = jax.jit(baseline_chunk)
 
     baseline_result = _measure(
@@ -144,9 +133,7 @@ def run_benchmark(args) -> dict:
             "nodes_per_creature": args.nodes_per_creature,
             "max_creatures": args.max_creatures,
             "initial_population": initial_population,
-            "initial_active_nodes": int(
-                np.asarray(ecosystem_state.nodes.active).sum()
-            ),
+            "initial_active_nodes": int(np.asarray(ecosystem_state.nodes.active).sum()),
         },
         "solver": {
             "name": solver.name,
@@ -165,16 +152,13 @@ def run_benchmark(args) -> dict:
             "initial_energy": env.initial_energy,
             "reproduction_threshold": env.lifecycle_config.reproduction_threshold,
             "reproduction_cost": env.lifecycle_config.reproduction_cost,
-            "birth_transfer_efficiency": (
-                env.lifecycle_config.birth_transfer_efficiency
-            ),
+            "birth_transfer_efficiency": (env.lifecycle_config.birth_transfer_efficiency),
             "maturity_age": env.lifecycle_config.maturity_age,
             "maximum_lifespan": env.lifecycle_config.maximum_lifespan,
             "uptake_rate": env.uptake_rate,
             "assimilation_efficiency": env.assimilation_efficiency,
             "basal_metabolism": env.basal_metabolism,
-            "max_bending_delta": env.genome_config.max_bending_delta,
-            "resource_reference": env.genome_config.resource_reference,
+            "max_bending_delta": env.max_bending_delta,
         },
         "retention": {
             "full_node_history": False,
@@ -183,9 +167,7 @@ def run_benchmark(args) -> dict:
         },
         "baseline": baseline_result,
         "ecosystem": ecosystem_result,
-        "ecosystem_to_baseline_warm_median_ratio": (
-            ecosystem_median / baseline_median
-        ),
+        "ecosystem_to_baseline_warm_median_ratio": (ecosystem_median / baseline_median),
         "peak_process_rss_mib": peak_rss_mib,
     }
 

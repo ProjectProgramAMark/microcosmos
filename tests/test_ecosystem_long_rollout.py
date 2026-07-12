@@ -5,7 +5,9 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from microcosmos.cppn import MAX_CONNECTIONS, MAX_NODES, population_numeric_valid
 from microcosmos.gym import EcosystemEnv, LineTopology
+from microcosmos.heredity import fixed_parametric_policy
 from microcosmos.rollout import initialize_chunk_metrics, update_chunk_metrics
 from microcosmos.solver.config import PBD_SCHEME
 
@@ -43,8 +45,7 @@ def test_guarded_fluid_forced_turnover_rollout():
         uptake_rate=0.0,
         basal_metabolism=0.0,
         actuation_power_coefficient=0.0,
-        mutation_probability=1.0,
-        mutation_std=0.1,
+        offspring_policy=fixed_parametric_policy,
     )
     _, initial = env.reset(jax.random.PRNGKey(100))
     initial_inactive = ~initial.nodes.active
@@ -61,16 +62,12 @@ def test_guarded_fluid_forced_turnover_rollout():
             forced_age = current.population.age.at[0].set(maximum_lifespan - 1)
             population = replace(
                 current.population,
-                energy=jnp.where(
-                    force_turnover, forced_energy, current.population.energy
-                ),
+                energy=jnp.where(force_turnover, forced_energy, current.population.energy),
                 age=jnp.where(force_turnover, forced_age, current.population.age),
             )
             current = replace(current, population=population)
             _, next_state, reward, _, info = env.step(key, current)
-            metrics = update_chunk_metrics(
-                metrics, current, next_state, reward, info
-            )
+            metrics = update_chunk_metrics(metrics, current, next_state, reward, info)
             telemetry = info["telemetry"]
             events = (
                 telemetry.birth_count,
@@ -94,6 +91,12 @@ def test_guarded_fluid_forced_turnover_rollout():
     assert bool(metrics.finite)
     assert bool(metrics.identity_valid)
     assert bool(metrics.events_valid)
+    assert bool(metrics.infrastructure_valid)
+    assert int(metrics.policy_violation_count) == 0
+    assert metrics.operator_counts.tolist() == [0, 10, 0, 0]
+    assert int(jnp.sum(metrics.operator_counts)) == int(metrics.birth_count)
+    assert int(metrics.maximum_generation) == 1
+    assert int(metrics.steps_at_capacity) == 0
     assert metrics.minimum_resource >= -1e-6
     assert metrics.maximum_resource_excess <= 1e-6
     assert metrics.minimum_live_energy > 0.0
@@ -101,11 +104,10 @@ def test_guarded_fluid_forced_turnover_rollout():
     assert jnp.all(deaths[forced_steps] == 1)
     assert jnp.all(child_slots[forced_steps] == 0)
     assert jnp.all(death_ids[forced_steps] >= 0)
-    assert jnp.array_equal(
-        child_ids[forced_steps], jnp.arange(2, 12, dtype=jnp.int32)
-    )
+    assert jnp.array_equal(child_ids[forced_steps], jnp.arange(2, 12, dtype=jnp.int32))
     assert int(final.population.next_individual_id) == 12
     assert int(jnp.sum(final.population.alive)) == 2
+    assert final.population.founder_lineage_id.tolist() == [1, 1, -1, -1]
     assert jnp.array_equal(final.nodes.active, final.population.alive[env.node_slot])
     assert jnp.allclose(
         final.nodes.position[initial_inactive],
@@ -114,17 +116,25 @@ def test_guarded_fluid_forced_turnover_rollout():
     )
     assert jnp.all(jnp.isfinite(final.population.energy))
     assert jnp.all(final.fields.energy >= -1e-6)
-    assert jnp.all(
-        final.fields.energy <= final.resource_capacity_map + 1e-6
-    )
+    assert jnp.all(final.fields.energy <= final.resource_capacity_map + 1e-6)
     assert final.nodes.position.shape == initial.nodes.position.shape
-    assert final.population.genome.shape == initial.population.genome.shape
+    assert final.population.genome.node_genes.shape == (
+        env.max_creatures,
+        MAX_NODES,
+        5,
+    )
+    assert final.population.genome.connection_genes.shape == (
+        env.max_creatures,
+        MAX_CONNECTIONS,
+        3,
+    )
+    assert final.population.genome.node_genes.shape == initial.population.genome.node_genes.shape
+    assert final.population.genome.connection_genes.shape == initial.population.genome.connection_genes.shape
+    assert bool(population_numeric_valid(final.population.genome))
 
     moved_inactive = replace(
         final.nodes,
-        position=jnp.where(
-            final.nodes.active[:, None], final.nodes.position, 1.0
-        ),
+        position=jnp.where(final.nodes.active[:, None], final.nodes.position, 1.0),
     )
     frame = env.render(final, size=64)
     moved_frame = env.render(replace(final, nodes=moved_inactive), size=64)

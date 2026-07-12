@@ -7,28 +7,26 @@ experiment:
   spacing: 2.0
   bending_stiffness: 0.5
   grid_shape: [64, 64]
-  max_creatures: 16
-  initial_population: 4
+  # Frozen ecology: ceab22348b95db80ec8141628e9f7740a8753cf0448573d0a09bfe5eb072ee4d
+  max_creatures: 32
+  initial_population: 8
   resource_capacity: 1.0
-  initial_resource: 0.5
-  resource_regeneration_rate: 0.01
+  initial_resource: 1.0
+  resource_regeneration_rate: 0.03
   resource_diffusion_rate: 0.0
   resource_patch_center: [48.0, 32.0]
   resource_patch_radius: 12.0
   initial_energy: 2.0
-  birth_transfer_efficiency: 0.5
-  reproduction_threshold: 4.0
-  reproduction_cost: 2.0
-  maturity_age: 100
-  maximum_lifespan: 10000
-  mutation_probability: 0.05
-  mutation_std: 0.05
+  birth_transfer_efficiency: 0.8
+  reproduction_threshold: 3.0
+  reproduction_cost: 1.5
+  maturity_age: 50
+  maximum_lifespan: 5000
   max_bending_delta: 0.35
-  resource_reference: 0.0
-  uptake_rate: 0.5
-  assimilation_efficiency: 0.8
-  basal_metabolism: 0.05
-  actuation_power_coefficient: 0.01
+  uptake_rate: 1.0
+  assimilation_efficiency: 0.9
+  basal_metabolism: 0.01
+  actuation_power_coefficient: 0.002
   placement_candidates: 16
 
 simulation:
@@ -39,4 +37,4 @@ simulation:
 
 physics:
   enable_fluid: true
-  enable_steric: true
+  enable_steric: false

@@ -5,12 +5,26 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+import microcosmos.gym.ecosystem as ecosystem_module
+from microcosmos.cppn import (
+    CPPNGenome,
+    MAX_CONNECTIONS,
+    MAX_NODES,
+    cached_genome_valid,
+    population_numeric_valid,
+    transform_population,
+)
 from microcosmos.gym import (
     EcosystemEnv,
     EcosystemState,
     LineTopology,
     RingTopology,
     make,
+)
+from microcosmos.heredity import clone_policy
+from microcosmos.positive_controls import (
+    traveling_wave_genome,
+    zero_action_genome,
 )
 from microcosmos.rendering import render_fields
 from microcosmos.solver.config import PBD_SCHEME_NO_FLUID
@@ -25,7 +39,7 @@ def _env(**kwargs):
         grid_shape=(24, 24),
         solver_config=PBD_SCHEME_NO_FLUID,
         resource_regeneration_rate=0.0,
-        mutation_std=0.0,
+        offspring_policy=clone_policy,
     )
     defaults.update(kwargs)
     return EcosystemEnv(**defaults)
@@ -40,6 +54,22 @@ def test_registry_builds_ecosystem():
         grid_shape=(16, 16),
     )
     assert isinstance(env, EcosystemEnv)
+
+
+def test_environment_rejects_invalid_founder_panel(monkeypatch):
+    transform = ecosystem_module.transform_and_validate_population
+
+    def invalidate(genome):
+        canonical, order, connection_index, valid = transform(genome)
+        return canonical, order, connection_index, jnp.zeros_like(valid)
+
+    monkeypatch.setattr(
+        ecosystem_module,
+        "transform_and_validate_population",
+        invalidate,
+    )
+    with pytest.raises(RuntimeError, match="founder CPPN panel"):
+        _env()
 
 
 def test_inherited_action_api_remains_compatible():
@@ -60,46 +90,81 @@ def test_reset_is_deterministic_and_uses_capacity_shapes():
     env = _env()
     obs_a, state_a = env.reset(jax.random.PRNGKey(0))
     obs_b, state_b = env.reset(jax.random.PRNGKey(0))
+    _, state_other_world = env.reset(jax.random.PRNGKey(123))
     assert isinstance(state_a, EcosystemState)
     assert int(jnp.sum(state_a.population.alive)) == env.initial_population
     assert state_a.nodes.position.shape == (env.max_creatures * 4, 2)
-    assert state_a.population.genome.shape == (env.max_creatures, 23)
-    assert state_a.population.genome.dtype == jnp.float32
-    assert jnp.all(jnp.abs(state_a.population.genome) <= 1.0)
+    assert state_a.population.genome.node_genes.shape == (
+        env.max_creatures,
+        MAX_NODES,
+        5,
+    )
+    assert state_a.population.genome.connection_genes.shape == (
+        env.max_creatures,
+        MAX_CONNECTIONS,
+        3,
+    )
+    assert state_a.population.genome.node_genes.dtype == jnp.float32
+    assert state_a.population.genome.connection_genes.dtype == jnp.float32
+    assert bool(population_numeric_valid(state_a.population.genome))
+    for slot in range(env.max_creatures):
+        assert bool(
+            cached_genome_valid(
+                CPPNGenome(
+                    state_a.population.genome.node_genes[slot],
+                    state_a.population.genome.connection_genes[slot],
+                ),
+                state_a.population.controller_order[slot],
+                state_a.population.controller_connection_index[slot],
+            )
+        )
+    assert state_a.population.founder_lineage_id.tolist() == [0, 1, -1, -1]
     assert state_a.resource_capacity_map.shape == env.grid_shape
     assert state_a.resource_regeneration_map.shape == env.grid_shape
     assert jnp.all(state_a.fields.energy >= 0.0)
     assert jnp.all(state_a.fields.energy <= state_a.resource_capacity_map + 1e-6)
-    assert jnp.all(
-        state_a.fields.energy[state_a.resource_capacity_map == 0.0] == 0.0
-    )
+    assert jnp.all(state_a.fields.energy[state_a.resource_capacity_map == 0.0] == 0.0)
     assert jnp.array_equal(obs_a, obs_b)
     assert jnp.array_equal(state_a.nodes.position, state_b.nodes.position)
+    assert jnp.array_equal(
+        state_a.population.genome.node_genes,
+        state_b.population.genome.node_genes,
+        equal_nan=True,
+    )
+    assert jnp.array_equal(
+        state_a.population.genome.connection_genes,
+        state_b.population.genome.connection_genes,
+        equal_nan=True,
+    )
+    # Founder genetics are a frozen paired panel, independent of world draws.
+    assert jnp.array_equal(
+        state_a.population.genome.node_genes,
+        state_other_world.population.genome.node_genes,
+        equal_nan=True,
+    )
+    assert jnp.array_equal(
+        state_a.population.genome.connection_genes,
+        state_other_world.population.genome.connection_genes,
+        equal_nan=True,
+    )
+    assert not jnp.array_equal(state_a.nodes.position, state_other_world.nodes.position)
     centers = env._slot_centers(state_a.nodes.position)
     live_centers = centers[state_a.population.alive]
-    center_distance = jnp.linalg.norm(
-        displacement(env.grid_shape, live_centers[0], live_centers[1])
-    )
+    center_distance = jnp.linalg.norm(displacement(env.grid_shape, live_centers[0], live_centers[1]))
     assert float(center_distance) > 2.0 * env.body_radius
 
 
 def test_spawn_separation_is_derived_from_body_geometry():
     env = _env(initial_population=1, position_margin=1.25)
-    assert np.isclose(
-        env.spawn_separation, 2.0 * env.body_radius + env.position_margin
-    )
+    assert np.isclose(env.spawn_separation, 2.0 * env.body_radius + env.position_margin)
 
 
 def test_center_selection_uses_periodic_occupied_distance():
     env = _env(initial_population=0)
     candidates = jnp.array([[0.5, 12.0], [12.0, 12.0]])
-    occupied_centers = jnp.array(
-        [[23.5, 12.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
-    )
+    occupied_centers = jnp.array([[23.5, 12.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]])
     occupied = jnp.array([True, False, False, False])
-    selected = env._select_best_center(
-        candidates, occupied_centers, occupied
-    )
+    selected = env._select_best_center(candidates, occupied_centers, occupied)
     assert jnp.array_equal(selected, candidates[1])
 
 
@@ -121,11 +186,24 @@ def test_birth_occurs_at_end_of_step_with_correct_lineage():
     child_slot = int(info["telemetry"].birth_child_slots[0])
     assert int(state.population.parent_id[child_slot]) == 0
     assert int(state.population.generation[child_slot]) == 1
+    assert int(state.population.founder_lineage_id[child_slot]) == 0
     assert float(state.population.energy[child_slot]) == 1.0
-    centers = env._slot_centers(state.nodes.position)
-    parent_distance = jnp.linalg.norm(
-        displacement(env.grid_shape, centers[child_slot], centers[0])
+    child = CPPNGenome(
+        state.population.genome.node_genes[child_slot],
+        state.population.genome.connection_genes[child_slot],
     )
+    assert bool(
+        cached_genome_valid(
+            child,
+            state.population.controller_order[child_slot],
+            state.population.controller_connection_index[child_slot],
+        )
+    )
+    assert info["operator_counts"].tolist() == [1, 0, 0, 0]
+    assert int(info["policy_violation_count"]) == 0
+    assert bool(info["infrastructure_valid"])
+    centers = env._slot_centers(state.nodes.position)
+    parent_distance = jnp.linalg.norm(displacement(env.grid_shape, centers[child_slot], centers[0]))
     assert np.isclose(float(parent_distance), env.spawn_separation, atol=1e-4)
 
 
@@ -147,16 +225,17 @@ def test_simultaneous_births_reserve_distinct_centers_and_lineage():
     child_slots = np.asarray(info["telemetry"].birth_child_slots[:2])
     assert len(np.unique(child_slots)) == 2
     centers = env._slot_centers(state.nodes.position)
-    child_distance = jnp.linalg.norm(
-        displacement(
-            env.grid_shape, centers[child_slots[0]], centers[child_slots[1]]
-        )
-    )
+    child_distance = jnp.linalg.norm(displacement(env.grid_shape, centers[child_slots[0]], centers[child_slots[1]]))
     assert float(child_distance) > 0.0
     assert np.array_equal(
         np.sort(np.asarray(state.population.parent_id)[child_slots]),
         np.array([0, 1]),
     )
+    assert np.array_equal(
+        np.sort(np.asarray(state.population.founder_lineage_id)[child_slots]),
+        np.array([0, 1]),
+    )
+    assert info["operator_counts"].tolist() == [2, 0, 0, 0]
 
 
 def test_dying_parent_cannot_reproduce_and_body_becomes_inert():
@@ -214,33 +293,40 @@ def test_one_compiled_step_accepts_empty_partial_and_full_occupancy():
         _, result, _, _, _ = jit_step(jax.random.PRNGKey(7), state)
         states.append(result)
     assert all(state.nodes.position.shape == partial.nodes.position.shape for state in states)
-    assert all(state.population.genome.shape == partial.population.genome.shape for state in states)
+    assert all(state.population.genome.node_genes.shape == partial.population.genome.node_genes.shape for state in states)
+    assert all(state.population.genome.connection_genes.shape == partial.population.genome.connection_genes.shape for state in states)
 
 
 def test_genome_loci_cannot_change_fixed_ecological_traits():
     env = _env(max_bending_delta=0.0)
     _, initial = env.reset(jax.random.PRNGKey(40))
+
+    def population_with_genome(genome):
+        batched = jax.tree.map(
+            lambda value: jnp.broadcast_to(value, (env.max_creatures, *value.shape)),
+            genome,
+        )
+        order, connection_index = transform_population(batched)
+        return replace(
+            initial.population,
+            genome=batched,
+            controller_order=order,
+            controller_connection_index=connection_index,
+        )
+
     low = replace(
         initial,
-        population=replace(
-            initial.population,
-            genome=jnp.full_like(initial.population.genome, -1.0),
-        ),
+        population=population_with_genome(zero_action_genome()),
     )
     high = replace(
         initial,
-        population=replace(
-            initial.population,
-            genome=jnp.full_like(initial.population.genome, 1.0),
-        ),
+        population=population_with_genome(traveling_wave_genome()),
     )
     key = jax.random.PRNGKey(41)
     _, low_result, _, _, _ = env.step(key, low)
     _, high_result, _, _, _ = env.step(key, high)
     assert jnp.array_equal(low_result.fields.energy, high_result.fields.energy)
-    assert jnp.array_equal(
-        low_result.population.energy, high_result.population.energy
-    )
+    assert jnp.array_equal(low_result.population.energy, high_result.population.energy)
 
 
 def test_ecosystem_controller_rejects_unsupported_topology():
@@ -251,18 +337,10 @@ def test_ecosystem_controller_rejects_unsupported_topology():
 def test_render_omits_inactive_slots():
     env = _env(initial_population=1)
     _, state = env.reset(jax.random.PRNGKey(0))
-    positions_a = jnp.where(
-        state.nodes.active[:, None], state.nodes.position, 0.0
-    )
-    positions_b = jnp.where(
-        state.nodes.active[:, None], state.nodes.position, 12.0
-    )
-    frame_a = env.render(
-        replace(state, nodes=replace(state.nodes, position=positions_a)), size=64
-    )
-    frame_b = env.render(
-        replace(state, nodes=replace(state.nodes, position=positions_b)), size=64
-    )
+    positions_a = jnp.where(state.nodes.active[:, None], state.nodes.position, 0.0)
+    positions_b = jnp.where(state.nodes.active[:, None], state.nodes.position, 12.0)
+    frame_a = env.render(replace(state, nodes=replace(state.nodes, position=positions_a)), size=64)
+    frame_b = env.render(replace(state, nodes=replace(state.nodes, position=positions_b)), size=64)
     assert frame_a.shape == (64, 64, 3)
     assert frame_a.dtype == np.uint8
     assert np.array_equal(frame_a, frame_b)
@@ -325,7 +403,6 @@ def test_birth_remains_finite_when_ideal_clearance_is_impossible():
         ({"uptake_rate": -0.1}, "uptake_rate"),
         ({"basal_metabolism": -0.1}, "basal_metabolism"),
         ({"max_bending_delta": -0.1}, "max_bending_delta"),
-        ({"resource_reference": 1.1}, "resource_reference"),
         ({"resource_patch_center": (0.0, jnp.inf)}, "resource_patch_center"),
         ({"resource_patch_radius": 0.0}, "resource_patch_radius"),
         (
@@ -333,6 +410,8 @@ def test_birth_remains_finite_when_ideal_clearance_is_impossible():
             "resource_diffusion_rate",
         ),
         ({"placement_candidates": 0}, "placement_candidates"),
+        ({"placement_candidates": 1.5}, "placement_candidates"),
+        ({"placement_candidates": True}, "placement_candidates"),
         ({"spawn_separation": -1.0}, "spawn_separation"),
     ],
 )

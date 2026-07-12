@@ -1,0 +1,43 @@
+{
+  "base_commit": "6f41d918d4ad6290b6d0e0e187392b7bc5d9fc44",
+  "date_utc": "2026-07-12",
+  "device": "NVIDIA GB10",
+  "jax_version": "0.8.1",
+  "cpu_regression": {
+    "command": "JAX_PLATFORMS=cpu pytest -q",
+    "passed": 292,
+    "skipped_gpu_only": 1
+  },
+  "positive_controls": {
+    "command": "python experiments/ecosystem/run_positive_controls.py --horizon 5000",
+    "finite": true,
+    "foraging_mean_improvement": 0.21864445507526398,
+    "foraging_median_improvement": 0.20612362027168274,
+    "foraging_paired_wins": 7,
+    "foraging_worlds": 8,
+    "movement_body_fraction": 0.7532371282577515,
+    "passed": true
+  },
+  "rollout": {
+    "command": "pytest -q tests/test_ecosystem_long_rollout.py",
+    "births": 10,
+    "infrastructure_valid": true,
+    "passed": true,
+    "steps": 1000
+  },
+  "controller_benchmark": {
+    "command": "python benchmarks/benchmark_ecosystem.py --steps 100 --max-creatures 32 --nodes-per-creature 8 --grid-size 64 --warm-runs 5",
+    "cppn_warm_median_seconds": 0.06561290399986319,
+    "cppn_to_wave_ratio": 1.3123806826480624,
+    "passed_1_75x_gate": true,
+    "wave_warm_median_seconds": 0.049995328998193145
+  },
+  "heredity_benchmark": {
+    "command": "python benchmarks/benchmark_cppn_heredity.py --parent-count 32 --warm-runs 5",
+    "mutation_compile_and_first_seconds": 3.2473815830016974,
+    "mutation_warm_median_seconds": 0.001135878002969548,
+    "passed_15_second_compile_gate": true,
+    "passed_5_millisecond_warm_gate": true,
+    "validated_reproduction_warm_median_seconds": 0.009534148994134739
+  }
+}

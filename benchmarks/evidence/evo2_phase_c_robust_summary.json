@@ -1,0 +1,18 @@
+{
+  "decision": "Phase C passed: shocks are disruptive and trusted policies produce non-identical outcomes under the canonical three-measurement evaluator.",
+  "manifest_sha256": {
+    "punctuated": "535b759c613bb91252934d3b91645b4017add1379b78b7164e984fc58d3e8fbf",
+    "stable": "716f306f684646cfa2ea62c36c3cef5735e1d682425de3eeee5ca1018ae1b021"
+  },
+  "numerical_repeats": 3,
+  "punctuated_scores": {
+    "clone": 0.14617915451526642,
+    "fixed_mixed": 0.08506869524717331,
+    "fixed_parametric": 0.16139346361160278,
+    "stress_responsive": 0.21892820298671722
+  },
+  "simulator_source_sha256": "d483f02938d686cbac4d2d2539135877dc6a6c2079ce40da430655af758143f7",
+  "stable_fixed_mixed_score": 0.19646474719047546,
+  "stable_to_punctuated_fixed_mixed_change": -0.11139605194330215,
+  "stable_to_punctuated_fixed_mixed_fractional_drop": 0.5670027500419811
+}

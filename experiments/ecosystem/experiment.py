@@ -28,22 +28,10 @@ class EcosystemExperiment(Experiment):
         solver = replace(
             base_solver,
             enable_steric=bool(physics.get("enable_steric", False)),
-            steric_strength=float(
-                physics.get("steric_strength", base_solver.steric_strength)
-            ),
-            steric_sigma=float(
-                physics.get("steric_sigma", base_solver.steric_sigma)
-            ),
-            steric_neighbor_skip=int(
-                physics.get(
-                    "steric_neighbor_skip", base_solver.steric_neighbor_skip
-                )
-            ),
-            steric_scatter_value=float(
-                physics.get(
-                    "steric_scatter_value", base_solver.steric_scatter_value
-                )
-            ),
+            steric_strength=float(physics.get("steric_strength", base_solver.steric_strength)),
+            steric_sigma=float(physics.get("steric_sigma", base_solver.steric_sigma)),
+            steric_neighbor_skip=int(physics.get("steric_neighbor_skip", base_solver.steric_neighbor_skip)),
+            steric_scatter_value=float(physics.get("steric_scatter_value", base_solver.steric_scatter_value)),
         )
         self.env = EcosystemEnv(
             topology=topology,
@@ -63,27 +51,18 @@ class EcosystemExperiment(Experiment):
                     (cfg.grid_shape[1] / 2.0, cfg.grid_shape[0] / 2.0),
                 )
             ),
-            resource_patch_radius=float(
-                cfg.get("resource_patch_radius", min(cfg.grid_shape) / 4.0)
-            ),
+            resource_patch_radius=float(cfg.get("resource_patch_radius", min(cfg.grid_shape) / 4.0)),
             initial_energy=float(cfg.get("initial_energy", 2.0)),
-            birth_transfer_efficiency=float(
-                cfg.get("birth_transfer_efficiency", 0.5)
-            ),
+            birth_transfer_efficiency=float(cfg.get("birth_transfer_efficiency", 0.5)),
             reproduction_threshold=float(cfg.get("reproduction_threshold", 4.0)),
             reproduction_cost=float(cfg.get("reproduction_cost", 2.0)),
             maturity_age=int(cfg.get("maturity_age", 100)),
             maximum_lifespan=int(cfg.get("maximum_lifespan", 10_000)),
-            mutation_probability=float(cfg.get("mutation_probability", 0.05)),
-            mutation_std=float(cfg.get("mutation_std", 0.05)),
             max_bending_delta=float(cfg.get("max_bending_delta", 0.35)),
-            resource_reference=float(cfg.get("resource_reference", 0.0)),
             uptake_rate=float(cfg.get("uptake_rate", 0.5)),
             assimilation_efficiency=float(cfg.get("assimilation_efficiency", 0.8)),
             basal_metabolism=float(cfg.get("basal_metabolism", 0.05)),
-            actuation_power_coefficient=float(
-                cfg.get("actuation_power_coefficient", 0.01)
-            ),
+            actuation_power_coefficient=float(cfg.get("actuation_power_coefficient", 0.01)),
             spawn_separation=cfg.get("spawn_separation"),
             placement_candidates=int(cfg.get("placement_candidates", 16)),
         )
@@ -106,9 +85,7 @@ class EcosystemExperiment(Experiment):
                 info["telemetry"],
             )
 
-        final_state, (nodes_ts, fields_ts, telemetry) = jax.lax.scan(
-            scan_step, initial_state, keys
-        )
+        final_state, (nodes_ts, fields_ts, telemetry) = jax.lax.scan(scan_step, initial_state, keys)
         jax.block_until_ready(final_state.population.energy)
         self._write_metrics(telemetry)
         self._write_lineage(telemetry)
@@ -133,7 +110,7 @@ class EcosystemExperiment(Experiment):
             "resource_total",
             "population_energy_total",
             "mean_generation",
-            "genome_variance",
+            "action_diversity",
         ]
         arrays = {name: np.asarray(getattr(telemetry, name)) for name in names}
         np.savez(self.output_dir / "metrics.npz", **arrays)
@@ -151,11 +128,7 @@ class EcosystemExperiment(Experiment):
         child = np.asarray(telemetry.birth_child_ids)
         rows = []
         for step, (parents, children) in enumerate(zip(parent, child, strict=True), start=1):
-            rows.extend(
-                (step, int(p), int(c))
-                for p, c in zip(parents, children, strict=True)
-                if c >= 0
-            )
+            rows.extend((step, int(p), int(c)) for p, c in zip(parents, children, strict=True) if c >= 0)
         array = np.asarray(rows, dtype=np.int64).reshape(-1, 3)
         np.savetxt(
             self.output_dir / "lineage.csv",

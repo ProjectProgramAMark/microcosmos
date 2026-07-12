@@ -1,0 +1,20 @@
+{
+  "backend": "gpu",
+  "evaluator_source_sha256": "20aab66ae817aa243d2274e4cd623a9e8682c010707d23bde428cad401970205",
+  "fixed_mixed_scores": [
+    0.2205205261707306,
+    0.2132338136434555,
+    0.19299452006816864
+  ],
+  "fixed_mixed_survival_rates": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "manifest_sha256": "716f306f684646cfa2ea62c36c3cef5735e1d682425de3eeee5ca1018ae1b021",
+  "mean_score": 0.20891628662745157,
+  "sample_standard_deviation": 0.014261873391669563,
+  "score_range": 0.02752600610256195,
+  "simulator_source_sha256": "8e610a85646ea4cbff6bd662be0147a79dc0405cb65883b53a1429bc8c73808c",
+  "decision": "Use three numerical executions for every policy/manifest evaluation and retain the coherent median-scoring execution. Numerical executions are not ecological replicates."
+}

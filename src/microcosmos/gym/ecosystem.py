@@ -6,10 +6,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microcosmos.controller import (
-    GenomeConfig,
+from microcosmos.cppn import (
+    DYNAMIC_NODE_KEY_OFFSET,
+    MAX_EXACT_FLOAT32_INTEGER,
     controller_action,
-    initialize_genomes,
+    initialize_cppn_population,
+    transform_and_validate_population,
 )
 from microcosmos.ecology import (
     LifecycleConfig,
@@ -22,8 +24,16 @@ from microcosmos.ecology import (
     sample_grid_nearest,
 )
 from microcosmos.graph import compute_bending_pairs, make_fields
-from microcosmos.simulate import step as physics_step
+from microcosmos.heredity import (
+    OffspringPolicy,
+    action_diversity,
+    fixed_mixed_policy,
+    population_statistics,
+    update_intake_ema,
+    update_population_change_ema,
+)
 from microcosmos.rng import RNGTag, derive_key, keys_for_identities
+from microcosmos.simulate import step as physics_step
 from microcosmos.solver.config import ConstraintSolverConfig, PBD_SCHEME_NO_FLUID
 from microcosmos.solver.masks import build_replicated_physics_context
 from microcosmos.structs.edges import Edges
@@ -63,10 +73,7 @@ class EcosystemEnv(Environment):
         reproduction_cost: float = 2.0,
         maturity_age: int = 100,
         maximum_lifespan: int = 10_000,
-        mutation_probability: float = 0.05,
-        mutation_std: float = 0.05,
         max_bending_delta: float = 0.35,
-        resource_reference: float = 0.0,
         uptake_rate: float = 0.5,
         assimilation_efficiency: float = 0.8,
         basal_metabolism: float = 0.05,
@@ -74,18 +81,14 @@ class EcosystemEnv(Environment):
         spawn_separation: float | None = None,
         placement_candidates: int = 16,
         position_margin: float = 1.0,
+        offspring_policy: OffspringPolicy = fixed_mixed_policy,
     ):
         if topology is None:
             topology = LineTopology(num_nodes=8)
         if (
             not isinstance(grid_shape, tuple)
             or len(grid_shape) != 2
-            or any(
-                not isinstance(value, int)
-                or isinstance(value, bool)
-                or value <= 0
-                for value in grid_shape
-            )
+            or any(not isinstance(value, int) or isinstance(value, bool) or value <= 0 for value in grid_shape)
         ):
             raise ValueError("grid_shape must contain two positive integers")
         if not np.isfinite(dt) or dt <= 0.0:
@@ -98,9 +101,7 @@ class EcosystemEnv(Environment):
             raise ValueError("max_creatures must be an integer")
         if max_creatures < 1:
             raise ValueError("max_creatures must be at least one")
-        if not isinstance(initial_population, int) or isinstance(
-            initial_population, bool
-        ):
+        if not isinstance(initial_population, int) or isinstance(initial_population, bool):
             raise ValueError("initial_population must be an integer")
         if not 0 <= initial_population <= max_creatures:
             raise ValueError("initial_population must be within ecosystem capacity")
@@ -108,13 +109,8 @@ class EcosystemEnv(Environment):
             raise ValueError("ecosystem topology requires at least two nodes")
         if not np.isfinite(topology.spacing) or topology.spacing <= 0.0:
             raise ValueError("topology spacing must be finite and positive")
-        if (
-            not np.isfinite(topology.bending_stiffness)
-            or topology.bending_stiffness < 0.0
-        ):
-            raise ValueError(
-                "topology bending_stiffness must be finite and non-negative"
-            )
+        if not np.isfinite(topology.bending_stiffness) or topology.bending_stiffness < 0.0:
+            raise ValueError("topology bending_stiffness must be finite and non-negative")
         for name, value in (
             ("initial_resource", initial_resource),
             ("initial_energy", initial_energy),
@@ -122,6 +118,7 @@ class EcosystemEnv(Environment):
             ("uptake_rate", uptake_rate),
             ("assimilation_efficiency", assimilation_efficiency),
             ("basal_metabolism", basal_metabolism),
+            ("max_bending_delta", max_bending_delta),
         ):
             if not np.isfinite(value):
                 raise ValueError(f"{name} must be finite")
@@ -129,6 +126,8 @@ class EcosystemEnv(Environment):
                 raise ValueError(f"{name} must be non-negative")
         if not 0.0 <= assimilation_efficiency <= 1.0:
             raise ValueError("assimilation_efficiency must be within [0, 1]")
+        if not callable(offspring_policy):
+            raise ValueError("offspring_policy must be callable")
         if not isinstance(topology, LineTopology):
             raise ValueError("ecosystem controller requires LineTopology")
         if initial_resource > resource_capacity:
@@ -137,11 +136,7 @@ class EcosystemEnv(Environment):
             raise ValueError("resource_diffusion_rate * dt must be at most one")
         if resource_patch_center is None:
             resource_patch_center = (grid_shape[1] / 2.0, grid_shape[0] / 2.0)
-        if (
-            not isinstance(resource_patch_center, tuple)
-            or len(resource_patch_center) != 2
-            or any(not np.isfinite(value) for value in resource_patch_center)
-        ):
+        if not isinstance(resource_patch_center, tuple) or len(resource_patch_center) != 2 or any(not np.isfinite(value) for value in resource_patch_center):
             raise ValueError("resource_patch_center must contain two finite values")
         if resource_patch_radius is None:
             resource_patch_radius = min(grid_shape) / 4.0
@@ -149,12 +144,13 @@ class EcosystemEnv(Environment):
             raise ValueError("resource_patch_radius must be finite and positive")
         if not np.isfinite(position_margin) or position_margin < 0.0:
             raise ValueError("position_margin must be finite and non-negative")
-        if placement_candidates < 1:
-            raise ValueError("placement_candidates must be at least one")
-        if spawn_separation is not None and (
-            not np.isfinite(spawn_separation) or spawn_separation < 0.0
-        ):
+        if not isinstance(placement_candidates, int) or isinstance(placement_candidates, bool) or placement_candidates < 1:
+            raise ValueError("placement_candidates must be a positive integer")
+        if spawn_separation is not None and (not np.isfinite(spawn_separation) or spawn_separation < 0.0):
             raise ValueError("spawn_separation must be finite and non-negative")
+        maximum_dynamic_key = DYNAMIC_NODE_KEY_OFFSET + initial_population + max_steps * max_creatures
+        if maximum_dynamic_key >= MAX_EXACT_FLOAT32_INTEGER:
+            raise ValueError("maximum child identity exceeds exact float32 node-key range")
 
         super().__init__(
             grid_shape=grid_shape,
@@ -166,9 +162,7 @@ class EcosystemEnv(Environment):
         self.max_creatures = int(max_creatures)
         self.initial_population = int(initial_population)
         self.initial_resource = float(initial_resource)
-        self.resource_patch_center = tuple(
-            float(value) for value in resource_patch_center
-        )
+        self.resource_patch_center = tuple(float(value) for value in resource_patch_center)
         self.resource_patch_radius = float(resource_patch_radius)
         self.initial_energy = float(initial_energy)
         self.actuation_power_coefficient = float(actuation_power_coefficient)
@@ -186,39 +180,25 @@ class EcosystemEnv(Environment):
             reproduction_cost=reproduction_cost,
             birth_transfer_efficiency=birth_transfer_efficiency,
         )
-        self.genome_config = GenomeConfig(
-            mutation_probability=mutation_probability,
-            mutation_std=mutation_std,
-            max_bending_delta=max_bending_delta,
-            resource_reference=resource_reference,
-        )
+        self.max_bending_delta = float(max_bending_delta)
+        self.offspring_policy = offspring_policy
         self.uptake_rate = float(uptake_rate)
         self.assimilation_efficiency = float(assimilation_efficiency)
         self.basal_metabolism = float(basal_metabolism)
-        self._uptake_rate_by_slot = jnp.full(
-            self.max_creatures, self.uptake_rate, dtype=jnp.float32
-        )
+        self._uptake_rate_by_slot = jnp.full(self.max_creatures, self.uptake_rate, dtype=jnp.float32)
         self._assimilation_by_slot = jnp.full(
             self.max_creatures,
             self.assimilation_efficiency,
             dtype=jnp.float32,
         )
-        self._metabolism_by_slot = jnp.full(
-            self.max_creatures, self.basal_metabolism, dtype=jnp.float32
-        )
+        self._metabolism_by_slot = jnp.full(self.max_creatures, self.basal_metabolism, dtype=jnp.float32)
 
         local_pairs, departure_angles = topology.edges()
         local_positions = topology.local_positions().astype(jnp.float32)
         body_radius = float(jnp.max(jnp.linalg.norm(local_positions, axis=-1)))
         self.body_radius = body_radius
-        self.spawn_separation = (
-            2.0 * body_radius + self.position_margin
-            if spawn_separation is None
-            else float(spawn_separation)
-        )
-        local_bending, local_bending_rest = compute_bending_pairs(
-            local_pairs, departure_angles, topology.num_nodes
-        )
+        self.spawn_separation = 2.0 * body_radius + self.position_margin if spawn_separation is None else float(spawn_separation)
+        local_bending, local_bending_rest = compute_bending_pairs(local_pairs, departure_angles, topology.num_nodes)
         edges_per_slot = int(local_pairs.shape[0])
         bending_per_slot = int(local_bending.shape[0])
 
@@ -229,46 +209,23 @@ class EcosystemEnv(Environment):
         self._num_edges = edges_per_slot * self.max_creatures
         self._num_bending_pairs = bending_per_slot * self.max_creatures
         self._local_positions = local_positions
-        self._node_slices = tuple(
-            slice(i * topology.num_nodes, (i + 1) * topology.num_nodes)
-            for i in range(self.max_creatures)
-        )
-        self._edge_slices = tuple(
-            slice(i * edges_per_slot, (i + 1) * edges_per_slot)
-            for i in range(self.max_creatures)
-        )
-        self._bending_slices = tuple(
-            slice(i * bending_per_slot, (i + 1) * bending_per_slot)
-            for i in range(self.max_creatures)
-        )
+        self._node_slices = tuple(slice(i * topology.num_nodes, (i + 1) * topology.num_nodes) for i in range(self.max_creatures))
+        self._edge_slices = tuple(slice(i * edges_per_slot, (i + 1) * edges_per_slot) for i in range(self.max_creatures))
+        self._bending_slices = tuple(slice(i * bending_per_slot, (i + 1) * bending_per_slot) for i in range(self.max_creatures))
 
         node_offsets = jnp.arange(self.max_creatures, dtype=jnp.int32) * topology.num_nodes
         edge_offsets = jnp.arange(self.max_creatures, dtype=jnp.int32) * edges_per_slot
-        self._edge_pairs = (
-            local_pairs[None, :, :] + node_offsets[:, None, None]
-        ).reshape(-1, 2)
-        self._bending_pairs = (
-            local_bending[None, :, :] + edge_offsets[:, None, None]
-        ).reshape(-1, 2)
+        self._edge_pairs = (local_pairs[None, :, :] + node_offsets[:, None, None]).reshape(-1, 2)
+        self._bending_pairs = (local_bending[None, :, :] + edge_offsets[:, None, None]).reshape(-1, 2)
         self._rest_lengths = jnp.tile(
             jnp.full(edges_per_slot, topology.spacing, dtype=jnp.float32),
             self.max_creatures,
         )
-        self._bending_rest_angles = jnp.tile(
-            local_bending_rest, self.max_creatures
-        )
-        self._bending_stiffness = jnp.full(
-            self._num_bending_pairs, topology.bending_stiffness, dtype=jnp.float32
-        )
-        self.node_slot = jnp.repeat(
-            jnp.arange(self.max_creatures, dtype=jnp.int32), topology.num_nodes
-        )
-        self.edge_slot = jnp.repeat(
-            jnp.arange(self.max_creatures, dtype=jnp.int32), edges_per_slot
-        )
-        self.bending_slot = jnp.repeat(
-            jnp.arange(self.max_creatures, dtype=jnp.int32), bending_per_slot
-        )
+        self._bending_rest_angles = jnp.tile(local_bending_rest, self.max_creatures)
+        self._bending_stiffness = jnp.full(self._num_bending_pairs, topology.bending_stiffness, dtype=jnp.float32)
+        self.node_slot = jnp.repeat(jnp.arange(self.max_creatures, dtype=jnp.int32), topology.num_nodes)
+        self.edge_slot = jnp.repeat(jnp.arange(self.max_creatures, dtype=jnp.int32), edges_per_slot)
+        self.bending_slot = jnp.repeat(jnp.arange(self.max_creatures, dtype=jnp.int32), bending_per_slot)
         self.physics_context = build_replicated_physics_context(
             local_pairs,
             topology.num_nodes,
@@ -277,15 +234,24 @@ class EcosystemEnv(Environment):
         )
         if bending_per_slot:
             local_coordinate = jnp.linspace(-1.0, 1.0, bending_per_slot)
-            self._bending_coordinate = jnp.tile(
-                local_coordinate, self.max_creatures
-            )
-            self._bending_node = self._edge_pairs[
-                self._bending_pairs[:, 0], 1
-            ]
+            self._bending_coordinate = jnp.tile(local_coordinate, self.max_creatures)
+            self._bending_node = self._edge_pairs[self._bending_pairs[:, 0], 1]
         else:
             self._bending_coordinate = jnp.zeros(0)
             self._bending_node = jnp.zeros(0, dtype=jnp.int32)
+
+        initial_genomes = initialize_cppn_population(
+            self.max_creatures,
+            self.initial_population,
+        )
+        (
+            self._initial_genomes,
+            self._initial_controller_order,
+            self._initial_controller_connection_index,
+            founder_valid,
+        ) = transform_and_validate_population(initial_genomes)
+        if not bool(np.all(np.asarray(jax.device_get(founder_valid)))):
+            raise RuntimeError("canonical founder CPPN panel failed validation")
 
     @property
     def num_nodes(self) -> int:
@@ -338,14 +304,10 @@ class EcosystemEnv(Environment):
 
     def _slot_centers(self, positions: jax.Array) -> jax.Array:
         """Compute body centers correctly when a body crosses a periodic edge."""
-        slot_positions = positions.reshape(
-            self.max_creatures, self._nodes_per_slot, 2
-        )
+        slot_positions = positions.reshape(self.max_creatures, self._nodes_per_slot, 2)
         anchors = slot_positions[:, :1, :]
         local = displacement(self.grid_shape, slot_positions, anchors)
-        return periodic_boundary(
-            self.grid_shape, anchors[:, 0, :] + jnp.mean(local, axis=1)
-        )
+        return periodic_boundary(self.grid_shape, anchors[:, 0, :] + jnp.mean(local, axis=1))
 
     def _centers(self, key: jax.Array) -> jax.Array:
         h, w = self.grid_shape
@@ -355,18 +317,20 @@ class EcosystemEnv(Environment):
             jnp.array([w, h], dtype=jnp.float32) / 2.0,
         )
         span = jnp.maximum(jnp.array([w, h], dtype=jnp.float32) - 2 * margin, 0.0)
-        candidates = margin + jax.random.uniform(
-            key,
-            (self.max_creatures, self.placement_candidates, 2),
-        ) * span
+        candidates = (
+            margin
+            + jax.random.uniform(
+                key,
+                (self.max_creatures, self.placement_candidates, 2),
+            )
+            * span
+        )
         live_slots = jnp.arange(self.max_creatures) < self.initial_population
 
         def place_one(carry, values):
             centers, occupied = carry
             slot, slot_candidates, is_live = values
-            selected = self._select_best_center(
-                slot_candidates, centers, occupied
-            )
+            selected = self._select_best_center(slot_candidates, centers, occupied)
             # Inactive slots still receive deterministic legal positions, but do
             # not reserve space or influence later active placement.
             selected = jnp.where(is_live, selected, slot_candidates[0])
@@ -402,11 +366,8 @@ class EcosystemEnv(Environment):
     def reset(self, key: jax.Array) -> tuple[jax.Array, EcosystemState]:
         initialization_key = derive_key(key, RNGTag.INITIALIZATION)
         key_centers = jax.random.fold_in(initialization_key, 0)
-        key_genomes = jax.random.fold_in(initialization_key, 1)
         centers = self._centers(key_centers)
-        positions = (
-            centers[:, None, :] + self._local_positions[None, :, :]
-        ).reshape(self.num_nodes, 2)
+        positions = (centers[:, None, :] + self._local_positions[None, :, :]).reshape(self.num_nodes, 2)
         positions = periodic_boundary(self.grid_shape, positions)
         slot_ids = jnp.arange(self.max_creatures, dtype=jnp.int32)
         alive = slot_ids < self.initial_population
@@ -427,7 +388,6 @@ class EcosystemEnv(Environment):
             bending_rest_angles=self._bending_rest_angles,
             bending_stiffness=self._bending_stiffness,
         )
-        genomes = initialize_genomes(key_genomes, self.max_creatures)
         population = PopulationState(
             alive=alive,
             energy=jnp.where(alive, self.initial_energy, 0.0),
@@ -435,7 +395,12 @@ class EcosystemEnv(Environment):
             generation=jnp.zeros(self.max_creatures, dtype=jnp.int32),
             individual_id=jnp.where(alive, slot_ids, -1),
             parent_id=jnp.full(self.max_creatures, -1, dtype=jnp.int32),
-            genome=genomes,
+            genome=self._initial_genomes,
+            controller_order=self._initial_controller_order,
+            controller_connection_index=self._initial_controller_connection_index,
+            founder_lineage_id=jnp.where(alive, slot_ids, -1),
+            intake_ema=jnp.zeros(self.max_creatures, dtype=jnp.float32),
+            population_change_ema=jnp.zeros((), dtype=jnp.float32),
             next_individual_id=jnp.array(self.initial_population, dtype=jnp.int32),
         )
         capacity_map, regeneration_map = make_periodic_resource_patch(
@@ -445,11 +410,7 @@ class EcosystemEnv(Environment):
             self.resource_config.capacity,
             self.resource_config.regeneration_rate,
         )
-        initial_fraction = (
-            0.0
-            if self.resource_config.capacity == 0.0
-            else min(self.initial_resource / self.resource_config.capacity, 1.0)
-        )
+        initial_fraction = 0.0 if self.resource_config.capacity == 0.0 else min(self.initial_resource / self.resource_config.capacity, 1.0)
         resource_stock = capacity_map * initial_fraction
         fields = replace(make_fields(self.grid_shape), energy=resource_stock)
         state = EcosystemState(
@@ -478,19 +439,14 @@ class EcosystemEnv(Environment):
         parent_safe = jnp.maximum(events["parent_slots"], 0)
         child_slots = events["child_slots"]
         child_scatter = jnp.where(valid, child_slots, self.max_creatures)
-        child_present = jnp.zeros(self.max_creatures, dtype=jnp.bool_).at[
-            child_scatter
-        ].set(valid, mode="drop")
+        child_present = jnp.zeros(self.max_creatures, dtype=jnp.bool_).at[child_scatter].set(valid, mode="drop")
 
-        slot_positions = nodes.position.reshape(
-            self.max_creatures, self._nodes_per_slot, 2
-        )
+        slot_positions = nodes.position.reshape(self.max_creatures, self._nodes_per_slot, 2)
         slot_centers = self._slot_centers(nodes.position)
+
         def place_births(_):
             child_ids = jnp.maximum(events["child_ids"], 0)
-            phase_keys = keys_for_identities(
-                key, RNGTag.SPAWN, timestep, child_ids
-            )
+            phase_keys = keys_for_identities(key, RNGTag.SPAWN, timestep, child_ids)
             phase = jax.vmap(
                 lambda phase_key: jax.random.uniform(
                     phase_key,
@@ -499,21 +455,11 @@ class EcosystemEnv(Environment):
                     maxval=2.0 * jnp.pi,
                 )
             )(phase_keys)
-            angles = phase + (
-                2.0
-                * jnp.pi
-                * jnp.arange(
-                    self.placement_candidates, dtype=nodes.position.dtype
-                )
-                / self.placement_candidates
-            )[None, :]
-            directions = jnp.stack(
-                [jnp.cos(angles), jnp.sin(angles)], axis=-1
-            )
+            angles = phase + (2.0 * jnp.pi * jnp.arange(self.placement_candidates, dtype=nodes.position.dtype) / self.placement_candidates)[None, :]
+            directions = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=-1)
             candidates = periodic_boundary(
                 self.grid_shape,
-                slot_centers[parent_safe, None, :]
-                + directions * self.spawn_separation,
+                slot_centers[parent_safe, None, :] + directions * self.spawn_separation,
             )
             # The population already contains newborn slots. Remove them from
             # initial occupancy, then reserve selected centers in event order.
@@ -522,16 +468,10 @@ class EcosystemEnv(Environment):
             def place_birth(carry, values):
                 centers, reserved = carry
                 event_valid, child_slot, slot_candidates = values
-                selected = self._select_best_center(
-                    slot_candidates, centers, reserved
-                )
-                scatter_slot = jnp.where(
-                    event_valid, child_slot, self.max_creatures
-                )
+                selected = self._select_best_center(slot_candidates, centers, reserved)
+                scatter_slot = jnp.where(event_valid, child_slot, self.max_creatures)
                 centers = centers.at[scatter_slot].set(selected, mode="drop")
-                reserved = reserved.at[scatter_slot].set(
-                    event_valid, mode="drop"
-                )
+                reserved = reserved.at[scatter_slot].set(event_valid, mode="drop")
                 return (centers, reserved), None
 
             (selected_centers, _), _ = jax.lax.scan(
@@ -541,22 +481,16 @@ class EcosystemEnv(Environment):
             )
             return selected_centers
 
-        child_centers = jax.lax.cond(
-            jnp.any(valid), place_births, lambda _: slot_centers, operand=None
-        )
+        child_centers = jax.lax.cond(jnp.any(valid), place_births, lambda _: slot_centers, operand=None)
         child_positions_by_slot = periodic_boundary(
             self.grid_shape,
             child_centers[:, None, :] + self._local_positions[None, :, :],
         )
-        all_positions = jnp.where(
-            child_present[:, None, None], child_positions_by_slot, slot_positions
-        ).reshape(self.num_nodes, 2)
+        all_positions = jnp.where(child_present[:, None, None], child_positions_by_slot, slot_positions).reshape(self.num_nodes, 2)
 
         node_alive = population.alive[self.node_slot]
         child_node = child_present[self.node_slot]
-        velocity = jnp.where(
-            node_alive[:, None] & ~child_node[:, None], nodes.velocity, 0.0
-        )
+        velocity = jnp.where(node_alive[:, None] & ~child_node[:, None], nodes.velocity, 0.0)
         color = population.generation[self.node_slot] % 3
         nodes = replace(
             nodes,
@@ -584,12 +518,11 @@ class EcosystemEnv(Environment):
         action: dict[str, jax.Array] | None = None,
     ) -> tuple[jax.Array, EcosystemState, jax.Array, jax.Array, dict]:
         pop = state.population
+        start_alive_count = jnp.sum(pop.alive).astype(jnp.int32)
         # Population occupancy is authoritative at every transition boundary.
         nodes = replace(state.nodes, active=pop.alive[self.node_slot])
         node_stock = sample_grid_nearest(state.fields.energy, nodes.position)
-        node_capacity = sample_grid_nearest(
-            state.resource_capacity_map, nodes.position
-        )
+        node_capacity = sample_grid_nearest(state.resource_capacity_map, nodes.position)
         normalized_node_resource = jnp.clip(
             node_stock / (node_capacity + self.resource_config.eps),
             0.0,
@@ -599,17 +532,19 @@ class EcosystemEnv(Environment):
         sensor_width = min(2, self._nodes_per_slot)
         head_resource = jnp.mean(normalized_node_resource[:, :sensor_width], axis=1)
         tail_resource = jnp.mean(normalized_node_resource[:, -sensor_width:], axis=1)
-        bend_action = controller_action(
+        controller_bend_action = controller_action(
             pop.genome,
+            pop.controller_order,
+            pop.controller_connection_index,
             self._bending_coordinate,
-            self.bending_slot,
             state.time.astype(jnp.float32) * self.dt,
             local_resource,
             head_resource,
             tail_resource,
             pop.alive,
-            self.genome_config,
+            self.max_bending_delta,
         )
+        bend_action = controller_bend_action
         rest_action = jnp.zeros(self.num_edges)
         if action is not None:
             rest_action = rest_action + action["d_rest_length"]
@@ -629,9 +564,7 @@ class EcosystemEnv(Environment):
             self.physics_context,
         )
 
-        mouth_positions = nodes.position.reshape(
-            self.max_creatures, self._nodes_per_slot, 2
-        )[:, 0, :]
+        mouth_positions = nodes.position.reshape(self.max_creatures, self._nodes_per_slot, 2)[:, 0, :]
         resource, gross_uptake = resource_step(
             fields.energy,
             state.resource_capacity_map,
@@ -650,6 +583,15 @@ class EcosystemEnv(Environment):
             self.actuation_power_coefficient,
             self.dt,
         )
+        intake_ema = update_intake_ema(
+            pop.intake_ema,
+            gross_uptake,
+            self._uptake_rate_by_slot,
+            pop.alive,
+            self.dt,
+            self.resource_config.eps,
+        )
+        pop = replace(pop, intake_ema=intake_ema)
         population, died, death_ids = energy_and_death_step(
             pop,
             gross_uptake,
@@ -659,12 +601,40 @@ class EcosystemEnv(Environment):
             self.dt,
             self.lifecycle_config.maximum_lifespan,
         )
+        post_death_count = jnp.sum(population.alive).astype(jnp.int32)
+        transient_population_change = update_population_change_ema(
+            pop.population_change_ema,
+            post_death_count - start_alive_count,
+            self.max_creatures,
+        )
+        controller_action_diversity = action_diversity(
+            controller_bend_action.reshape(self.max_creatures, self._bending_per_slot),
+            population.alive,
+            self.max_bending_delta,
+        )
+        heredity_population_stats = population_statistics(
+            population.alive,
+            transient_population_change,
+            controller_action_diversity,
+            population.founder_lineage_id,
+            self.initial_population,
+        )
         population, birth_events = reproduction_step(
             key,
             population,
             self.lifecycle_config,
-            self.genome_config,
+            self.offspring_policy,
+            heredity_population_stats,
             state.time,
+        )
+        alive_count = jnp.sum(population.alive).astype(jnp.int32)
+        population = replace(
+            population,
+            population_change_ema=update_population_change_ema(
+                pop.population_change_ema,
+                alive_count - start_alive_count,
+                self.max_creatures,
+            ),
         )
         nodes, edges = self._spawn_children(
             key,
@@ -675,15 +645,7 @@ class EcosystemEnv(Environment):
             state.time,
         )
 
-        alive_count = jnp.sum(population.alive).astype(jnp.int32)
         live_count_f = jnp.maximum(alive_count.astype(jnp.float32), 1.0)
-        live_genome_mean = jnp.sum(
-            population.genome * population.alive[:, None], axis=0
-        ) / live_count_f
-        genome_variance = jnp.sum(
-            (population.genome - live_genome_mean) ** 2
-            * population.alive[:, None]
-        ) / (live_count_f * population.genome.shape[1])
         telemetry = EcosystemTelemetry(
             alive_count=alive_count,
             birth_count=birth_events["birth_count"],
@@ -692,15 +654,14 @@ class EcosystemEnv(Environment):
             birth_child_ids=birth_events["child_ids"],
             death_ids=death_ids,
             resource_total=jnp.sum(resource),
-            population_energy_total=jnp.sum(
-                population.energy * population.alive
-            ),
-            mean_generation=jnp.sum(
-                population.generation * population.alive
-            ) / live_count_f,
-            genome_variance=genome_variance,
+            population_energy_total=jnp.sum(population.energy * population.alive),
+            mean_generation=jnp.sum(population.generation * population.alive) / live_count_f,
+            action_diversity=controller_action_diversity,
             birth_parent_slots=birth_events["parent_slots"],
             birth_child_slots=birth_events["child_slots"],
+            operator_counts=birth_events["operator_counts"],
+            policy_violation_count=birth_events["policy_violation_count"],
+            infrastructure_valid=birth_events["infrastructure_valid"],
         )
         new_state = EcosystemState(
             nodes=nodes,
@@ -728,7 +689,10 @@ class EcosystemEnv(Environment):
             "resource_total": telemetry.resource_total,
             "population_energy_total": telemetry.population_energy_total,
             "mean_generation": telemetry.mean_generation,
-            "genome_variance": telemetry.genome_variance,
+            "action_diversity": telemetry.action_diversity,
+            "operator_counts": telemetry.operator_counts,
+            "policy_violation_count": telemetry.policy_violation_count,
+            "infrastructure_valid": telemetry.infrastructure_valid,
         }
         return observation, new_state, reward, done, info
 
@@ -743,6 +707,4 @@ class EcosystemEnv(Environment):
             f_grid=None,
             energy=state.fields.energy[None],
         )
-        return render_fields(
-            fields_ts, nodes_ts, sz=size, animate_energy=False
-        )[0]
+        return render_fields(fields_ts, nodes_ts, sz=size, animate_energy=False)[0]

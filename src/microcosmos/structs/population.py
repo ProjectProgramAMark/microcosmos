@@ -5,6 +5,7 @@ import functools
 
 import jax
 
+from microcosmos.cppn import CPPNGenome
 from microcosmos.structs.edges import Edges
 from microcosmos.structs.fields import Fields
 from microcosmos.structs.nodes import Nodes
@@ -21,6 +22,11 @@ from microcosmos.structs.nodes import Nodes
         "individual_id",
         "parent_id",
         "genome",
+        "controller_order",
+        "controller_connection_index",
+        "founder_lineage_id",
+        "intake_ema",
+        "population_change_ema",
         "next_individual_id",
     ],
 )
@@ -32,7 +38,12 @@ class PopulationState:
     generation: jax.Array
     individual_id: jax.Array
     parent_id: jax.Array
-    genome: jax.Array
+    genome: CPPNGenome
+    controller_order: jax.Array
+    controller_connection_index: jax.Array
+    founder_lineage_id: jax.Array
+    intake_ema: jax.Array
+    population_change_ema: jax.Array
     next_individual_id: jax.Array
 
 
@@ -77,7 +88,10 @@ class EcosystemState:
         "resource_total",
         "population_energy_total",
         "mean_generation",
-        "genome_variance",
+        "action_diversity",
+        "operator_counts",
+        "policy_violation_count",
+        "infrastructure_valid",
         "birth_parent_slots",
         "birth_child_slots",
     ],
@@ -93,7 +107,10 @@ class EcosystemTelemetry:
     resource_total: jax.Array
     population_energy_total: jax.Array
     mean_generation: jax.Array
-    genome_variance: jax.Array
+    action_diversity: jax.Array
+    operator_counts: jax.Array
+    policy_violation_count: jax.Array
+    infrastructure_valid: jax.Array
     # Slot arrays are useful for deterministic replay and spawn initialization.
     birth_parent_slots: jax.Array
     birth_child_slots: jax.Array

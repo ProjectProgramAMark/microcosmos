@@ -1,0 +1,568 @@
+{
+  "attempts": [
+    {
+      "candidate_id": "v2_c00_balanced",
+      "config": {
+        "actuation_power_coefficient": 0.002,
+        "assimilation_efficiency": 0.9,
+        "basal_metabolism": 0.01,
+        "birth_transfer_efficiency": 0.8,
+        "initial_population": 8,
+        "initial_resource_fraction": 1.0,
+        "maturity_age": 50,
+        "maximum_lifespan": 5000,
+        "reproduction_cost": 1.5,
+        "reproduction_threshold": 3.0,
+        "resource_regeneration_rate": 0.03,
+        "uptake_rate": 1.0
+      },
+      "config_hash": "ceab22348b95db80ec8141628e9f7740a8753cf0448573d0a09bfe5eb072ee4d",
+      "elapsed_seconds": 61.05257136300497,
+      "gate": {
+        "condition_counts": {
+          "births": 4,
+          "generation": 3,
+          "natural_deaths": 5,
+          "no_early_extinction": 5,
+          "no_permanent_saturation": 5,
+          "nontrivial_survival": 4,
+          "post_burn_in_births": 4
+        },
+        "integrity_all_worlds": true,
+        "passed": true,
+        "required_worlds": 3
+      },
+      "status": "completed",
+      "worlds": [
+        {
+          "assessment": {
+            "births": 36,
+            "chunk_end_alive": [
+              15,
+              17,
+              19,
+              22,
+              29,
+              26,
+              29,
+              32,
+              32,
+              32,
+              32,
+              32
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 4,
+            "natural_deaths": 17,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              36
+            ],
+            "policy_violation_count": 0,
+            "steps": 6000,
+            "steps_at_capacity": 2644
+          },
+          "assessment_births": 36,
+          "assessment_capacity_fraction": 0.44066666666666665,
+          "burn_in": {
+            "births": 5,
+            "chunk_end_alive": [
+              9,
+              9,
+              11,
+              13
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 2,
+            "natural_deaths": 0,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              5
+            ],
+            "policy_violation_count": 0,
+            "steps": 2000,
+            "steps_at_capacity": 0
+          },
+          "burn_in_final_alive": 13,
+          "events_valid": true,
+          "final_alive": 32,
+          "finite": true,
+          "fixed_mixed_accounting_valid": true,
+          "identity_valid": true,
+          "infrastructure_valid": true,
+          "maximum_generation": 4,
+          "policy_violation_count": 0,
+          "seed": 11,
+          "total_births": 41,
+          "total_natural_deaths": 17
+        },
+        {
+          "assessment": {
+            "births": 0,
+            "chunk_end_alive": [
+              8,
+              8,
+              8,
+              8,
+              8,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 0,
+            "natural_deaths": 8,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "policy_violation_count": 0,
+            "steps": 6000,
+            "steps_at_capacity": 0
+          },
+          "assessment_births": 0,
+          "assessment_capacity_fraction": 0.0,
+          "burn_in": {
+            "births": 0,
+            "chunk_end_alive": [
+              8,
+              8,
+              8,
+              8
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 0,
+            "natural_deaths": 0,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "policy_violation_count": 0,
+            "steps": 2000,
+            "steps_at_capacity": 0
+          },
+          "burn_in_final_alive": 8,
+          "events_valid": true,
+          "final_alive": 0,
+          "finite": true,
+          "fixed_mixed_accounting_valid": true,
+          "identity_valid": true,
+          "infrastructure_valid": true,
+          "maximum_generation": 0,
+          "policy_violation_count": 0,
+          "seed": 23,
+          "total_births": 0,
+          "total_natural_deaths": 8
+        },
+        {
+          "assessment": {
+            "births": 37,
+            "chunk_end_alive": [
+              18,
+              19,
+              22,
+              27,
+              32,
+              30,
+              32,
+              32,
+              32,
+              32,
+              32,
+              32
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 3,
+            "natural_deaths": 19,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              37
+            ],
+            "policy_violation_count": 0,
+            "steps": 6000,
+            "steps_at_capacity": 3591
+          },
+          "assessment_births": 37,
+          "assessment_capacity_fraction": 0.5985,
+          "burn_in": {
+            "births": 6,
+            "chunk_end_alive": [
+              10,
+              11,
+              12,
+              14
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 1,
+            "natural_deaths": 0,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              6
+            ],
+            "policy_violation_count": 0,
+            "steps": 2000,
+            "steps_at_capacity": 0
+          },
+          "burn_in_final_alive": 14,
+          "events_valid": true,
+          "final_alive": 32,
+          "finite": true,
+          "fixed_mixed_accounting_valid": true,
+          "identity_valid": true,
+          "infrastructure_valid": true,
+          "maximum_generation": 3,
+          "policy_violation_count": 0,
+          "seed": 37,
+          "total_births": 43,
+          "total_natural_deaths": 19
+        },
+        {
+          "assessment": {
+            "births": 6,
+            "chunk_end_alive": [
+              11,
+              12,
+              12,
+              12,
+              12,
+              5,
+              6,
+              6,
+              6,
+              6,
+              5,
+              4
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 2,
+            "natural_deaths": 12,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              6
+            ],
+            "policy_violation_count": 0,
+            "steps": 6000,
+            "steps_at_capacity": 0
+          },
+          "assessment_births": 6,
+          "assessment_capacity_fraction": 0.0,
+          "burn_in": {
+            "births": 2,
+            "chunk_end_alive": [
+              8,
+              9,
+              10,
+              10
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 1,
+            "natural_deaths": 0,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              2
+            ],
+            "policy_violation_count": 0,
+            "steps": 2000,
+            "steps_at_capacity": 0
+          },
+          "burn_in_final_alive": 10,
+          "events_valid": true,
+          "final_alive": 4,
+          "finite": true,
+          "fixed_mixed_accounting_valid": true,
+          "identity_valid": true,
+          "infrastructure_valid": true,
+          "maximum_generation": 2,
+          "policy_violation_count": 0,
+          "seed": 53,
+          "total_births": 8,
+          "total_natural_deaths": 12
+        },
+        {
+          "assessment": {
+            "births": 30,
+            "chunk_end_alive": [
+              12,
+              14,
+              15,
+              16,
+              18,
+              12,
+              13,
+              14,
+              18,
+              21,
+              26,
+              27
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 4,
+            "natural_deaths": 14,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              30
+            ],
+            "policy_violation_count": 0,
+            "steps": 6000,
+            "steps_at_capacity": 0
+          },
+          "assessment_births": 30,
+          "assessment_capacity_fraction": 0.0,
+          "burn_in": {
+            "births": 3,
+            "chunk_end_alive": [
+              9,
+              9,
+              9,
+              11
+            ],
+            "events_valid": true,
+            "finite": true,
+            "identity_valid": true,
+            "infrastructure_valid": true,
+            "maximum_generation": 1,
+            "natural_deaths": 0,
+            "operator_counts": [
+              0,
+              0,
+              0,
+              3
+            ],
+            "policy_violation_count": 0,
+            "steps": 2000,
+            "steps_at_capacity": 0
+          },
+          "burn_in_final_alive": 11,
+          "events_valid": true,
+          "final_alive": 27,
+          "finite": true,
+          "fixed_mixed_accounting_valid": true,
+          "identity_valid": true,
+          "infrastructure_valid": true,
+          "maximum_generation": 4,
+          "policy_violation_count": 0,
+          "seed": 71,
+          "total_births": 33,
+          "total_natural_deaths": 14
+        }
+      ]
+    }
+  ],
+  "phase": "B_viability_calibration",
+  "protocol": {
+    "assessment_chunks": 12,
+    "burn_in_chunks": 4,
+    "calibration_panel_version": 2,
+    "candidate_order": [
+      {
+        "candidate_id": "v2_c00_balanced",
+        "config": {
+          "actuation_power_coefficient": 0.002,
+          "assimilation_efficiency": 0.9,
+          "basal_metabolism": 0.01,
+          "birth_transfer_efficiency": 0.8,
+          "initial_population": 8,
+          "initial_resource_fraction": 1.0,
+          "maturity_age": 50,
+          "maximum_lifespan": 5000,
+          "reproduction_cost": 1.5,
+          "reproduction_threshold": 3.0,
+          "resource_regeneration_rate": 0.03,
+          "uptake_rate": 1.0
+        },
+        "config_hash": "ceab22348b95db80ec8141628e9f7740a8753cf0448573d0a09bfe5eb072ee4d"
+      },
+      {
+        "candidate_id": "v2_c01_lower_birth_cost",
+        "config": {
+          "actuation_power_coefficient": 0.002,
+          "assimilation_efficiency": 0.9,
+          "basal_metabolism": 0.01,
+          "birth_transfer_efficiency": 0.8,
+          "initial_population": 8,
+          "initial_resource_fraction": 1.0,
+          "maturity_age": 50,
+          "maximum_lifespan": 5000,
+          "reproduction_cost": 1.25,
+          "reproduction_threshold": 2.5,
+          "resource_regeneration_rate": 0.03,
+          "uptake_rate": 1.0
+        },
+        "config_hash": "4cc41dfa66218e45af9da6bc358877a1d23c62c9b49c87a2d0a5e4115e090465"
+      },
+      {
+        "candidate_id": "v2_c02_larger_child_endowment",
+        "config": {
+          "actuation_power_coefficient": 0.002,
+          "assimilation_efficiency": 0.9,
+          "basal_metabolism": 0.01,
+          "birth_transfer_efficiency": 1.0,
+          "initial_population": 8,
+          "initial_resource_fraction": 1.0,
+          "maturity_age": 50,
+          "maximum_lifespan": 5000,
+          "reproduction_cost": 1.25,
+          "reproduction_threshold": 2.5,
+          "resource_regeneration_rate": 0.03,
+          "uptake_rate": 1.0
+        },
+        "config_hash": "0556a4f098ba15b33e19044b0fb1717259c52493195e3df89345ef265a0cdc8b"
+      },
+      {
+        "candidate_id": "v2_c03_more_regeneration",
+        "config": {
+          "actuation_power_coefficient": 0.002,
+          "assimilation_efficiency": 0.9,
+          "basal_metabolism": 0.01,
+          "birth_transfer_efficiency": 1.0,
+          "initial_population": 8,
+          "initial_resource_fraction": 1.0,
+          "maturity_age": 50,
+          "maximum_lifespan": 5000,
+          "reproduction_cost": 1.25,
+          "reproduction_threshold": 2.5,
+          "resource_regeneration_rate": 0.05,
+          "uptake_rate": 1.0
+        },
+        "config_hash": "c6824b426d78643b6feb4ebe4d655c8ecd0cbfcc7c0a9dc578570a7094c8dcd9"
+      },
+      {
+        "candidate_id": "v2_c04_higher_density",
+        "config": {
+          "actuation_power_coefficient": 0.002,
+          "assimilation_efficiency": 0.9,
+          "basal_metabolism": 0.01,
+          "birth_transfer_efficiency": 1.0,
+          "initial_population": 12,
+          "initial_resource_fraction": 1.0,
+          "maturity_age": 50,
+          "maximum_lifespan": 5000,
+          "reproduction_cost": 1.25,
+          "reproduction_threshold": 2.5,
+          "resource_regeneration_rate": 0.05,
+          "uptake_rate": 1.0
+        },
+        "config_hash": "ae6386b08721fc1a288194679274785b99e16298b06b00e52320f684ee1900c1"
+      }
+    ],
+    "chunk_steps": 500,
+    "fixed_ecology": {
+      "initial_energy": 2.0,
+      "max_bending_delta": 0.35,
+      "offspring_policy": "fixed_mixed_policy",
+      "placement_candidates": 16
+    },
+    "gate": {
+      "aggregation": "strict-majority per ecological condition; all worlds for integrity",
+      "births": ">=1 total birth in a strict majority of worlds",
+      "early_extinction": "burn-in ends nonempty in a strict majority of worlds",
+      "generation": ">=3 in a strict majority of worlds",
+      "integrity": "finite, identity-valid, event-valid, infrastructure-valid, zero policy violations, and exact fixed-mixed operator accounting in every world",
+      "natural_deaths": ">=1 natural death in a strict majority of worlds",
+      "nontrivial_survival": ">=2 organisms alive at the end in a strict majority of worlds",
+      "permanent_saturation": "assessment fraction at capacity is below 0.8 in a strict majority of worlds",
+      "post_burn_in_births": ">=2 assessment births in a strict majority of worlds"
+    },
+    "horizon": 8000,
+    "mode": "production",
+    "physics": {
+      "dt": 0.01,
+      "fluid_enabled": true,
+      "solver": "PBD_SCHEME",
+      "steric_enabled": false
+    },
+    "previous_failed_protocol_hash": "67f4f184e500ac0906f342a86d4c960a68fc400d02ac20ae0070e7894f7c4441",
+    "resource_geometry": {
+      "capacity": 1.0,
+      "diffusion_rate": 0.0,
+      "patch_center": [
+        48.0,
+        32.0
+      ],
+      "patch_radius": 12.0
+    },
+    "seeds": [
+      11,
+      23,
+      37,
+      53,
+      71
+    ],
+    "shape": {
+      "capacity": 32,
+      "grid_shape": [
+        64,
+        64
+      ],
+      "nodes_per_creature": 8
+    }
+  },
+  "protocol_hash": "1e17da0c275e31e3a1de644f5209938cff7bd5338316cab038a7c8e4978fc447",
+  "schema_version": 1,
+  "selected_candidate_id": "v2_c00_balanced",
+  "selected_config": {
+    "actuation_power_coefficient": 0.002,
+    "assimilation_efficiency": 0.9,
+    "basal_metabolism": 0.01,
+    "birth_transfer_efficiency": 0.8,
+    "initial_population": 8,
+    "initial_resource_fraction": 1.0,
+    "maturity_age": 50,
+    "maximum_lifespan": 5000,
+    "reproduction_cost": 1.5,
+    "reproduction_threshold": 3.0,
+    "resource_regeneration_rate": 0.03,
+    "uptake_rate": 1.0
+  },
+  "selected_config_hash": "ceab22348b95db80ec8141628e9f7740a8753cf0448573d0a09bfe5eb072ee4d",
+  "status": "selected"
+}
