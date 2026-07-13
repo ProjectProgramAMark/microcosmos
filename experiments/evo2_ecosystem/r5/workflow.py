@@ -40,7 +40,11 @@ from ..episode import (
     simulator_config_sha256,
     simulator_source_sha256,
 )
-from ..founder_artifacts import founder_index_sha256, load_founder_index
+from ..founder_artifacts import (
+    founder_index_sha256,
+    load_founder_artifact,
+    load_founder_index,
+)
 from ..protocol import (
     EventKind,
     ScenarioManifest,
@@ -600,6 +604,26 @@ def _run_founder_gate_worker(
     )
 
 
+def _authenticate_published_founder_bank(bank_directory: Path) -> None:
+    """Verify public founders now and preserve locked holdout boundaries."""
+    index_path = bank_directory / "index.json"
+    index = load_founder_index(index_path, verify_artifacts=False)
+    bank = bank_directory.resolve()
+    for record in index.founders:
+        candidate = bank / record.artifact
+        artifact = candidate.resolve()
+        if bank not in artifact.parents or candidate.is_symlink():
+            raise ValueError("founder artifact escapes the published bank")
+        if record.partition == "training":
+            load_founder_artifact(
+                bank_directory,
+                record,
+                expected_partition="training",
+            )
+        elif not artifact.is_file() or os.access(artifact, os.R_OK):
+            raise ValueError("development and sealed founders must remain unreadable")
+
+
 def run_phase2_founder_gate(
     *,
     world_qualification_path: Path = WORLD_QUALIFICATION_PATH,
@@ -623,9 +647,7 @@ def run_phase2_founder_gate(
             )
         if not (bank_directory / "index.json").is_file():
             raise WorkflowStopped("founder screen did not publish its index")
-        from ..founder_artifacts import load_founder_index
-
-        load_founder_index(bank_directory / "index.json", verify_artifacts=True)
+        _authenticate_published_founder_bank(bank_directory)
     except subprocess.CalledProcessError:
         # Worker-launch failures are resumable infrastructure errors, not
         # evidence that the frozen scientific gate failed.
@@ -1154,8 +1176,9 @@ def _holdout_paths(spec: Mapping[str, Any], partition: str) -> tuple[Path, tuple
     for record in index.founders:
         if record.partition != partition:
             continue
-        artifact = (bank / record.artifact).resolve()
-        if bank not in artifact.parents or artifact.is_symlink():
+        candidate = bank / record.artifact
+        artifact = candidate.resolve()
+        if bank not in artifact.parents or candidate.is_symlink():
             raise ValueError("holdout founder path escapes the frozen founder bank")
         founders.append(artifact)
     if not founders:

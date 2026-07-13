@@ -117,6 +117,40 @@ def test_founder_worker_launch_failure_is_resumable_not_a_scientific_stop(
         )
 
 
+def test_published_founder_authentication_reads_training_but_not_holdouts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records = tuple(
+        SimpleNamespace(partition=partition, artifact=f"{partition}.npz")
+        for partition in ("training", "development", "sealed")
+    )
+    for record in records:
+        _write(tmp_path / record.artifact)
+    observed = []
+    monkeypatch.setattr(
+        workflow,
+        "load_founder_index",
+        lambda path, verify_artifacts: SimpleNamespace(founders=records),
+    )
+    monkeypatch.setattr(
+        workflow,
+        "load_founder_artifact",
+        lambda bank, record, expected_partition: observed.append(
+            (record.partition, expected_partition)
+        ),
+    )
+    monkeypatch.setattr(
+        workflow.os,
+        "access",
+        lambda path, mode: Path(path).name == "training.npz",
+    )
+
+    workflow._authenticate_published_founder_bank(tmp_path)
+
+    assert observed == [("training", "training")]
+
+
 def test_shinka_candidate_shortfall_writes_bound_failure_once(
     tmp_path: Path,
 ) -> None:
