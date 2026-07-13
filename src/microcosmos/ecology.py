@@ -288,6 +288,7 @@ def reproduction_step(
     heredity_contract: str = "legacy",
     died: jax.Array | None = None,
     credit_config: OperatorCreditConfig | None = None,
+    max_births: int | None = None,
 ) -> tuple[PopulationState, dict[str, jax.Array]]:
     """Rank parents/free slots and apply heredity once per actual birth."""
     if heredity_contract not in ("legacy", "r4"):
@@ -297,6 +298,10 @@ def reproduction_step(
     if r4 and (died is None or credit_config is None):
         raise ValueError("r4 reproduction requires died and credit_config")
     capacity = population.alive.shape[0]
+    if max_births is None:
+        max_births = capacity
+    if not isinstance(max_births, int) or isinstance(max_births, bool) or not 0 <= max_births <= capacity:
+        raise ValueError("max_births must be an integer within ecosystem capacity")
     slots = jnp.arange(capacity, dtype=jnp.int32)
     eligible = (
         population.alive
@@ -308,7 +313,9 @@ def reproduction_step(
 
     parent_order = jnp.argsort(jnp.where(eligible, -population.energy, jnp.inf), stable=True).astype(jnp.int32)
     child_order = jnp.argsort(jnp.where(free, slots, capacity), stable=True).astype(jnp.int32)
-    birth_count = jnp.minimum(jnp.sum(eligible), jnp.sum(free)).astype(jnp.int32)
+    birth_count = jnp.minimum(
+        jnp.minimum(jnp.sum(eligible), jnp.sum(free)), max_births
+    ).astype(jnp.int32)
     valid = slots < birth_count
     parent_slots = jnp.where(valid, parent_order, -1)
     child_slots = jnp.where(valid, child_order, -1)
@@ -324,6 +331,12 @@ def reproduction_step(
             valid,
             timestep,
             credit_config,
+        )
+        population_stats = replace(
+            population_stats,
+            operator_success_ema=population.operator_success_ema,
+            operator_usage_ema=population.operator_usage_ema,
+            operator_evidence_ema=population.operator_evidence_ema,
         )
     else:
         resolved_success_count = jnp.zeros(R4_NUM_OPERATORS, dtype=jnp.int32)

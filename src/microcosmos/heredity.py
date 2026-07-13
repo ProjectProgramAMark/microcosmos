@@ -177,6 +177,11 @@ R4OffspringPolicy = Callable[
     R4OffspringResult,
 ]
 
+R4LogitPolicy = Callable[
+    [jax.Array, jax.Array, jax.Array, jax.Array, jax.Array],
+    jax.Array,
+]
+
 
 PARAMETRIC_GENOME = build_tensorneat_genome(
     value_mutation=True,
@@ -365,6 +370,71 @@ def fixed_r4_policy(operator: int) -> R4OffspringPolicy:
 
     def policy(parent_genome, parent_stats, population_stats, mutation_context):
         del parent_stats, population_stats
+        return mutate_cppn_r4(parent_genome, logits, mutation_context)
+
+    return policy
+
+
+def make_r4_offspring_policy(logit_policy: R4LogitPolicy) -> R4OffspringPolicy:
+    """Adapt the public five-array ABI to the trusted six-operator registry.
+
+    The candidate receives only bounded ecological summaries and an opaque
+    sentinel.  Genome bytes and mutation keys remain inside trusted code.
+    """
+
+    def policy(parent_genome, parent_stats, population_stats, mutation_context):
+        safe_genome = jnp.clip(
+            jnp.stack(
+                [parent_stats.node_fraction, parent_stats.connection_fraction]
+            ),
+            0.0,
+            1.0,
+        )
+        safe_parent = jnp.clip(
+            jnp.stack(
+                [
+                    parent_stats.energy_fraction,
+                    parent_stats.intake_ema,
+                    parent_stats.age_fraction,
+                ]
+            ),
+            0.0,
+            1.0,
+        )
+        safe_population = jnp.stack(
+            [
+                jnp.clip(population_stats.alive_fraction, 0.0, 1.0),
+                jnp.clip(population_stats.mean_energy_fraction, 0.0, 1.0),
+                jnp.clip(population_stats.population_change_ema, -1.0, 1.0),
+                jnp.clip(population_stats.birth_rate_ema, 0.0, 1.0),
+                jnp.clip(population_stats.death_rate_ema, 0.0, 1.0),
+                jnp.clip(population_stats.mean_intake_ema, 0.0, 1.0),
+            ]
+        )
+        safe_operator = jnp.clip(
+            jnp.stack(
+                [
+                    population_stats.operator_success_ema,
+                    population_stats.operator_usage_ema,
+                    population_stats.operator_evidence_ema,
+                ]
+            ),
+            0.0,
+            1.0,
+        )
+        logits = jnp.asarray(
+            logit_policy(
+                safe_genome,
+                safe_parent,
+                safe_population,
+                safe_operator,
+                jnp.array(0.0, dtype=jnp.float32),
+            )
+        )
+        if logits.shape != (R4_NUM_OPERATORS,):
+            raise ValueError("r4 candidate logits must have shape (6,)")
+        if logits.dtype != jnp.float32:
+            raise TypeError("r4 candidate logits must have dtype float32")
         return mutate_cppn_r4(parent_genome, logits, mutation_context)
 
     return policy

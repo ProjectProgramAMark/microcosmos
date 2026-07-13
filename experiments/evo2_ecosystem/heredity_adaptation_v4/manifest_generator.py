@@ -120,7 +120,9 @@ def _manifest(partition: str, founders, seeds, multiplier: float) -> ScenarioMan
 
 
 def build_manifest_bundle(founder_index_path: str | Path, multiplier: float) -> R4ManifestBundle:
-    index = load_founder_index(founder_index_path, verify_artifacts=True)
+    # Manifest construction needs authenticated identities and digests, not
+    # development/sealed genome bytes. Those artifacts remain unreadable.
+    index = load_founder_index(founder_index_path, verify_artifacts=False)
     founders = _founders(index)
     training = _manifest("training", founders["training"], TRAINING_SEEDS, multiplier)
     bundle = R4ManifestBundle(
@@ -180,6 +182,10 @@ def publish_manifest_bundle(
             if manifest_from_json_bytes(payload) != manifest:
                 raise RuntimeError("manifest changed during canonical round trip")
             hashes[filename] = digest
+        for filename, _manifest_value in bundle.named():
+            mode = 0o444 if filename.startswith("training_") else 0o000
+            (staging / filename).chmod(mode)
+            (staging / filename.replace(".json", ".sha256")).chmod(mode)
         destination.parent.mkdir(parents=True, exist_ok=True)
         staging.rename(destination)
     except BaseException:

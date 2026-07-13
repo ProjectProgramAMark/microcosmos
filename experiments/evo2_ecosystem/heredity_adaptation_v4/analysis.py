@@ -82,7 +82,11 @@ def extract_lineage_pairs(
         after_ids = np.asarray(after.individual_id)
         for ancestor_id in sorted(set(after_ancestor[after_alive]) - {-1}):
             ancestor_slots = np.flatnonzero(np.asarray(before.alive) & (before_ids == ancestor_id))
-            descendant_slots = np.flatnonzero(after_alive & (after_ancestor == ancestor_id))
+            descendant_slots = np.flatnonzero(
+                after_alive
+                & (after_ancestor == ancestor_id)
+                & (after_ids >= int(before.next_individual_id))
+            )
             if len(ancestor_slots) != 1 or not len(descendant_slots):
                 continue
             descendant_slot = int(descendant_slots[np.argmax(after_ids[descendant_slots])])
@@ -112,7 +116,7 @@ def lineage_ledger(pairs: tuple[LineagePair, ...]) -> list[dict[str, object]]:
     ]
 
 
-def _common_garden_score(genome: CPPNGenome, multiplier: float, seed: int) -> float:
+def _common_garden_runner():
     config = replace(
         SimulatorConfig(),
         max_creatures=1,
@@ -125,11 +129,18 @@ def _common_garden_score(genome: CPPNGenome, multiplier: float, seed: int) -> fl
         heredity_contract="r4",
         credit_chunk_steps=500,
     )
+    compiled = jax.jit(
+        lambda current, scan_keys: run_ecosystem_chunk(env, current, scan_keys)
+    )
+    return env, compiled
+
+
+def _common_garden_score(env, compiled, genome: CPPNGenome, multiplier: float, seed: int) -> float:
     root_key = jax.random.PRNGKey(seed)
     _, state = env.reset(root_key, founder_genome=genome)
     state = replace(state, actuation_cost_multiplier=jnp.asarray(multiplier, dtype=jnp.float32))
     keys = _step_keys(root_key, 0, COMMON_GARDEN_STEPS)
-    _, metrics = jax.jit(lambda current, scan_keys: run_ecosystem_chunk(env, current, scan_keys))(state, keys)
+    _, metrics = compiled(state, keys)
     return float(
         normalized_chunk_productivity(
             metrics.cumulative_reward,
@@ -158,13 +169,14 @@ def founder_bootstrap_interval(observations, *, seed: int = 991_733) -> dict[str
 def common_garden_analysis(pairs: tuple[LineagePair, ...], multiplier: float) -> dict:
     observations = []
     records = []
+    env, compiled = _common_garden_runner()
     for pair in pairs:
         ancestor_scores = [
-            _common_garden_score(pair.ancestor, multiplier, seed)
+            _common_garden_score(env, compiled, pair.ancestor, multiplier, seed)
             for seed in COMMON_GARDEN_SEEDS
         ]
         descendant_scores = [
-            _common_garden_score(pair.descendant, multiplier, seed)
+            _common_garden_score(env, compiled, pair.descendant, multiplier, seed)
             for seed in COMMON_GARDEN_SEEDS
         ]
         delta = float(np.mean(descendant_scores) - np.mean(ancestor_scores))

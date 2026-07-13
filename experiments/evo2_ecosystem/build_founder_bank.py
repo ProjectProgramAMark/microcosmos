@@ -175,7 +175,7 @@ PRODUCTION_SPEC = ScreeningSpec(
 R4_PRODUCTION_SPEC = ScreeningSpec(
     mode="r4_production",
     config=SimulatorConfig(),
-    seeds=(521, 653, 787),
+    seeds=(4_101, 4_102),
     horizon=4_000,
     chunk_steps=500,
     candidate_ranges=(
@@ -330,6 +330,7 @@ def selection_rule_sha256(spec: ScreeningSpec) -> str:
 
 
 def _protocol(spec: ScreeningSpec) -> dict[str, object]:
+    seed_horizons = _screening_horizons(spec)
     return {
         "builder_source_sha256": _sha256(Path(__file__).read_bytes()),
         "candidate_generator": {
@@ -346,6 +347,7 @@ def _protocol(spec: ScreeningSpec) -> dict[str, object]:
         "mode": spec.mode,
         "screening_environment": "uninjured_only",
         "screening_seeds": list(spec.seeds),
+        "screening_seed_horizons": list(seed_horizons),
         "selection_rule": _selection_rule(spec),
         "selection_rule_sha256": selection_rule_sha256(spec),
         "simulator_config": asdict(spec.config),
@@ -408,6 +410,13 @@ def _step_keys(root_key: jax.Array, first_step: int, count: int) -> jax.Array:
     return jax.vmap(lambda step: derive_key(root_key, RNGTag.ENVIRONMENT, step))(steps)
 
 
+def _screening_horizons(spec: ScreeningSpec) -> tuple[int, ...]:
+    """Return the exact pre-event boundary paired with each screening seed."""
+    if spec.mode == "r4_production":
+        return (3_500, 4_000)
+    return (spec.horizon,) * len(spec.seeds)
+
+
 def make_screen_runner(spec: ScreeningSpec) -> CandidateRunner:
     """Build one shared compiled uninjured clone-policy screening runner."""
     env = build_environment(spec.config, clone_policy, horizon=spec.horizon)
@@ -424,11 +433,13 @@ def make_screen_runner(spec: ScreeningSpec) -> CandidateRunner:
             )
 
         seed_results = []
-        for seed in spec.seeds:
+        for seed, screen_horizon in zip(
+            spec.seeds, _screening_horizons(spec), strict=True
+        ):
             root_key = jax.random.PRNGKey(seed)
             _, state = env.reset(root_key, founder_genome=canonical)
             combined = None
-            for first_step in range(0, spec.horizon, spec.chunk_steps):
+            for first_step in range(0, screen_horizon, spec.chunk_steps):
                 keys = _step_keys(root_key, first_step, spec.chunk_steps)
                 state, metrics = compiled_chunk(state, keys)
                 combined = metrics if combined is None else combine_chunk_metrics(combined, metrics)
@@ -450,7 +461,7 @@ def make_screen_runner(spec: ScreeningSpec) -> CandidateRunner:
                 np.asarray(
                     normalized_chunk_productivity(
                         combined.cumulative_reward,
-                        spec.horizon,
+                        screen_horizon,
                         env.dt,
                         state.resource_regeneration_map,
                     )
@@ -554,6 +565,8 @@ def _publish_bank(
     bank_directory: Path,
     selected: dict[str, list[tuple[int, CPPNGenome]]],
     selection_rule_id: str = SELECTION_RULE_ID,
+    *,
+    lock_holdouts: bool = False,
 ) -> tuple[FounderIndex, str]:
     """Publish through the trusted artifact API after all quotas pass."""
     staging = bank_directory.with_name(f".{bank_directory.name}.staging")
@@ -586,6 +599,11 @@ def _publish_bank(
         if index_sha256 != founder_index_sha256(index):
             raise RuntimeError("founder index hash changed during publication")
         load_founder_index(staging / "index.json", verify_artifacts=True)
+        if lock_holdouts:
+            for record in records:
+                mode = 0o444 if record.partition == "training" else 0o000
+                (staging / record.artifact).chmod(mode)
+            (staging / "index.json").chmod(0o444)
         bank_directory.parent.mkdir(parents=True, exist_ok=True)
         staging.rename(bank_directory)
         return index, index_sha256
@@ -718,6 +736,7 @@ def run_founder_bank_builder(
             bank_directory,
             selected,
             spec.selection_rule_id,
+            lock_holdouts=spec.mode == "r4_production",
         )
         record.append(
             {

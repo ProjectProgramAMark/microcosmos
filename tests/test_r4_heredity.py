@@ -3,14 +3,23 @@ from dataclasses import replace
 import jax
 import jax.numpy as jnp
 
-from microcosmos.ecology import OperatorCreditConfig, resolve_operator_credit
+import pytest
+
+from microcosmos.ecology import (
+    OperatorCreditConfig,
+    reproduction_step,
+    resolve_operator_credit,
+)
 from microcosmos.gym import EcosystemEnv, LineTopology
 from microcosmos.heredity import (
     R4_EXPLORATORY_PARAMETRIC,
     R4_STANDARD_PARAMETRIC,
     fixed_r4_policy,
+    make_r4_offspring_policy,
     make_mutation_context,
     mutate_cppn_r4,
+    r4_parent_statistics,
+    r4_population_statistics,
 )
 from microcosmos.cppn import canonical_cppn_genome
 
@@ -107,3 +116,164 @@ def test_actuation_cost_multiplier_changes_energy_not_physical_actuation():
     assert jnp.allclose(normal_after.nodes.position, costly_after.nodes.position)
     assert jnp.allclose(normal_after.nodes.velocity, costly_after.nodes.velocity)
     assert costly_after.population.energy[0] <= normal_after.population.energy[0]
+
+
+def test_r4_public_adapter_exposes_only_bounded_arrays_and_requires_float32():
+    env = _env()
+    _, state = env.reset(jax.random.PRNGKey(0))
+    pop = replace(
+        state.population,
+        age=jnp.where(state.population.alive, 1, state.population.age),
+    )
+    parent = canonical_cppn_genome()
+    parent_stats = r4_parent_statistics(
+        parent,
+        pop.energy[0],
+        pop.intake_ema[0],
+        pop.age[0],
+        env.lifecycle_config.reproduction_threshold,
+        env.lifecycle_config.maximum_lifespan,
+    )
+    population_stats = r4_population_statistics(
+        pop.alive,
+        pop.energy,
+        pop.intake_ema,
+        pop.population_change_ema,
+        env.lifecycle_config.reproduction_threshold,
+        pop.birth_rate_ema,
+        pop.death_rate_ema,
+        pop.operator_success_ema,
+        pop.operator_usage_ema,
+        pop.operator_evidence_ema,
+    )
+    context, _ = make_mutation_context(jax.random.PRNGKey(1), jnp.asarray(9))
+    observed = []
+
+    def candidate(*arrays):
+        observed.append(arrays)
+        return jnp.asarray([-8, -8, 8, -8, -8, -8], dtype=jnp.float32)
+
+    result = make_r4_offspring_policy(candidate)(
+        parent, parent_stats, population_stats, context
+    )
+    assert int(result.operator_index) == R4_STANDARD_PARAMETRIC
+    assert tuple(value.shape for value in observed[0]) == ((2,), (3,), (6,), (3, 6), ())
+    assert all(value.dtype == jnp.float32 for value in observed[0])
+
+    bad = make_r4_offspring_policy(
+        lambda *_: jnp.zeros(6, dtype=jnp.int32)
+    )
+    with pytest.raises(TypeError, match="float32"):
+        bad(parent, parent_stats, population_stats, context)
+
+
+def test_r4_credit_batch_is_invariant_to_slot_permutation():
+    env = _env()
+    _, state = env.reset(jax.random.PRNGKey(0))
+    pop = replace(
+        state.population,
+        alive=jnp.ones(4, dtype=jnp.bool_),
+        birth_operator=jnp.asarray([1, 1, 3, 3], dtype=jnp.int32),
+        birth_step=jnp.asarray([2, 4, 2, 4], dtype=jnp.int32),
+        has_reproduced=jnp.zeros(4, dtype=jnp.bool_),
+    )
+    died = jnp.asarray([False, True, False, True])
+    reproducing = jnp.asarray([0, 2, -1, -1], dtype=jnp.int32)
+    valid = reproducing >= 0
+    config = OperatorCreditConfig(tau_steps=5.0)
+    expected = resolve_operator_credit(pop, died, reproducing, valid, 7, config)
+
+    permutation = jnp.asarray([2, 0, 3, 1])
+    inverse = jnp.argsort(permutation)
+    permuted = jax.tree.map(
+        lambda value: value[permutation]
+        if getattr(value, "ndim", 0) > 0 and value.shape[0] == 4
+        else value,
+        pop,
+    )
+    permuted_died = died[permutation]
+    permuted_reproducing = jnp.where(valid, inverse[jnp.maximum(reproducing, 0)], -1)
+    actual = resolve_operator_credit(
+        permuted, permuted_died, permuted_reproducing, valid, 7, config
+    )
+    assert jnp.allclose(actual[0].operator_success_ema, expected[0].operator_success_ema)
+    assert jnp.allclose(actual[0].operator_evidence_ema, expected[0].operator_evidence_ema)
+    assert jnp.array_equal(actual[1], expected[1])
+    assert jnp.array_equal(actual[2], expected[2])
+
+
+def test_r4_reproduction_can_force_exactly_one_birth():
+    env = _env()
+    _, state = env.reset(jax.random.PRNGKey(0))
+    pop = replace(
+        state.population,
+        age=jnp.where(state.population.alive, 1, state.population.age),
+    )
+    stats = r4_population_statistics(
+        pop.alive,
+        pop.energy,
+        pop.intake_ema,
+        pop.population_change_ema,
+        env.lifecycle_config.reproduction_threshold,
+        pop.birth_rate_ema,
+        pop.death_rate_ema,
+        pop.operator_success_ema,
+        pop.operator_usage_ema,
+        pop.operator_evidence_ema,
+    )
+    updated, events = reproduction_step(
+        jax.random.PRNGKey(5),
+        pop,
+        env.lifecycle_config,
+        fixed_r4_policy(R4_STANDARD_PARAMETRIC),
+        stats,
+        heredity_contract="r4",
+        died=jnp.zeros_like(pop.alive),
+        credit_config=env.credit_config,
+        max_births=1,
+    )
+    assert int(events["birth_count"]) == 1
+    assert int(jnp.sum(updated.alive)) == int(jnp.sum(pop.alive)) + 1
+
+
+def test_r4_birth_policy_sees_credit_resolved_in_the_same_step():
+    env = _env(initial_population=1)
+    _, state = env.reset(jax.random.PRNGKey(0))
+    pop = replace(
+        state.population,
+        age=state.population.age.at[0].set(1),
+        birth_operator=state.population.birth_operator.at[1].set(3),
+        birth_step=state.population.birth_step.at[1].set(0),
+    )
+    stale_stats = r4_population_statistics(
+        pop.alive,
+        pop.energy,
+        pop.intake_ema,
+        pop.population_change_ema,
+        env.lifecycle_config.reproduction_threshold,
+        pop.birth_rate_ema,
+        pop.death_rate_ema,
+        pop.operator_success_ema,
+        pop.operator_usage_ema,
+        pop.operator_evidence_ema,
+    )
+
+    def evidence_policy(parent, parent_stats, population_stats, context):
+        del parent_stats
+        selected = jnp.where(population_stats.operator_evidence_ema[3] > 0, 1, 2)
+        logits = jnp.full(6, -8.0, dtype=jnp.float32).at[selected].set(8.0)
+        return mutate_cppn_r4(parent, logits, context)
+
+    _, events = reproduction_step(
+        jax.random.PRNGKey(8),
+        pop,
+        env.lifecycle_config,
+        evidence_policy,
+        stale_stats,
+        heredity_contract="r4",
+        died=jnp.asarray([False, True, False, False]),
+        credit_config=env.credit_config,
+        max_births=1,
+    )
+    assert events["operator_counts"].tolist() == [0, 1, 0, 0, 0, 0]
+    assert events["resolved_failure_count"].tolist() == [0, 0, 0, 1, 0, 0]

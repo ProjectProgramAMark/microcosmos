@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -17,7 +18,9 @@ from microcosmos.heredity import (
     fixed_r4_policy,
     r4_parent_statistics,
     r4_population_statistics,
+    update_population_change_ema,
 )
+from microcosmos.ecology import reproduction_step
 from microcosmos.rollout import run_ecosystem_chunk
 
 from ..episode import (
@@ -130,23 +133,112 @@ def _state_features(env, state) -> np.ndarray:
     )
 
 
-def _score_action(env, compiled_chunk, state, root_key, repeat_index):
-    repeat_key = jax.random.fold_in(root_key, repeat_index + 91_000)
+def _inject_one_birth(env, state, mutation_key, spawn_key):
+    """Force exactly one imminent birth without advancing the world clock."""
+    pop = state.population
+    lifecycle = env.lifecycle_config
+    population_stats = r4_population_statistics(
+        pop.alive,
+        pop.energy,
+        pop.intake_ema,
+        pop.population_change_ema,
+        lifecycle.reproduction_threshold,
+        pop.birth_rate_ema,
+        pop.death_rate_ema,
+        pop.operator_success_ema,
+        pop.operator_usage_ema,
+        pop.operator_evidence_ema,
+    )
+    start_alive = jnp.sum(pop.alive).astype(jnp.int32)
+    population, events = reproduction_step(
+        mutation_key,
+        pop,
+        lifecycle,
+        env.offspring_policy,
+        population_stats,
+        state.time,
+        heredity_contract="r4",
+        died=jnp.zeros_like(pop.alive),
+        credit_config=env.credit_config,
+        max_births=1,
+    )
+    alive = jnp.sum(population.alive).astype(jnp.int32)
+    population = replace(
+        population,
+        population_change_ema=update_population_change_ema(
+            pop.population_change_ema,
+            alive - start_alive,
+            env.max_creatures,
+        ),
+        birth_rate_ema=(
+            0.9 * population.birth_rate_ema
+            + 0.1 * events["birth_count"].astype(jnp.float32) / env.max_creatures
+        ),
+    )
+    nodes, edges = env._spawn_children(  # noqa: SLF001 - trusted assay boundary
+        spawn_key,
+        state.nodes,
+        state.edges,
+        population,
+        events,
+        state.time,
+    )
+    child_id = events["child_ids"][0]
+    return replace(state, nodes=nodes, edges=edges, population=population), child_id, events["birth_count"]
+
+
+def _continue_target_child(env, state, keys, child_id):
+    """Continue normally while attributing resolution to only one child."""
+
+    def step(carry, key):
+        current, reward_sum, success, failure = carry
+        current_target = current.population.alive & (
+            current.population.individual_id == child_id
+        )
+        _, updated, reward, _, _ = env.step(key, current)
+        updated_target = updated.population.alive & (
+            updated.population.individual_id == child_id
+        )
+        reproduced = jnp.any(
+            updated_target & updated.population.has_reproduced
+        )
+        disappeared = jnp.any(current_target) & ~jnp.any(updated_target)
+        success = success | reproduced
+        failure = failure | (disappeared & ~success)
+        return (updated, reward_sum + reward, success, failure), None
+
+    initial = (
+        state,
+        jnp.zeros((), dtype=state.fields.energy.dtype),
+        jnp.array(False),
+        jnp.array(False),
+    )
+    return jax.lax.scan(step, initial, keys)[0]
+
+
+def _score_action(env, compiled_inject, compiled_continue, state, root_key, repeat_index):
+    # Only the mutation draw varies. Spawn placement and every continuation key
+    # are common random numbers across all actions and repeats.
+    mutation_key = jax.random.fold_in(root_key, repeat_index + 91_000)
+    spawn_key = jax.random.fold_in(root_key, 92_000)
+    injected, child_id, birth_count = compiled_inject(state, mutation_key, spawn_key)
     first = int(state.time)
-    keys = _step_keys(repeat_key, first, ASSESSMENT_STEPS)
-    _, metrics = compiled_chunk(state, keys)
+    keys = _step_keys(root_key, first, ASSESSMENT_STEPS)
+    _, cumulative_reward, success, failure = compiled_continue(
+        injected, keys, child_id
+    )
     score = normalized_chunk_productivity(
-        metrics.cumulative_reward,
+        cumulative_reward,
         ASSESSMENT_STEPS,
         env.dt,
         state.resource_regeneration_map,
     )
-    resolved = metrics.resolved_success_count + metrics.resolved_failure_count
-    return float(score), np.asarray(resolved, dtype=np.int64)
+    resolved = success | failure
+    return float(score), int(resolved), int(birth_count), int(child_id)
 
 
 def collect_opportunity_records(founder_index_path: str | Path, multiplier: float):
-    index = load_founder_index(founder_index_path, verify_artifacts=True)
+    index = load_founder_index(founder_index_path, verify_artifacts=False)
     founders = _founders(index)["training"]
     manifest = _manifest("training", founders, (4_101, 4_102), multiplier)
     founder_genomes = _resolve_manifest_founders(manifest, founder_index_path)
@@ -170,10 +262,21 @@ def collect_opportunity_records(founder_index_path: str | Path, multiplier: floa
         )
         for action in range(R4_NUM_OPERATORS)
     ]
-    action_chunks = [
-        jax.jit(lambda state, keys, env=env: run_ecosystem_chunk(env, state, keys))
+    action_injectors = [
+        jax.jit(
+            lambda state, mutation_key, spawn_key, env=env: _inject_one_birth(
+                env, state, mutation_key, spawn_key
+            )
+        )
         for env in action_envs
     ]
+    # Every forced child then experiences the exact same standard-policy
+    # continuation. The chosen action affects only that child's genome.
+    continue_target = jax.jit(
+        lambda state, keys, child_id: _continue_target_child(
+            base_env, state, keys, child_id
+        )
+    )
     records = []
     shock_worlds = [world for world in manifest.worlds if world.event_kind is EventKind.ACTUATION_COST_SHIFT]
     for world in shock_worlds:
@@ -205,13 +308,22 @@ def collect_opportunity_records(founder_index_path: str | Path, multiplier: floa
         for context, state in (("pre", pre_state), ("post", post_state)):
             action_scores = np.zeros((R4_NUM_OPERATORS, MUTATION_REPEATS), dtype=np.float64)
             resolved = np.zeros((R4_NUM_OPERATORS, MUTATION_REPEATS), dtype=np.int64)
-            for action, (env, chunk) in enumerate(zip(action_envs, action_chunks, strict=True)):
+            child_ids = np.zeros((R4_NUM_OPERATORS, MUTATION_REPEATS), dtype=np.int64)
+            for action, (env, inject) in enumerate(zip(action_envs, action_injectors, strict=True)):
                 for repeat_index in range(MUTATION_REPEATS):
-                    score, outcome_counts = _score_action(
-                        env, chunk, state, root_key, repeat_index
+                    score, outcome, birth_count, child_id = _score_action(
+                        env,
+                        inject,
+                        continue_target,
+                        state,
+                        root_key,
+                        repeat_index,
                     )
+                    if birth_count != 1:
+                        raise RuntimeError("opportunity assay did not inject exactly one birth")
                     action_scores[action, repeat_index] = score
-                    resolved[action, repeat_index] = outcome_counts[action]
+                    resolved[action, repeat_index] = outcome
+                    child_ids[action, repeat_index] = child_id
             records.append(
                 {
                     "founder_id": world.founder_id,
@@ -220,6 +332,7 @@ def collect_opportunity_records(founder_index_path: str | Path, multiplier: floa
                     "features": _state_features(base_env, state).tolist(),
                     "action_scores": action_scores.tolist(),
                     "resolved": resolved.tolist(),
+                    "target_child_ids": child_ids.tolist(),
                 }
             )
     return records
@@ -232,6 +345,7 @@ def crossfit_opportunity(records) -> dict:
     contexts = np.asarray([record["context"] for record in records])
     held_effects = []
     selected_rules = []
+    realized_actions: set[int] = set()
     for held in sorted(set(founders)):
         train = founders != held
         test = ~train
@@ -242,6 +356,8 @@ def crossfit_opportunity(records) -> dict:
                 low = features[:, feature] < threshold
                 for action_low in range(1, R4_NUM_OPERATORS):
                     for action_high in range(1, R4_NUM_OPERATORS):
+                        if action_low == action_high:
+                            continue
                         chosen = np.where(low, action_low, action_high)
                         train_reward = np.mean(rewards[np.arange(len(records))[train], chosen[train]])
                         key = (train_reward, -feature, -threshold, -action_low, -action_high)
@@ -249,6 +365,7 @@ def crossfit_opportunity(records) -> dict:
                             best = (key, feature, threshold, action_low, action_high, best_fixed)
         _, feature, threshold, action_low, action_high, best_fixed = best
         chosen = np.where(features[test, feature] < threshold, action_low, action_high)
+        realized_actions.update(int(action) for action in chosen)
         selected = rewards[np.arange(len(records))[test], chosen]
         baseline = rewards[test, best_fixed]
         effects = selected - baseline
@@ -271,11 +388,7 @@ def crossfit_opportunity(records) -> dict:
     rng = np.random.default_rng(882_341)
     samples = rng.choice(founder_means, size=(BOOTSTRAP_REPLICATES, len(founder_means)), replace=True)
     lower = float(np.quantile(np.mean(samples, axis=1), 0.025))
-    exercised = {
-        action
-        for rule in selected_rules
-        for action in (rule["action_low"], rule["action_high"])
-    }
+    exercised = realized_actions
     resolved = np.asarray([record["resolved"] for record in records], dtype=np.int64)
     pre_resolved = np.sum(resolved[contexts == "pre"], axis=(0, 2))
     post_resolved = np.sum(resolved[contexts == "post"], axis=(0, 2))

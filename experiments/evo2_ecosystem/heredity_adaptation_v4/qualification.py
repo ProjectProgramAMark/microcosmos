@@ -114,7 +114,7 @@ def _observable_stress(episodes, reproduction_threshold: float) -> tuple[float, 
 
 
 def qualify_multiplier(founder_index_path: str | Path, multiplier: float) -> dict:
-    index = load_founder_index(founder_index_path, verify_artifacts=True)
+    index = load_founder_index(founder_index_path, verify_artifacts=False)
     founders = _founders(index)["training"]
     manifest = _manifest("training", founders, (4_101, 4_102), multiplier)
     config = SimulatorConfig()
@@ -208,7 +208,7 @@ def run_qualification(founder_index_path: str | Path) -> dict:
         if result["passed"]:
             selected = multiplier
             break
-    index = load_founder_index(founder_index_path, verify_artifacts=True)
+    index = load_founder_index(founder_index_path, verify_artifacts=False)
     return {
         "schema_version": 1,
         "status": "qualified" if selected is not None else "stop_no_qualified_multiplier",

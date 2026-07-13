@@ -507,7 +507,7 @@ def _run_world(
 
 def run_world_scenario(
     config: SimulatorConfig,
-    offspring_policy: OffspringPolicy,
+    offspring_policy: OffspringPolicy | R4OffspringPolicy,
     world: WorldScenario,
     *,
     horizon: int,
@@ -515,6 +515,7 @@ def run_world_scenario(
     capture_finalist: bool = False,
     founder_index_path: str | Path | None = None,
     founder_partition: str | None = None,
+    heredity_contract: str = "legacy",
 ) -> EpisodeResult:
     """Evaluate one world, resolving declared founders through a trusted index.
 
@@ -526,6 +527,8 @@ def run_world_scenario(
         raise ValueError("world must be a WorldScenario")
     if not isinstance(capture_finalist, bool):
         raise ValueError("capture_finalist must be a bool")
+    if heredity_contract not in ("legacy", "r4"):
+        raise ValueError("heredity_contract must be 'legacy' or 'r4'")
     if not isinstance(horizon, int) or isinstance(horizon, bool) or horizon <= 0:
         raise ValueError("horizon must be a positive integer")
     if not isinstance(chunk_steps, int) or isinstance(chunk_steps, bool) or chunk_steps <= 0:
@@ -543,7 +546,7 @@ def run_world_scenario(
         config,
         offspring_policy,
         horizon=horizon,
-        heredity_contract=("r4" if world.event_kind is EventKind.ACTUATION_COST_SHIFT else "legacy"),
+        heredity_contract=heredity_contract,
         credit_chunk_steps=chunk_steps,
     )
     compiled_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(env, state, keys))
