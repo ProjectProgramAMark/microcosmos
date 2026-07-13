@@ -13,11 +13,17 @@ from microcosmos.cppn import (
 from microcosmos.heredity import (
     CLONE,
     NUM_OPERATORS,
+    R4_CLONE,
+    R4_NUM_OPERATORS,
     OffspringPolicy,
     ParentStats,
     PopulationStats,
+    R4OffspringPolicy,
+    R4ParentStats,
+    R4PopulationStats,
     make_mutation_context,
     parent_statistics,
+    r4_parent_statistics,
 )
 from microcosmos.rng import RNGTag, derive_key
 from microcosmos.structs.population import PopulationState
@@ -84,6 +90,97 @@ class LifecycleConfig:
     @property
     def child_initial_energy(self) -> float:
         return self.reproduction_cost * self.birth_transfer_efficiency
+
+
+@dataclass(frozen=True)
+class OperatorCreditConfig:
+    """Frozen order-independent r4 offspring-credit update constants."""
+
+    tau_steps: float
+    outcome_alpha: float = 0.10
+    usage_alpha: float = 0.05
+    evidence_alpha: float = 0.10
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.tau_steps) or self.tau_steps <= 0.0:
+            raise ValueError("tau_steps must be finite and positive")
+        for name, value in (
+            ("outcome_alpha", self.outcome_alpha),
+            ("usage_alpha", self.usage_alpha),
+            ("evidence_alpha", self.evidence_alpha),
+        ):
+            if not math.isfinite(value) or not 0.0 < value <= 1.0:
+                raise ValueError(f"{name} must be within (0, 1]")
+
+
+def _batched_ema(
+    previous: jax.Array,
+    count: jax.Array,
+    value_sum: jax.Array,
+    alpha: float,
+) -> jax.Array:
+    """Apply repeated identical-alpha observations without order dependence."""
+    count_f = count.astype(previous.dtype)
+    weight = 1.0 - (1.0 - alpha) ** count_f
+    mean = value_sum / jnp.maximum(count_f, 1.0)
+    return jnp.where(count > 0, (1.0 - weight) * previous + weight * mean, previous)
+
+
+def resolve_operator_credit(
+    population: PopulationState,
+    died: jax.Array,
+    reproducing_parent_slots: jax.Array,
+    reproducing_parent_valid: jax.Array,
+    timestep: int | jax.Array,
+    config: OperatorCreditConfig,
+) -> tuple[PopulationState, jax.Array, jax.Array, jax.Array]:
+    """Resolve first-reproduction successes and pre-reproduction deaths."""
+    capacity = population.alive.shape[0]
+    reproducing = jnp.zeros(capacity, dtype=jnp.bool_).at[
+        jnp.where(reproducing_parent_valid, reproducing_parent_slots, capacity)
+    ].set(reproducing_parent_valid, mode="drop")
+    attributed = (population.birth_operator >= 0) & (population.birth_operator < R4_NUM_OPERATORS)
+    unresolved = attributed & ~population.has_reproduced
+    succeeded = reproducing & unresolved
+    failed = died & unresolved
+    resolved = succeeded | failed
+    operator_safe = jnp.clip(population.birth_operator, 0, R4_NUM_OPERATORS - 1)
+    one_hot = jax.nn.one_hot(operator_safe, R4_NUM_OPERATORS, dtype=jnp.float32)
+    success_counts = jnp.sum(one_hot * succeeded[:, None], axis=0).astype(jnp.int32)
+    failure_counts = jnp.sum(one_hot * failed[:, None], axis=0).astype(jnp.int32)
+    distinct_success_counts = jnp.sum(
+        one_hot * (succeeded & population.genome_changed_from_parent)[:, None], axis=0
+    ).astype(jnp.int32)
+    resolved_counts = success_counts + failure_counts
+    delay = jnp.maximum(
+        jnp.asarray(timestep, dtype=jnp.float32) - population.birth_step.astype(jnp.float32),
+        0.0,
+    )
+    outcomes = jnp.where(succeeded, jnp.exp(-delay / config.tau_steps), 0.0)
+    outcome_sums = jnp.sum(one_hot * outcomes[:, None] * resolved[:, None], axis=0)
+    success_ema = _batched_ema(
+        population.operator_success_ema,
+        resolved_counts,
+        outcome_sums,
+        config.outcome_alpha,
+    )
+    evidence_ema = _batched_ema(
+        population.operator_evidence_ema,
+        resolved_counts,
+        resolved_counts.astype(jnp.float32),
+        config.evidence_alpha,
+    )
+    return (
+        replace(
+            population,
+            has_reproduced=population.has_reproduced | succeeded,
+            operator_success_ema=success_ema,
+            operator_evidence_ema=evidence_ema,
+        ),
+        success_counts,
+        failure_counts,
+        distinct_success_counts,
+    )
 
 
 def sample_grid_nearest(field: jax.Array, positions: jax.Array) -> jax.Array:
@@ -184,11 +281,21 @@ def reproduction_step(
     key: jax.Array,
     population: PopulationState,
     lifecycle: LifecycleConfig,
-    offspring_policy: OffspringPolicy,
-    population_stats: PopulationStats,
+    offspring_policy: OffspringPolicy | R4OffspringPolicy,
+    population_stats: PopulationStats | R4PopulationStats,
     timestep: int | jax.Array = 0,
+    *,
+    heredity_contract: str = "legacy",
+    died: jax.Array | None = None,
+    credit_config: OperatorCreditConfig | None = None,
 ) -> tuple[PopulationState, dict[str, jax.Array]]:
     """Rank parents/free slots and apply heredity once per actual birth."""
+    if heredity_contract not in ("legacy", "r4"):
+        raise ValueError("heredity_contract must be 'legacy' or 'r4'")
+    r4 = heredity_contract == "r4"
+    num_operators = R4_NUM_OPERATORS if r4 else NUM_OPERATORS
+    if r4 and (died is None or credit_config is None):
+        raise ValueError("r4 reproduction requires died and credit_config")
     capacity = population.alive.shape[0]
     slots = jnp.arange(capacity, dtype=jnp.int32)
     eligible = (
@@ -209,7 +316,22 @@ def reproduction_step(
     parent_safe = jnp.maximum(parent_slots, 0)
     child_ids_ranked = population.next_individual_id + slots
 
-    initial_operator_counts = jnp.zeros(NUM_OPERATORS, dtype=jnp.int32)
+    if r4:
+        population, resolved_success_count, resolved_failure_count, resolved_distinct_success_count = resolve_operator_credit(
+            population,
+            jnp.asarray(died, dtype=jnp.bool_),
+            parent_slots,
+            valid,
+            timestep,
+            credit_config,
+        )
+    else:
+        resolved_success_count = jnp.zeros(R4_NUM_OPERATORS, dtype=jnp.int32)
+        resolved_failure_count = jnp.zeros(R4_NUM_OPERATORS, dtype=jnp.int32)
+        resolved_distinct_success_count = jnp.zeros(R4_NUM_OPERATORS, dtype=jnp.int32)
+
+    initial_operator_counts = jnp.zeros(num_operators, dtype=jnp.int32)
+    initial_operator_probability_sum = jnp.zeros(num_operators, dtype=jnp.float32)
     initial_policy_violations = jnp.zeros((), dtype=jnp.int32)
     initial_infrastructure_valid = jnp.ones((), dtype=jnp.bool_)
 
@@ -218,6 +340,7 @@ def reproduction_step(
             (
                 current,
                 operator_counts,
+                operator_probability_sum,
                 policy_violation_count,
                 infrastructure_valid,
             ) = loop_carry
@@ -238,12 +361,22 @@ def reproduction_step(
                 population.genome.node_genes[parent_slot],
                 population.genome.connection_genes[parent_slot],
             )
-            stats: ParentStats = parent_statistics(
-                parent_genome,
-                population.energy[parent_slot],
-                population.intake_ema[parent_slot],
-                lifecycle.reproduction_threshold,
-            )
+            if r4:
+                stats: R4ParentStats = r4_parent_statistics(
+                    parent_genome,
+                    population.energy[parent_slot],
+                    population.intake_ema[parent_slot],
+                    population.age[parent_slot],
+                    lifecycle.reproduction_threshold,
+                    lifecycle.maximum_lifespan,
+                )
+            else:
+                stats: ParentStats = parent_statistics(
+                    parent_genome,
+                    population.energy[parent_slot],
+                    population.intake_ema[parent_slot],
+                    lifecycle.reproduction_threshold,
+                )
             proposed = offspring_policy(
                 parent_genome,
                 stats,
@@ -253,14 +386,40 @@ def reproduction_step(
             child_genome, child_order_cache, child_connection_index, graph_valid = transform_and_validate_genome(proposed.genome)
 
             proposed_operator = jnp.asarray(proposed.operator_index, dtype=jnp.int32)
-            operator_in_range = (proposed_operator >= 0) & (proposed_operator < NUM_OPERATORS)
+            operator_in_range = (proposed_operator >= 0) & (proposed_operator < num_operators)
             policy_valid = jnp.asarray(proposed.policy_valid, dtype=jnp.bool_) & operator_in_range
             use_child = policy_valid & context_valid & graph_valid
             actual_operator = jnp.where(
                 use_child,
                 proposed_operator,
-                jnp.asarray(CLONE, dtype=jnp.int32),
+                jnp.asarray(R4_CLONE if r4 else CLONE, dtype=jnp.int32),
             )
+            if r4:
+                proposed_probabilities = jnp.asarray(proposed.selection_probabilities, dtype=jnp.float32)
+                probabilities_valid = (
+                    jnp.asarray(proposed_probabilities.shape == (R4_NUM_OPERATORS,))
+                    & jnp.all(jnp.isfinite(proposed_probabilities))
+                    & jnp.all(proposed_probabilities >= 0.0)
+                    & jnp.isclose(jnp.sum(proposed_probabilities), 1.0, atol=1e-5)
+                )
+                actual_probabilities = jnp.where(
+                    use_child & probabilities_valid,
+                    proposed_probabilities,
+                    jax.nn.one_hot(R4_CLONE, R4_NUM_OPERATORS, dtype=jnp.float32),
+                )
+                policy_valid = policy_valid & probabilities_valid
+                use_child = use_child & probabilities_valid
+                actual_operator = jnp.where(
+                    use_child,
+                    proposed_operator,
+                    jnp.asarray(R4_CLONE, dtype=jnp.int32),
+                )
+            else:
+                actual_probabilities = jax.nn.one_hot(
+                    actual_operator,
+                    NUM_OPERATORS,
+                    dtype=jnp.float32,
+                )
 
             selected_nodes = jnp.where(
                 use_child,
@@ -282,6 +441,18 @@ def reproduction_step(
                 child_connection_index,
                 population.controller_connection_index[parent_slot],
             )
+            nodes_equal = jnp.all(
+                (selected_nodes == parent_genome.node_genes)
+                | (jnp.isnan(selected_nodes) & jnp.isnan(parent_genome.node_genes))
+            )
+            connections_equal = jnp.all(
+                (selected_connections == parent_genome.connection_genes)
+                | (
+                    jnp.isnan(selected_connections)
+                    & jnp.isnan(parent_genome.connection_genes)
+                )
+            )
+            genome_changed = use_child & ~(nodes_equal & connections_equal)
 
             current = replace(
                 current,
@@ -299,13 +470,26 @@ def reproduction_step(
                 controller_connection_index=(current.controller_connection_index.at[child_slot].set(selected_connection_index)),
                 founder_lineage_id=current.founder_lineage_id.at[child_slot].set(population.founder_lineage_id[parent_slot]),
                 intake_ema=current.intake_ema.at[child_slot].set(0.0),
+                birth_operator=current.birth_operator.at[child_slot].set(
+                    jnp.where(r4, actual_operator, -1)
+                ),
+                birth_step=current.birth_step.at[child_slot].set(
+                    jnp.asarray(timestep, dtype=jnp.int32)
+                ),
+                has_reproduced=current.has_reproduced.at[child_slot].set(False),
+                genome_changed_from_parent=current.genome_changed_from_parent.at[child_slot].set(genome_changed),
+                shock_ancestor_id=current.shock_ancestor_id.at[child_slot].set(
+                    population.shock_ancestor_id[parent_slot]
+                ),
             )
             operator_counts = operator_counts.at[actual_operator].add(1)
+            operator_probability_sum = operator_probability_sum + actual_probabilities
             policy_violation_count = policy_violation_count + (~policy_valid).astype(jnp.int32)
             infrastructure_valid = infrastructure_valid & context_valid & graph_valid
             return (
                 current,
                 operator_counts,
+                operator_probability_sum,
                 policy_violation_count,
                 infrastructure_valid,
             )
@@ -315,12 +499,14 @@ def reproduction_step(
     initial_carry = (
         population,
         initial_operator_counts,
+        initial_operator_probability_sum,
         initial_policy_violations,
         initial_infrastructure_valid,
     )
     (
         updated,
         operator_counts,
+        operator_probability_sum,
         policy_violation_count,
         infrastructure_valid,
     ) = jax.lax.cond(
@@ -333,6 +519,19 @@ def reproduction_step(
         updated,
         next_individual_id=population.next_individual_id + birth_count,
     )
+    if r4:
+        usage_weight = 1.0 - (1.0 - credit_config.usage_alpha) ** birth_count.astype(jnp.float32)
+        usage_target = operator_counts.astype(jnp.float32) / jnp.maximum(
+            birth_count.astype(jnp.float32), 1.0
+        )
+        updated = replace(
+            updated,
+            operator_usage_ema=jnp.where(
+                birth_count > 0,
+                (1.0 - usage_weight) * updated.operator_usage_ema + usage_weight * usage_target,
+                updated.operator_usage_ema,
+            ),
+        )
     events = {
         "birth_count": birth_count,
         "parent_slots": parent_slots,
@@ -340,6 +539,17 @@ def reproduction_step(
         "parent_ids": jnp.where(valid, population.individual_id[parent_safe], -1),
         "child_ids": jnp.where(valid, child_ids_ranked, -1),
         "operator_counts": operator_counts,
+        "operator_probability_sum": operator_probability_sum,
+        "resolved_success_count": resolved_success_count,
+        "resolved_failure_count": resolved_failure_count,
+        "distinct_birth_count": jnp.sum(
+            jnp.where(
+                valid,
+                updated.genome_changed_from_parent[jnp.maximum(child_slots, 0)],
+                False,
+            )
+        ).astype(jnp.int32),
+        "resolved_distinct_success_count": resolved_distinct_success_count,
         "policy_violation_count": policy_violation_count,
         "infrastructure_valid": infrastructure_valid,
     }

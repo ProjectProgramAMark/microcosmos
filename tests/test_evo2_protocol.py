@@ -16,11 +16,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from experiments.evo2_ecosystem.manifests import load_bound_manifest  # noqa: E402
 from experiments.evo2_ecosystem.protocol import (  # noqa: E402
     ActuatorInjuryParameters,
+    ActuationCostShiftParameters,
     CONTROLLER_LAYOUT,
     EventKind,
     ScenarioManifest,
     aggregate_candidate_score,
     apply_actuator_injury,
+    apply_actuation_cost_shift,
     apply_dominant_founder_lineage_cull,
     apply_null_event,
     apply_random_bottleneck,
@@ -76,6 +78,17 @@ def _injury_manifest_dict():
         event_parameters={"hinge_gains": [0.2, 1.0, 1.0]},
     )
     value["schema_version"] = 2
+    value["worlds"][0]["founder_id"] = "train-founder-00"
+    value["worlds"][0]["founder_sha256"] = "b" * 64
+    return value
+
+
+def _cost_manifest_dict():
+    value = _manifest_dict(
+        event_kind="actuation_cost_shift",
+        event_parameters={"multiplier": 1.5},
+    )
+    value["schema_version"] = 3
     value["worlds"][0]["founder_id"] = "train-founder-00"
     value["worlds"][0]["founder_sha256"] = "b" * 64
     return value
@@ -318,6 +331,43 @@ def test_actuator_injury_is_an_exact_persistent_world_transform():
 
     with pytest.raises(ValueError, match="exactly match"):
         apply_actuator_injury(state, (0.2,))
+
+
+def test_schema_v3_actuation_cost_shift_is_exact_and_persistent():
+    manifest = manifest_from_dict(_cost_manifest_dict())
+    assert isinstance(manifest.worlds[0].event_parameters, ActuationCostShiftParameters)
+    assert manifest_from_json_bytes(canonical_manifest_bytes(manifest)) == manifest
+
+    _, state = _state(capacity=4)
+    shifted, record = jax.jit(apply_actuation_cost_shift)(state, 1.5)
+    assert int(record.event_code) == 5
+    assert float(shifted.actuation_cost_multiplier) == pytest.approx(1.5)
+    assert jnp.array_equal(shifted.nodes.position, state.nodes.position)
+    assert jax.tree.all(
+        jax.tree.map(
+            lambda first, second: jnp.array_equal(first, second, equal_nan=True),
+            replace(
+                shifted.population,
+                shock_ancestor_id=state.population.shock_ancestor_id,
+            ),
+            state.population,
+        )
+    )
+    assert jnp.array_equal(
+        shifted.population.shock_ancestor_id,
+        jnp.where(state.population.alive, state.population.individual_id, -1),
+    )
+
+
+def test_actuation_cost_shift_requires_schema_v3_and_multiplier_above_one():
+    value = _cost_manifest_dict()
+    value["schema_version"] = 2
+    with pytest.raises(ValueError, match="schema_version 3"):
+        manifest_from_dict(value)
+    value = _cost_manifest_dict()
+    value["worlds"][0]["event_parameters"]["multiplier"] = 1.0
+    with pytest.raises(ValueError, match="exceed one"):
+        manifest_from_dict(value)
 
 
 def test_random_bottleneck_is_identity_keyed_and_slot_order_invariant():

@@ -114,10 +114,11 @@ class ScreeningSpec:
     chunk_steps: int
     candidate_ranges: tuple[CandidateRange, ...]
     gates: ScreeningGates
+    selection_rule_id: str = SELECTION_RULE_ID
 
     def __post_init__(self) -> None:
-        if self.mode not in {"production", "smoke"}:
-            raise ValueError("mode must be 'production' or 'smoke'")
+        if self.mode not in {"production", "r4_production", "smoke"}:
+            raise ValueError("unknown screening mode")
         if not isinstance(self.config, SimulatorConfig):
             raise TypeError("config must be a SimulatorConfig")
         if (
@@ -140,8 +141,10 @@ class ScreeningSpec:
             if item.start != previous_stop:
                 raise ValueError("candidate ranges must be contiguous and disjoint")
             previous_stop = item.stop
-        if tuple(item.required for item in self.candidate_ranges) != (3, 2, 3):
-            raise ValueError("founder bank requires exactly the minimum 3/2/3 panel")
+        required = tuple(item.required for item in self.candidate_ranges)
+        expected_required = (4, 4, 8) if self.mode == "r4_production" else (3, 2, 3)
+        if required != expected_required:
+            raise ValueError(f"founder bank requires exactly the {expected_required} panel")
         if not isinstance(self.gates, ScreeningGates):
             raise TypeError("gates must be ScreeningGates")
 
@@ -167,6 +170,26 @@ PRODUCTION_SPEC = ScreeningSpec(
         minimum_generation=1,
         minimum_productivity=0.01,
     ),
+)
+
+R4_PRODUCTION_SPEC = ScreeningSpec(
+    mode="r4_production",
+    config=SimulatorConfig(),
+    seeds=(521, 653, 787),
+    horizon=4_000,
+    chunk_steps=500,
+    candidate_ranges=(
+        CandidateRange("training", 0, 24, 4),
+        CandidateRange("development", 24, 48, 4),
+        CandidateRange("sealed", 48, 80, 8),
+    ),
+    gates=ScreeningGates(
+        minimum_final_alive=2,
+        minimum_births=2,
+        minimum_generation=1,
+        minimum_productivity=0.01,
+    ),
+    selection_rule_id="ascending_first_pass_healthy_clone_r4_v1",
 )
 
 SMOKE_SPEC = ScreeningSpec(
@@ -296,7 +319,7 @@ def _selection_rule(spec: ScreeningSpec) -> dict[str, object]:
         "candidate_ranges": [asdict(item) for item in spec.candidate_ranges],
         "injury_screening": False,
         "partition_order": list(PARTITION_ORDER),
-        "rule_id": SELECTION_RULE_ID,
+        "rule_id": spec.selection_rule_id,
         "rule_text": ("Within each range fixed before screening, select the first required passing candidates in ascending candidate-index order."),
     }
 
@@ -336,8 +359,9 @@ def validate_execution_contract(spec: ScreeningSpec, *, backend: str) -> None:
         raise TypeError("spec must be a ScreeningSpec")
     if not isinstance(backend, str):
         raise TypeError("backend must be a string")
-    if spec.mode == "production":
-        if spec != PRODUCTION_SPEC:
+    if spec.mode in {"production", "r4_production"}:
+        expected_spec = R4_PRODUCTION_SPEC if spec.mode == "r4_production" else PRODUCTION_SPEC
+        if spec != expected_spec:
             raise RuntimeError("production screening requires the frozen full spec")
         if backend != "gpu":
             raise RuntimeError("production screening requires the JAX GPU backend")
@@ -529,6 +553,7 @@ def _founder_name(partition: str, selected_index: int) -> str:
 def _publish_bank(
     bank_directory: Path,
     selected: dict[str, list[tuple[int, CPPNGenome]]],
+    selection_rule_id: str = SELECTION_RULE_ID,
 ) -> tuple[FounderIndex, str]:
     """Publish through the trusted artifact API after all quotas pass."""
     staging = bank_directory.with_name(f".{bank_directory.name}.staging")
@@ -550,7 +575,7 @@ def _publish_bank(
                         partition=partition,
                         artifact=artifact,
                         digests=digests,
-                        selection_rule=SELECTION_RULE_ID,
+                        selection_rule=selection_rule_id,
                         selection_seed=FOUNDER_PANEL_SEED,
                     )
                 )
@@ -572,13 +597,16 @@ def _publish_bank(
 def run_founder_bank_builder(
     *,
     smoke: bool,
+    r4: bool = False,
     bank_directory: Path,
     screening_record_path: Path,
     runner: CandidateRunner | None = None,
     backend: str | None = None,
 ) -> dict[str, object]:
     """Screen a prepartitioned pool and atomically publish a complete bank."""
-    spec = SMOKE_SPEC if smoke else PRODUCTION_SPEC
+    if smoke and r4:
+        raise ValueError("smoke and r4 modes are mutually exclusive")
+    spec = SMOKE_SPEC if smoke else (R4_PRODUCTION_SPEC if r4 else PRODUCTION_SPEC)
     actual_backend = jax.default_backend()
     if not smoke and (runner is not None or backend is not None):
         raise RuntimeError("production founder screening forbids injected runners and backend overrides")
@@ -646,6 +674,8 @@ def run_founder_bank_builder(
                     partition_selected = selected[assigned_range.partition]
                     if len(partition_selected) < assigned_range.required:
                         partition_selected.append((candidate_index, genome))
+                    if spec.mode == "r4_production" and len(partition_selected) == assigned_range.required:
+                        break
             record.append(
                 {
                     "event": "partition_screening_completed",
@@ -687,6 +717,7 @@ def run_founder_bank_builder(
         index, index_sha256 = _publish_bank(
             bank_directory,
             selected,
+            spec.selection_rule_id,
         )
         record.append(
             {
@@ -718,6 +749,11 @@ def main() -> None:
         help="run the tiny CPU/no-fluid workflow check; never scientific",
     )
     parser.add_argument(
+        "--r4",
+        action="store_true",
+        help="run the frozen 4/4/8 r4 GPU founder screen",
+    )
+    parser.add_argument(
         "--bank-directory",
         type=Path,
         help=("immutable bank destination; production defaults to the planned heredity_adaptation directory, while smoke requires an explicit path"),
@@ -733,13 +769,15 @@ def main() -> None:
     if bank_directory is None:
         if args.smoke:
             parser.error("--smoke requires an explicit --bank-directory")
-        bank_directory = Path(__file__).with_name("founders") / "heredity_adaptation"
+        suffix = "heredity_adaptation_v4" if args.r4 else "heredity_adaptation"
+        bank_directory = Path(__file__).with_name("founders") / suffix
     screening_record = args.screening_record
     if screening_record is None:
         screening_record = bank_directory.with_suffix(".screening.jsonl")
 
     result = run_founder_bank_builder(
         smoke=args.smoke,
+        r4=args.r4,
         bank_directory=bank_directory,
         screening_record_path=screening_record,
     )

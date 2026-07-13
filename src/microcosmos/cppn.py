@@ -47,6 +47,28 @@ NODE_ATTRIBUTE_LOWER_BOUND = -5.0
 NODE_ATTRIBUTE_UPPER_BOUND = 5.0
 
 
+@dataclass(frozen=True)
+class MutationProfile:
+    """Trusted TensorNEAT mutation rates selected by heredity policies."""
+
+    value_rate: float
+    value_power: float
+    replace_rate: float
+    activation_rate: float
+    connection_rate: float
+    node_rate: float
+
+
+STANDARD_MUTATION_PROFILE = MutationProfile(
+    value_rate=0.20,
+    value_power=0.15,
+    replace_rate=0.015,
+    activation_rate=0.10,
+    connection_rate=0.20,
+    node_rate=0.10,
+)
+
+
 @functools.partial(
     jax.tree_util.register_dataclass,
     meta_fields=[],
@@ -64,14 +86,25 @@ def build_tensorneat_genome(
     *,
     value_mutation: bool,
     structural_mutation: bool,
+    mutation_profile: MutationProfile = STANDARD_MUTATION_PROFILE,
 ) -> neat.genome.DefaultGenome:
-    """Build a shape-compatible TensorNEAT genome with frozen mutation rates."""
-    value_rate = 0.20 if value_mutation else 0.0
-    value_power = 0.15 if value_mutation else 0.0
-    replace_rate = 0.015 if value_mutation else 0.0
-    activation_rate = 0.10 if value_mutation else 0.0
-    conn_rate = 0.20 if structural_mutation else 0.0
-    node_rate = 0.10 if structural_mutation else 0.0
+    """Build a shape-compatible genome from an immutable trusted profile."""
+    profile_values = (
+        mutation_profile.value_rate,
+        mutation_profile.value_power,
+        mutation_profile.replace_rate,
+        mutation_profile.activation_rate,
+        mutation_profile.connection_rate,
+        mutation_profile.node_rate,
+    )
+    if any(not math.isfinite(value) or value < 0.0 for value in profile_values):
+        raise ValueError("mutation profile values must be finite and non-negative")
+    value_rate = mutation_profile.value_rate if value_mutation else 0.0
+    value_power = mutation_profile.value_power if value_mutation else 0.0
+    replace_rate = mutation_profile.replace_rate if value_mutation else 0.0
+    activation_rate = mutation_profile.activation_rate if value_mutation else 0.0
+    conn_rate = mutation_profile.connection_rate if structural_mutation else 0.0
+    node_rate = mutation_profile.node_rate if structural_mutation else 0.0
 
     return neat.genome.DefaultGenome(
         num_inputs=NUM_INPUTS,

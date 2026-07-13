@@ -21,7 +21,8 @@ from microcosmos.structs.population import EcosystemState
 
 PILOT_SCHEMA_VERSION = 1
 SCHEMA_VERSION = 2
-SUPPORTED_SCHEMA_VERSIONS = frozenset({PILOT_SCHEMA_VERSION, SCHEMA_VERSION})
+R4_SCHEMA_VERSION = 3
+SUPPORTED_SCHEMA_VERSIONS = frozenset({PILOT_SCHEMA_VERSION, SCHEMA_VERSION, R4_SCHEMA_VERSION})
 CONTROLLER_LAYOUT = "cppn-4x1-15n-30c-v1"
 _PARTITIONS = frozenset({"calibration", "training", "development", "sealed_final"})
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -36,6 +37,7 @@ class EventKind(str, Enum):
     RANDOM_BOTTLENECK = "random_bottleneck"
     DOMINANT_FOUNDER_LINEAGE_CULL = "dominant_founder_lineage_cull"
     ACTUATOR_INJURY = "actuator_injury"
+    ACTUATION_COST_SHIFT = "actuation_cost_shift"
 
 
 @dataclass(frozen=True)
@@ -98,8 +100,20 @@ class ActuatorInjuryParameters:
             raise ValueError("actuator injury must weaken at least one hinge")
 
 
+@dataclass(frozen=True)
+class ActuationCostShiftParameters:
+    """Persistent multiplier applied only to metabolic actuation cost."""
+
+    multiplier: float
+
+    def __post_init__(self) -> None:
+        _require_positive_finite("multiplier", self.multiplier)
+        if self.multiplier <= 1.0:
+            raise ValueError("actuation cost shift multiplier must exceed one")
+
+
 EventParameters: TypeAlias = (
-    NullEventParameters | ResourceRelocationParameters | RandomBottleneckParameters | DominantLineageCullParameters | ActuatorInjuryParameters
+    NullEventParameters | ResourceRelocationParameters | RandomBottleneckParameters | DominantLineageCullParameters | ActuatorInjuryParameters | ActuationCostShiftParameters
 )
 
 
@@ -131,6 +145,7 @@ class WorldScenario:
             EventKind.RANDOM_BOTTLENECK: RandomBottleneckParameters,
             EventKind.DOMINANT_FOUNDER_LINEAGE_CULL: DominantLineageCullParameters,
             EventKind.ACTUATOR_INJURY: ActuatorInjuryParameters,
+            EventKind.ACTUATION_COST_SHIFT: ActuationCostShiftParameters,
         }[self.event_kind]
         if not isinstance(self.event_parameters, expected):
             raise ValueError(f"{self.event_kind.value} requires {expected.__name__}")
@@ -175,8 +190,10 @@ class ScenarioManifest:
             raise ValueError("actuator_injury requires manifest schema_version 2")
         if self.schema_version == PILOT_SCHEMA_VERSION and any(world.founder_id is not None for world in self.worlds):
             raise ValueError("founder metadata requires manifest schema_version 2")
-        if self.schema_version == SCHEMA_VERSION and any(world.founder_id is None for world in self.worlds):
-            raise ValueError("schema_version 2 worlds require founder metadata")
+        if self.schema_version < R4_SCHEMA_VERSION and any(world.event_kind is EventKind.ACTUATION_COST_SHIFT for world in self.worlds):
+            raise ValueError("actuation_cost_shift requires manifest schema_version 3")
+        if self.schema_version >= SCHEMA_VERSION and any(world.founder_id is None for world in self.worlds):
+            raise ValueError("schema_version 2+ worlds require founder metadata")
         scenario_ids = [world.scenario_id for world in self.worlds]
         if len(scenario_ids) != len(set(scenario_ids)):
             raise ValueError("scenario_id values must be unique")
@@ -269,6 +286,9 @@ def _parse_event_parameters(event_kind: EventKind, value: object) -> EventParame
             "dominant-lineage event_parameters",
         )
         return DominantLineageCullParameters(maximum_removal_fraction=value["maximum_removal_fraction"])
+    if event_kind is EventKind.ACTUATION_COST_SHIFT:
+        _require_exact_keys(value, {"multiplier"}, "actuation cost event_parameters")
+        return ActuationCostShiftParameters(multiplier=value["multiplier"])
     _require_exact_keys(value, {"hinge_gains"}, "actuator injury event_parameters")
     hinge_gains = value["hinge_gains"]
     if not isinstance(hinge_gains, list):
@@ -306,7 +326,7 @@ def manifest_from_dict(value: dict[str, Any]) -> ScenarioManifest:
         "event_step",
         "event_parameters",
     }
-    if schema_version == SCHEMA_VERSION:
+    if schema_version >= SCHEMA_VERSION:
         world_keys |= {"founder_id", "founder_sha256"}
     for raw_world in raw_worlds:
         if not isinstance(raw_world, dict):
@@ -366,6 +386,8 @@ def _event_parameters_dict(parameters: EventParameters) -> dict[str, Any]:
         return {"removal_fraction": parameters.removal_fraction}
     if isinstance(parameters, DominantLineageCullParameters):
         return {"maximum_removal_fraction": parameters.maximum_removal_fraction}
+    if isinstance(parameters, ActuationCostShiftParameters):
+        return {"multiplier": parameters.multiplier}
     return {"hinge_gains": list(parameters.hinge_gains)}
 
 
@@ -391,7 +413,7 @@ def _world_dict(world: WorldScenario, schema_version: int) -> dict[str, Any]:
         "event_step": world.event_step,
         "event_parameters": _event_parameters_dict(world.event_parameters),
     }
-    if schema_version == SCHEMA_VERSION:
+    if schema_version >= SCHEMA_VERSION:
         value["founder_id"] = world.founder_id
         value["founder_sha256"] = world.founder_sha256
     return value
@@ -433,6 +455,7 @@ _EVENT_CODE = {
     EventKind.RANDOM_BOTTLENECK: 2,
     EventKind.DOMINANT_FOUNDER_LINEAGE_CULL: 3,
     EventKind.ACTUATOR_INJURY: 4,
+    EventKind.ACTUATION_COST_SHIFT: 5,
 }
 
 
@@ -503,6 +526,27 @@ def apply_actuator_injury(
     return (
         replace(state, actuator_gain=gains),
         _event_record(EventKind.ACTUATOR_INJURY, alive, alive),
+    )
+
+
+def apply_actuation_cost_shift(
+    state: EcosystemState,
+    multiplier: float | jax.Array,
+) -> tuple[EcosystemState, EventRecord]:
+    """Install a persistent metabolic cost shock without changing physics."""
+    multiplier = jnp.asarray(multiplier, dtype=state.actuation_cost_multiplier.dtype)
+    alive = jnp.sum(state.population.alive).astype(jnp.int32)
+    population = replace(
+        state.population,
+        shock_ancestor_id=jnp.where(
+            state.population.alive,
+            state.population.individual_id,
+            -1,
+        ),
+    )
+    return (
+        replace(state, population=population, actuation_cost_multiplier=multiplier),
+        _event_record(EventKind.ACTUATION_COST_SHIFT, alive, alive),
     )
 
 

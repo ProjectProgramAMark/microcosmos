@@ -16,6 +16,7 @@ from microcosmos.cppn import (
 )
 from microcosmos.ecology import (
     LifecycleConfig,
+    OperatorCreditConfig,
     ResourceConfig,
     actuation_energy_by_slot,
     energy_and_death_step,
@@ -26,10 +27,16 @@ from microcosmos.ecology import (
 )
 from microcosmos.graph import compute_bending_pairs, make_fields
 from microcosmos.heredity import (
+    NUM_OPERATORS,
+    R4_NUM_OPERATORS,
     OffspringPolicy,
+    R4OffspringPolicy,
+    R4_MIXED,
     action_diversity,
     fixed_mixed_policy,
+    fixed_r4_policy,
     population_statistics,
+    r4_population_statistics,
     update_intake_ema,
     update_population_change_ema,
 )
@@ -82,9 +89,11 @@ class EcosystemEnv(Environment):
         spawn_separation: float | None = None,
         placement_candidates: int = 16,
         position_margin: float = 1.0,
-        offspring_policy: OffspringPolicy = fixed_mixed_policy,
+        offspring_policy: OffspringPolicy | R4OffspringPolicy | None = None,
         *,
         founder_genome: CPPNGenome | None = None,
+        heredity_contract: str = "legacy",
+        credit_chunk_steps: int = 100,
     ):
         if topology is None:
             topology = LineTopology(num_nodes=8)
@@ -129,6 +138,12 @@ class EcosystemEnv(Environment):
                 raise ValueError(f"{name} must be non-negative")
         if not 0.0 <= assimilation_efficiency <= 1.0:
             raise ValueError("assimilation_efficiency must be within [0, 1]")
+        if heredity_contract not in ("legacy", "r4"):
+            raise ValueError("heredity_contract must be 'legacy' or 'r4'")
+        if not isinstance(credit_chunk_steps, int) or isinstance(credit_chunk_steps, bool) or credit_chunk_steps < 1:
+            raise ValueError("credit_chunk_steps must be a positive integer")
+        if offspring_policy is None:
+            offspring_policy = fixed_r4_policy(R4_MIXED) if heredity_contract == "r4" else fixed_mixed_policy
         if not callable(offspring_policy):
             raise ValueError("offspring_policy must be callable")
         if not isinstance(topology, LineTopology):
@@ -185,6 +200,11 @@ class EcosystemEnv(Environment):
         )
         self.max_bending_delta = float(max_bending_delta)
         self.offspring_policy = offspring_policy
+        self.heredity_contract = heredity_contract
+        self.num_operators = R4_NUM_OPERATORS if heredity_contract == "r4" else NUM_OPERATORS
+        self.credit_config = OperatorCreditConfig(
+            tau_steps=float(maturity_age + 2 * credit_chunk_steps),
+        )
         self.uptake_rate = float(uptake_rate)
         self.assimilation_efficiency = float(assimilation_efficiency)
         self.basal_metabolism = float(basal_metabolism)
@@ -426,6 +446,16 @@ class EcosystemEnv(Environment):
             founder_lineage_id=jnp.where(alive, slot_ids, -1),
             intake_ema=jnp.zeros(self.max_creatures, dtype=jnp.float32),
             population_change_ema=jnp.zeros((), dtype=jnp.float32),
+            birth_rate_ema=jnp.zeros((), dtype=jnp.float32),
+            death_rate_ema=jnp.zeros((), dtype=jnp.float32),
+            birth_operator=jnp.full(self.max_creatures, -1, dtype=jnp.int32),
+            birth_step=jnp.full(self.max_creatures, -1, dtype=jnp.int32),
+            has_reproduced=jnp.zeros(self.max_creatures, dtype=jnp.bool_),
+            genome_changed_from_parent=jnp.zeros(self.max_creatures, dtype=jnp.bool_),
+            shock_ancestor_id=jnp.full(self.max_creatures, -1, dtype=jnp.int32),
+            operator_success_ema=jnp.full(6, 0.5, dtype=jnp.float32),
+            operator_usage_ema=jnp.zeros(6, dtype=jnp.float32),
+            operator_evidence_ema=jnp.zeros(6, dtype=jnp.float32),
             next_individual_id=jnp.array(self.initial_population, dtype=jnp.int32),
         )
         capacity_map, regeneration_map = make_periodic_resource_patch(
@@ -447,6 +477,7 @@ class EcosystemEnv(Environment):
             base_rest_lengths=edges.rest_lengths,
             base_bending_rest_angles=edges.bending_rest_angles,
             actuator_gain=jnp.ones(self._bending_per_slot, dtype=jnp.float32),
+            actuation_cost_multiplier=jnp.ones((), dtype=jnp.float32),
             resource_capacity_map=capacity_map,
             resource_regeneration_map=regeneration_map,
         )
@@ -614,7 +645,7 @@ class EcosystemEnv(Environment):
             self.max_creatures,
             self.actuation_power_coefficient,
             self.dt,
-        )
+        ) * state.actuation_cost_multiplier
         intake_ema = update_intake_ema(
             pop.intake_ema,
             gross_uptake,
@@ -644,13 +675,32 @@ class EcosystemEnv(Environment):
             population.alive,
             self.max_bending_delta,
         )
-        heredity_population_stats = population_statistics(
-            population.alive,
-            transient_population_change,
-            controller_action_diversity,
-            population.founder_lineage_id,
-            self.initial_population,
+        death_count = jnp.sum(died).astype(jnp.int32)
+        death_rate_for_birth = (
+            (1.0 - 0.10) * population.death_rate_ema
+            + 0.10 * death_count.astype(jnp.float32) / self.max_creatures
         )
+        if self.heredity_contract == "r4":
+            heredity_population_stats = r4_population_statistics(
+                population.alive,
+                population.energy,
+                population.intake_ema,
+                transient_population_change,
+                self.lifecycle_config.reproduction_threshold,
+                population.birth_rate_ema,
+                death_rate_for_birth,
+                population.operator_success_ema,
+                population.operator_usage_ema,
+                population.operator_evidence_ema,
+            )
+        else:
+            heredity_population_stats = population_statistics(
+                population.alive,
+                transient_population_change,
+                controller_action_diversity,
+                population.founder_lineage_id,
+                self.initial_population,
+            )
         population, birth_events = reproduction_step(
             key,
             population,
@@ -658,6 +708,9 @@ class EcosystemEnv(Environment):
             self.offspring_policy,
             heredity_population_stats,
             state.time,
+            heredity_contract=self.heredity_contract,
+            died=died if self.heredity_contract == "r4" else None,
+            credit_config=self.credit_config if self.heredity_contract == "r4" else None,
         )
         alive_count = jnp.sum(population.alive).astype(jnp.int32)
         population = replace(
@@ -667,6 +720,11 @@ class EcosystemEnv(Environment):
                 alive_count - start_alive_count,
                 self.max_creatures,
             ),
+            birth_rate_ema=(
+                (1.0 - 0.10) * population.birth_rate_ema
+                + 0.10 * birth_events["birth_count"].astype(jnp.float32) / self.max_creatures
+            ),
+            death_rate_ema=death_rate_for_birth,
         )
         nodes, edges = self._spawn_children(
             key,
@@ -681,7 +739,7 @@ class EcosystemEnv(Environment):
         telemetry = EcosystemTelemetry(
             alive_count=alive_count,
             birth_count=birth_events["birth_count"],
-            death_count=jnp.sum(died).astype(jnp.int32),
+            death_count=death_count,
             birth_parent_ids=birth_events["parent_ids"],
             birth_child_ids=birth_events["child_ids"],
             death_ids=death_ids,
@@ -692,6 +750,11 @@ class EcosystemEnv(Environment):
             birth_parent_slots=birth_events["parent_slots"],
             birth_child_slots=birth_events["child_slots"],
             operator_counts=birth_events["operator_counts"],
+            operator_probability_sum=birth_events["operator_probability_sum"],
+            resolved_success_count=birth_events["resolved_success_count"],
+            resolved_failure_count=birth_events["resolved_failure_count"],
+            distinct_birth_count=birth_events["distinct_birth_count"],
+            resolved_distinct_success_count=birth_events["resolved_distinct_success_count"],
             policy_violation_count=birth_events["policy_violation_count"],
             infrastructure_valid=birth_events["infrastructure_valid"],
         )
@@ -704,6 +767,7 @@ class EcosystemEnv(Environment):
             base_rest_lengths=state.base_rest_lengths,
             base_bending_rest_angles=state.base_bending_rest_angles,
             actuator_gain=state.actuator_gain,
+            actuation_cost_multiplier=state.actuation_cost_multiplier,
             resource_capacity_map=state.resource_capacity_map,
             resource_regeneration_map=state.resource_regeneration_map,
         )
@@ -724,6 +788,11 @@ class EcosystemEnv(Environment):
             "mean_generation": telemetry.mean_generation,
             "action_diversity": telemetry.action_diversity,
             "operator_counts": telemetry.operator_counts,
+            "operator_probability_sum": telemetry.operator_probability_sum,
+            "resolved_success_count": telemetry.resolved_success_count,
+            "resolved_failure_count": telemetry.resolved_failure_count,
+            "distinct_birth_count": telemetry.distinct_birth_count,
+            "resolved_distinct_success_count": telemetry.resolved_distinct_success_count,
             "policy_violation_count": telemetry.policy_violation_count,
             "infrastructure_valid": telemetry.infrastructure_valid,
         }

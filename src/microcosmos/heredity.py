@@ -14,6 +14,7 @@ from microcosmos.cppn import (
     MAX_EXACT_FLOAT32_INTEGER,
     MAX_NODES,
     CPPNGenome,
+    MutationProfile,
     build_tensorneat_genome,
     canonicalize_neutral_attributes,
 )
@@ -24,6 +25,17 @@ PARAMETRIC = 1
 STRUCTURAL = 2
 MIXED = 3
 NUM_OPERATORS = 4
+
+# Versioned r4 action space.  The legacy four-action ABI above remains the
+# default so frozen r1-r3 code can still be replayed without reinterpretation.
+R4_CLONE = 0
+R4_CONSERVATIVE_PARAMETRIC = 1
+R4_STANDARD_PARAMETRIC = 2
+R4_EXPLORATORY_PARAMETRIC = 3
+R4_STRUCTURAL = 4
+R4_MIXED = 5
+R4_NUM_OPERATORS = 6
+R4_LOGIT_LIMIT = 8.0
 
 OPERATOR_SCORE_LIMIT = 20.0
 INTAKE_EMA_ALPHA = 0.05
@@ -69,6 +81,54 @@ class PopulationStats:
 @functools.partial(
     jax.tree_util.register_dataclass,
     meta_fields=[],
+    data_fields=[
+        "energy_fraction",
+        "intake_ema",
+        "age_fraction",
+        "node_fraction",
+        "connection_fraction",
+    ],
+)
+@dataclass
+class R4ParentStats:
+    energy_fraction: jax.Array
+    intake_ema: jax.Array
+    age_fraction: jax.Array
+    node_fraction: jax.Array
+    connection_fraction: jax.Array
+
+
+@functools.partial(
+    jax.tree_util.register_dataclass,
+    meta_fields=[],
+    data_fields=[
+        "alive_fraction",
+        "population_change_ema",
+        "mean_energy_fraction",
+        "birth_rate_ema",
+        "death_rate_ema",
+        "mean_intake_ema",
+        "operator_success_ema",
+        "operator_usage_ema",
+        "operator_evidence_ema",
+    ],
+)
+@dataclass
+class R4PopulationStats:
+    alive_fraction: jax.Array
+    population_change_ema: jax.Array
+    mean_energy_fraction: jax.Array
+    birth_rate_ema: jax.Array
+    death_rate_ema: jax.Array
+    mean_intake_ema: jax.Array
+    operator_success_ema: jax.Array
+    operator_usage_ema: jax.Array
+    operator_evidence_ema: jax.Array
+
+
+@functools.partial(
+    jax.tree_util.register_dataclass,
+    meta_fields=[],
     data_fields=["key", "new_node_key"],
 )
 @dataclass
@@ -89,9 +149,32 @@ class OffspringResult:
     operator_index: jax.Array
 
 
+@functools.partial(
+    jax.tree_util.register_dataclass,
+    meta_fields=[],
+    data_fields=[
+        "genome",
+        "policy_valid",
+        "operator_index",
+        "selection_probabilities",
+    ],
+)
+@dataclass
+class R4OffspringResult:
+    genome: CPPNGenome
+    policy_valid: jax.Array
+    operator_index: jax.Array
+    selection_probabilities: jax.Array
+
+
 OffspringPolicy = Callable[
     [CPPNGenome, ParentStats, PopulationStats, MutationContext],
     OffspringResult,
+]
+
+R4OffspringPolicy = Callable[
+    [CPPNGenome, R4ParentStats, R4PopulationStats, MutationContext],
+    R4OffspringResult,
 ]
 
 
@@ -110,6 +193,21 @@ MIXED_GENOME = build_tensorneat_genome(
     structural_mutation=True,
 )
 MIXED_STATE = MIXED_GENOME.setup(State())
+
+CONSERVATIVE_PROFILE = MutationProfile(0.10, 0.075, 0.0075, 0.05, 0.20, 0.10)
+EXPLORATORY_PROFILE = MutationProfile(0.40, 0.30, 0.03, 0.20, 0.20, 0.10)
+CONSERVATIVE_GENOME = build_tensorneat_genome(
+    value_mutation=True,
+    structural_mutation=False,
+    mutation_profile=CONSERVATIVE_PROFILE,
+)
+CONSERVATIVE_STATE = CONSERVATIVE_GENOME.setup(State())
+EXPLORATORY_GENOME = build_tensorneat_genome(
+    value_mutation=True,
+    structural_mutation=False,
+    mutation_profile=EXPLORATORY_PROFILE,
+)
+EXPLORATORY_STATE = EXPLORATORY_GENOME.setup(State())
 
 
 def make_mutation_context(
@@ -171,6 +269,105 @@ def _mixed_mutation(
         jnp.zeros((3,), dtype=jnp.float32),
     )
     return canonicalize_neutral_attributes(CPPNGenome(nodes, connections))
+
+
+def _profiled_parametric_mutation(
+    parent: CPPNGenome,
+    context: MutationContext,
+    genome,
+    state,
+) -> CPPNGenome:
+    nodes, connections = genome.mutation.mutate_values(
+        state,
+        genome,
+        context.key,
+        parent.node_genes,
+        parent.connection_genes,
+    )
+    return canonicalize_neutral_attributes(CPPNGenome(nodes, connections))
+
+
+def mutate_cppn_r4(
+    parent: CPPNGenome,
+    operator_logits: jax.Array,
+    context: MutationContext,
+) -> R4OffspringResult:
+    """Select one of six trusted operators under the frozen r4 ABI."""
+    operator_logits = jnp.asarray(operator_logits)
+    if operator_logits.shape != (R4_NUM_OPERATORS,):
+        raise ValueError("operator_logits must have shape (6,)")
+    if not jnp.issubdtype(operator_logits.dtype, jnp.floating):
+        raise TypeError("operator_logits must have a floating dtype")
+    policy_valid = jnp.all(jnp.isfinite(operator_logits))
+
+    def valid_policy(_):
+        logits = jnp.clip(operator_logits.astype(jnp.float32), -R4_LOGIT_LIMIT, R4_LOGIT_LIMIT)
+        at_upper = logits == R4_LOGIT_LIMIT
+        exact = (jnp.sum(at_upper) == 1) & jnp.all(jnp.where(at_upper, True, logits == -R4_LOGIT_LIMIT))
+        selection_key, mutation_key = jax.random.split(context.key)
+        categorical = jax.random.categorical(selection_key, logits).astype(jnp.int32)
+        operator = jnp.where(exact, jnp.argmax(logits).astype(jnp.int32), categorical)
+        probabilities = jnp.where(
+            exact,
+            jax.nn.one_hot(operator, R4_NUM_OPERATORS, dtype=jnp.float32),
+            jax.nn.softmax(logits),
+        )
+        mutation_context = MutationContext(
+            key=mutation_key,
+            new_node_key=context.new_node_key,
+        )
+
+        def clone(_):
+            return parent
+
+        def conservative(_):
+            return _profiled_parametric_mutation(
+                parent, mutation_context, CONSERVATIVE_GENOME, CONSERVATIVE_STATE
+            )
+
+        def standard(_):
+            return _parametric_mutation(parent, mutation_context)
+
+        def exploratory(_):
+            return _profiled_parametric_mutation(
+                parent, mutation_context, EXPLORATORY_GENOME, EXPLORATORY_STATE
+            )
+
+        def structural(_):
+            return _structural_mutation(parent, mutation_context)
+
+        def mixed(_):
+            return _mixed_mutation(parent, mutation_context)
+
+        child = jax.lax.switch(
+            operator,
+            (clone, conservative, standard, exploratory, structural, mixed),
+            operand=None,
+        )
+        return R4OffspringResult(child, jnp.array(True), operator, probabilities)
+
+    def invalid_policy(_):
+        return R4OffspringResult(
+            parent,
+            jnp.array(False),
+            jnp.array(R4_CLONE, dtype=jnp.int32),
+            jax.nn.one_hot(R4_CLONE, R4_NUM_OPERATORS, dtype=jnp.float32),
+        )
+
+    return jax.lax.cond(policy_valid, valid_policy, invalid_policy, operand=None)
+
+
+def fixed_r4_policy(operator: int) -> R4OffspringPolicy:
+    """Return a trusted deterministic r4 policy for one registered action."""
+    if not isinstance(operator, int) or isinstance(operator, bool) or not 0 <= operator < R4_NUM_OPERATORS:
+        raise ValueError("operator must index the r4 action registry")
+    logits = jnp.full(R4_NUM_OPERATORS, -R4_LOGIT_LIMIT, dtype=jnp.float32).at[operator].set(R4_LOGIT_LIMIT)
+
+    def policy(parent_genome, parent_stats, population_stats, mutation_context):
+        del parent_stats, population_stats
+        return mutate_cppn_r4(parent_genome, logits, mutation_context)
+
+    return policy
 
 
 def mutate_cppn(
@@ -438,4 +635,56 @@ def population_statistics(
             alive,
             initial_founder_count,
         ),
+    )
+
+
+def r4_parent_statistics(
+    genome: CPPNGenome,
+    energy: jax.Array,
+    intake_ema: jax.Array,
+    age: jax.Array,
+    reproduction_threshold: float,
+    maximum_lifespan: int,
+) -> R4ParentStats:
+    """Compute the five frozen r4 parent/genome summary inputs."""
+    nodes = jnp.sum(~jnp.isnan(genome.node_genes[..., 0]), axis=-1)
+    connections = jnp.sum(~jnp.isnan(genome.connection_genes[..., 0]), axis=-1)
+    return R4ParentStats(
+        energy_fraction=jnp.clip(energy / jnp.maximum(reproduction_threshold, 1e-8), 0.0, 2.0),
+        intake_ema=jnp.clip(intake_ema, 0.0, 1.0),
+        age_fraction=jnp.clip(age.astype(jnp.float32) / max(maximum_lifespan, 1), 0.0, 1.0),
+        node_fraction=nodes.astype(jnp.float32) / MAX_NODES,
+        connection_fraction=connections.astype(jnp.float32) / MAX_CONNECTIONS,
+    )
+
+
+def r4_population_statistics(
+    alive: jax.Array,
+    energy: jax.Array,
+    intake_ema: jax.Array,
+    population_change_for_birth: jax.Array,
+    reproduction_threshold: float,
+    birth_rate_ema: jax.Array,
+    death_rate_ema: jax.Array,
+    operator_success_ema: jax.Array,
+    operator_usage_ema: jax.Array,
+    operator_evidence_ema: jax.Array,
+) -> R4PopulationStats:
+    """Compute the frozen six population and three-by-six credit inputs."""
+    live = alive.astype(jnp.float32)
+    count = jnp.maximum(jnp.sum(live), 1.0)
+    return R4PopulationStats(
+        alive_fraction=jnp.mean(live),
+        population_change_ema=jnp.clip(population_change_for_birth, -1.0, 1.0),
+        mean_energy_fraction=jnp.clip(
+            jnp.sum(energy * live) / count / jnp.maximum(reproduction_threshold, 1e-8),
+            0.0,
+            2.0,
+        ),
+        birth_rate_ema=jnp.clip(birth_rate_ema, 0.0, 1.0),
+        death_rate_ema=jnp.clip(death_rate_ema, 0.0, 1.0),
+        mean_intake_ema=jnp.clip(jnp.sum(intake_ema * live) / count, 0.0, 1.0),
+        operator_success_ema=jnp.clip(operator_success_ema, 0.0, 1.0),
+        operator_usage_ema=jnp.clip(operator_usage_ema, 0.0, 1.0),
+        operator_evidence_ema=jnp.clip(operator_evidence_ema, 0.0, 1.0),
     )

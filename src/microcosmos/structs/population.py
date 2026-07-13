@@ -27,6 +27,16 @@ from microcosmos.structs.nodes import Nodes
         "founder_lineage_id",
         "intake_ema",
         "population_change_ema",
+        "birth_rate_ema",
+        "death_rate_ema",
+        "birth_operator",
+        "birth_step",
+        "has_reproduced",
+        "genome_changed_from_parent",
+        "shock_ancestor_id",
+        "operator_success_ema",
+        "operator_usage_ema",
+        "operator_evidence_ema",
         "next_individual_id",
     ],
 )
@@ -44,6 +54,16 @@ class PopulationState:
     founder_lineage_id: jax.Array
     intake_ema: jax.Array
     population_change_ema: jax.Array
+    birth_rate_ema: jax.Array
+    death_rate_ema: jax.Array
+    birth_operator: jax.Array
+    birth_step: jax.Array
+    has_reproduced: jax.Array
+    genome_changed_from_parent: jax.Array
+    shock_ancestor_id: jax.Array
+    operator_success_ema: jax.Array
+    operator_usage_ema: jax.Array
+    operator_evidence_ema: jax.Array
     next_individual_id: jax.Array
 
 
@@ -59,6 +79,7 @@ class PopulationState:
         "base_rest_lengths",
         "base_bending_rest_angles",
         "actuator_gain",
+        "actuation_cost_multiplier",
         "resource_capacity_map",
         "resource_regeneration_map",
     ],
@@ -73,6 +94,7 @@ class EcosystemState:
     base_rest_lengths: jax.Array
     base_bending_rest_angles: jax.Array
     actuator_gain: jax.Array
+    actuation_cost_multiplier: jax.Array
     resource_capacity_map: jax.Array
     resource_regeneration_map: jax.Array
 
@@ -92,6 +114,11 @@ class EcosystemState:
         "mean_generation",
         "action_diversity",
         "operator_counts",
+        "operator_probability_sum",
+        "resolved_success_count",
+        "resolved_failure_count",
+        "distinct_birth_count",
+        "resolved_distinct_success_count",
         "policy_violation_count",
         "infrastructure_valid",
         "birth_parent_slots",
@@ -111,6 +138,11 @@ class EcosystemTelemetry:
     mean_generation: jax.Array
     action_diversity: jax.Array
     operator_counts: jax.Array
+    operator_probability_sum: jax.Array
+    resolved_success_count: jax.Array
+    resolved_failure_count: jax.Array
+    distinct_birth_count: jax.Array
+    resolved_distinct_success_count: jax.Array
     policy_violation_count: jax.Array
     infrastructure_valid: jax.Array
     # Slot arrays are useful for deterministic replay and spawn initialization.

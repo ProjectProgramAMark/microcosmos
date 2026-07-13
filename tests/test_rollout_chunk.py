@@ -67,8 +67,10 @@ def test_search_chunk_matches_manual_scan_without_returning_history():
     assert metrics.minimum_resource >= -1e-6
     assert metrics.maximum_resource_excess <= 1e-6
     for name, value in vars(metrics).items():
-        if name == "operator_counts":
+        if name in {"operator_counts", "operator_probability_sum"}:
             assert value.shape == (4,)
+        elif name in {"resolved_success_count", "resolved_failure_count", "resolved_distinct_success_count"}:
+            assert value.shape == (6,)
         else:
             assert value.ndim == 0
 

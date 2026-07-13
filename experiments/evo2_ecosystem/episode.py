@@ -14,7 +14,7 @@ import numpy as np
 
 from microcosmos.cppn import CPPNGenome
 from microcosmos.gym import EcosystemEnv, LineTopology
-from microcosmos.heredity import OffspringPolicy
+from microcosmos.heredity import OffspringPolicy, R4OffspringPolicy
 from microcosmos.rng import RNGTag, derive_key
 from microcosmos.rollout import (
     EcosystemChunkMetrics,
@@ -31,6 +31,7 @@ from .founder_artifacts import (
 )
 from .protocol import (
     ActuatorInjuryParameters,
+    ActuationCostShiftParameters,
     DominantLineageCullParameters,
     EventKind,
     EventRecord,
@@ -38,10 +39,12 @@ from .protocol import (
     ResourceRelocationParameters,
     PILOT_SCHEMA_VERSION,
     SCHEMA_VERSION,
+    R4_SCHEMA_VERSION,
     ScenarioManifest,
     WorldScenario,
     aggregate_candidate_score,
     apply_actuator_injury,
+    apply_actuation_cost_shift,
     apply_dominant_founder_lineage_cull,
     apply_null_event,
     apply_random_bottleneck,
@@ -130,9 +133,11 @@ def simulator_source_sha256() -> str:
 
 def build_environment(
     config: SimulatorConfig,
-    offspring_policy: OffspringPolicy,
+    offspring_policy: OffspringPolicy | R4OffspringPolicy,
     *,
     horizon: int,
+    heredity_contract: str = "legacy",
+    credit_chunk_steps: int = 100,
 ) -> EcosystemEnv:
     """Build the fixed simulator while injecting only the heredity policy."""
     solver = PBD_SCHEME if config.fluid_enabled else PBD_SCHEME_NO_FLUID
@@ -169,6 +174,8 @@ def build_environment(
         placement_candidates=config.placement_candidates,
         position_margin=config.position_margin,
         offspring_policy=offspring_policy,
+        heredity_contract=heredity_contract,
+        credit_chunk_steps=credit_chunk_steps,
     )
 
 
@@ -186,6 +193,25 @@ class EpisodeResult:
     birth_count: jax.Array
     natural_death_count: jax.Array
     operator_counts: jax.Array
+    operator_probability_sum: jax.Array
+    pre_selection_probability_sum: jax.Array
+    post_selection_probability_sum: jax.Array
+    pre_selection_probability_count: jax.Array
+    post_selection_probability_count: jax.Array
+    resolved_success_count: jax.Array
+    resolved_failure_count: jax.Array
+    distinct_birth_count: jax.Array
+    resolved_distinct_success_count: jax.Array
+    operator_success_ema: jax.Array
+    operator_usage_ema: jax.Array
+    operator_evidence_ema: jax.Array
+    pre_event_birth_count: jax.Array
+    post_event_birth_count: jax.Array
+    post_event_distinct_birth_count: jax.Array
+    pre_event_resolved_count: jax.Array
+    post_event_resolved_count: jax.Array
+    post_event_resolved_distinct_success_count: jax.Array
+    pre_event_productivity: jax.Array
     finite: jax.Array
     identity_valid: jax.Array
     events_valid: jax.Array
@@ -195,6 +221,7 @@ class EpisodeResult:
     integrity_valid: jax.Array
     event_record: EventRecord
     shock_population: PopulationState | None
+    final_population: PopulationState | None
 
 
 @jax.tree_util.register_dataclass
@@ -207,6 +234,23 @@ class ManifestEvaluation:
     integrity_valid: jax.Array
     repeat_scores: jax.Array
     selected_repeat_index: jax.Array
+
+
+@dataclass(frozen=True)
+class PairedManifestEvaluation:
+    """Coherent candidate-minus-ancestor r4 repeat selected by paired delta."""
+
+    episodes: tuple[EpisodeResult, ...]
+    sham_episodes: tuple[EpisodeResult, ...]
+    ancestor_episodes: tuple[EpisodeResult, ...]
+    candidate_score: jax.Array
+    integrity_valid: jax.Array
+    repeat_scores: jax.Array
+    selected_repeat_index: jax.Array
+    pair_deltas: jax.Array
+    sham_auc_delta: jax.Array
+    shock_auc_delta: jax.Array
+    adaptive_observations: tuple[dict[str, object], ...]
 
 
 CompiledChunk = Callable[
@@ -292,6 +336,12 @@ def _apply_event(
             )
         )
         return apply(state)
+    if world.event_kind is EventKind.ACTUATION_COST_SHIFT:
+        shift = cast(ActuationCostShiftParameters, parameters)
+        apply = jax.jit(
+            lambda current: apply_actuation_cost_shift(current, shift.multiplier)
+        )
+        return apply(state)
     lineage_cull = cast(DominantLineageCullParameters, parameters)
     apply = jax.jit(
         lambda current, key: apply_dominant_founder_lineage_cull(
@@ -367,6 +417,12 @@ def _finish_world(
             for reward in post_rewards
         ]
     )
+    pre_event_productivity = normalized_chunk_productivity(
+        pre_metrics.cumulative_reward,
+        pre_metrics.steps,
+        env.dt,
+        pre_event_state.resource_regeneration_map,
+    )
     final_alive = jnp.sum(state.population.alive).astype(jnp.int32)
     operator_accounting_valid = jnp.sum(metrics.operator_counts) == metrics.birth_count
     integrity_valid = (
@@ -387,6 +443,25 @@ def _finish_world(
         birth_count=metrics.birth_count,
         natural_death_count=metrics.death_count,
         operator_counts=metrics.operator_counts,
+        operator_probability_sum=metrics.operator_probability_sum,
+        pre_selection_probability_sum=pre_metrics.operator_probability_sum,
+        post_selection_probability_sum=post_metrics.operator_probability_sum,
+        pre_selection_probability_count=pre_metrics.birth_count,
+        post_selection_probability_count=post_metrics.birth_count,
+        resolved_success_count=metrics.resolved_success_count,
+        resolved_failure_count=metrics.resolved_failure_count,
+        distinct_birth_count=metrics.distinct_birth_count,
+        resolved_distinct_success_count=metrics.resolved_distinct_success_count,
+        operator_success_ema=state.population.operator_success_ema,
+        operator_usage_ema=state.population.operator_usage_ema,
+        operator_evidence_ema=state.population.operator_evidence_ema,
+        pre_event_birth_count=pre_metrics.birth_count,
+        post_event_birth_count=post_metrics.birth_count,
+        post_event_distinct_birth_count=post_metrics.distinct_birth_count,
+        pre_event_resolved_count=(pre_metrics.resolved_success_count + pre_metrics.resolved_failure_count),
+        post_event_resolved_count=(post_metrics.resolved_success_count + post_metrics.resolved_failure_count),
+        post_event_resolved_distinct_success_count=post_metrics.resolved_distinct_success_count,
+        pre_event_productivity=pre_event_productivity,
         finite=metrics.finite,
         identity_valid=metrics.identity_valid,
         events_valid=metrics.events_valid,
@@ -396,6 +471,7 @@ def _finish_world(
         integrity_valid=integrity_valid,
         event_record=event_record,
         shock_population=shock_population,
+        final_population=state.population if capture_finalist else None,
     )
 
 
@@ -467,6 +543,8 @@ def run_world_scenario(
         config,
         offspring_policy,
         horizon=horizon,
+        heredity_contract=("r4" if world.event_kind is EventKind.ACTUATION_COST_SHIFT else "legacy"),
+        credit_chunk_steps=chunk_steps,
     )
     compiled_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(env, state, keys))
     return _run_world(
@@ -499,7 +577,13 @@ def evaluate_manifest(
     if not isinstance(numerical_repeats, int) or isinstance(numerical_repeats, bool) or numerical_repeats <= 0 or numerical_repeats % 2 == 0:
         raise ValueError("numerical_repeats must be a positive odd integer")
     founders = _resolve_manifest_founders(manifest, founder_index_path)
-    env = build_environment(config, offspring_policy, horizon=manifest.horizon)
+    env = build_environment(
+        config,
+        offspring_policy,
+        horizon=manifest.horizon,
+        heredity_contract=("r4" if manifest.schema_version == R4_SCHEMA_VERSION else "legacy"),
+        credit_chunk_steps=manifest.chunk_steps,
+    )
     compiled_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(env, state, keys))
     evaluations = tuple(
         _evaluate_manifest_once(
@@ -535,8 +619,8 @@ def _validate_manifest_inputs(
         raise ValueError("manifest simulator config hash does not match config")
     if not isinstance(capture_finalists, bool):
         raise ValueError("capture_finalists must be a bool")
-    if manifest.schema_version == SCHEMA_VERSION and founder_index_path is None:
-        raise ValueError("schema_version 2 requires a trusted founder_index_path")
+    if manifest.schema_version >= SCHEMA_VERSION and founder_index_path is None:
+        raise ValueError("schema_version 2+ requires a trusted founder_index_path")
     if (
         manifest.schema_version == PILOT_SCHEMA_VERSION
         and founder_index_path is not None
@@ -691,4 +775,156 @@ def _evaluate_manifest_once(
         integrity_valid=jnp.all(jnp.stack([episode.integrity_valid for episode in completed])),
         repeat_scores=jnp.reshape(candidate_score, (1,)),
         selected_repeat_index=jnp.asarray(0, dtype=jnp.int32),
+    )
+
+
+def _harmonic_mean(first: float, second: float) -> float:
+    return 2.0 * first * second / max(first + second, 1e-8)
+
+
+def _paired_r4_score(
+    manifest: ScenarioManifest,
+    candidate: ManifestEvaluation,
+    ancestor: ManifestEvaluation,
+    regime: str,
+) -> tuple[float, np.ndarray, float, float]:
+    if regime not in ("stable", "punctuated"):
+        raise ValueError("regime must be 'stable' or 'punctuated'")
+    grouped: dict[str, list[int]] = {}
+    for index, world in enumerate(manifest.worlds):
+        grouped.setdefault(world.pair_id, []).append(index)
+    deltas = []
+    sham_deltas = []
+    shock_deltas = []
+    for indices in grouped.values():
+        null_indices = [index for index in indices if manifest.worlds[index].event_kind is EventKind.NULL]
+        shock_indices = [index for index in indices if manifest.worlds[index].event_kind is not EventKind.NULL]
+        if len(null_indices) != 1 or len(shock_indices) != 1:
+            raise ValueError("r4 pairs require exactly one sham and one shock world")
+        null_index, shock_index = null_indices[0], shock_indices[0]
+        candidate_sham = float(candidate.episodes[null_index].primary_score)
+        ancestor_sham = float(ancestor.episodes[null_index].primary_score)
+        candidate_shock = float(candidate.episodes[shock_index].primary_score)
+        ancestor_shock = float(ancestor.episodes[shock_index].primary_score)
+        sham_deltas.append(candidate_sham - ancestor_sham)
+        shock_deltas.append(candidate_shock - ancestor_shock)
+        if regime == "stable":
+            deltas.append(candidate_sham - ancestor_sham)
+        else:
+            deltas.append(
+                _harmonic_mean(candidate_sham, candidate_shock)
+                - _harmonic_mean(ancestor_sham, ancestor_shock)
+            )
+    values = np.sort(np.asarray(deltas, dtype=np.float64))
+    trim = int(np.floor(0.25 * len(values)))
+    central = values[trim : len(values) - trim] if 2 * trim < len(values) else values
+    lower = values[: max(1, int(np.ceil(0.25 * len(values))))]
+    score = 0.8 * float(np.mean(central)) + 0.2 * float(np.mean(lower))
+    return score, np.asarray(deltas, dtype=np.float32), float(np.mean(sham_deltas)), float(np.mean(shock_deltas))
+
+
+def evaluate_manifest_paired_delta(
+    manifest: ScenarioManifest,
+    config: SimulatorConfig,
+    candidate_policy: R4OffspringPolicy,
+    ancestor_policy: R4OffspringPolicy,
+    *,
+    regime: str,
+    founder_index_path: str | Path,
+    numerical_repeats: int = NUMERICAL_REPEATS,
+    capture_finalists: bool = False,
+) -> PairedManifestEvaluation:
+    """Evaluate r4 programs against their exact ancestor within each repeat."""
+    if manifest.schema_version != R4_SCHEMA_VERSION:
+        raise ValueError("paired r4 evaluation requires schema_version 3")
+    _validate_manifest_inputs(
+        manifest,
+        config,
+        capture_finalists,
+        founder_index_path=founder_index_path,
+    )
+    if not isinstance(numerical_repeats, int) or isinstance(numerical_repeats, bool) or numerical_repeats < 1 or numerical_repeats % 2 == 0:
+        raise ValueError("numerical_repeats must be a positive odd integer")
+    founders = _resolve_manifest_founders(manifest, founder_index_path)
+    candidate_env = build_environment(
+        config,
+        candidate_policy,
+        horizon=manifest.horizon,
+        heredity_contract="r4",
+        credit_chunk_steps=manifest.chunk_steps,
+    )
+    ancestor_env = build_environment(
+        config,
+        ancestor_policy,
+        horizon=manifest.horizon,
+        heredity_contract="r4",
+        credit_chunk_steps=manifest.chunk_steps,
+    )
+    candidate_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(candidate_env, state, keys))
+    ancestor_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(ancestor_env, state, keys))
+    repeats = []
+    for _ in range(numerical_repeats):
+        candidate = _evaluate_manifest_once(
+            manifest,
+            candidate_env,
+            candidate_chunk,
+            founders,
+            capture_finalists=capture_finalists,
+        )
+        ancestor = _evaluate_manifest_once(
+            manifest,
+            ancestor_env,
+            ancestor_chunk,
+            founders,
+            capture_finalists=capture_finalists,
+        )
+        score, pair_deltas, sham_delta, shock_delta = _paired_r4_score(
+            manifest, candidate, ancestor, regime
+        )
+        repeats.append((candidate, ancestor, score, pair_deltas, sham_delta, shock_delta))
+    scores = np.asarray([repeat[2] for repeat in repeats], dtype=np.float32)
+    selected_index = int(np.argsort(scores, kind="stable")[len(repeats) // 2])
+    candidate, ancestor, score, pair_deltas, sham_delta, shock_delta = repeats[selected_index]
+    integrity = all(
+        bool(repeat[0].integrity_valid)
+        and bool(repeat[1].integrity_valid)
+        and all(bool(episode.survived) for episode in (*repeat[0].episodes, *repeat[1].episodes))
+        for repeat in repeats
+    )
+    adaptive_observations = []
+    for repeat_index, repeat in enumerate(repeats):
+        repeat_candidate = repeat[0]
+        for world, episode in zip(manifest.worlds, repeat_candidate.episodes, strict=True):
+            if world.event_kind is EventKind.NULL:
+                continue
+            pre_count = int(episode.pre_selection_probability_count)
+            post_count = int(episode.post_selection_probability_count)
+            pre_sum = np.asarray(episode.pre_selection_probability_sum, dtype=np.float64)
+            post_sum = np.asarray(episode.post_selection_probability_sum, dtype=np.float64)
+            adaptive_observations.append(
+                {
+                    "founder_id": world.founder_id,
+                    "repeat_index": repeat_index,
+                    "pre_probability": (pre_sum / max(pre_count, 1)).tolist(),
+                    "post_probability": (post_sum / max(post_count, 1)).tolist(),
+                    "pre_count": pre_count,
+                    "post_count": post_count,
+                }
+            )
+    return PairedManifestEvaluation(
+        episodes=candidate.episodes,
+        sham_episodes=tuple(
+            episode
+            for episode, world in zip(candidate.episodes, manifest.worlds, strict=True)
+            if world.event_kind is EventKind.NULL
+        ),
+        ancestor_episodes=ancestor.episodes,
+        candidate_score=jnp.asarray(score, dtype=jnp.float32),
+        integrity_valid=jnp.asarray(integrity),
+        repeat_scores=jnp.asarray(scores),
+        selected_repeat_index=jnp.asarray(selected_index, dtype=jnp.int32),
+        pair_deltas=jnp.asarray(pair_deltas),
+        sham_auc_delta=jnp.asarray(sham_delta, dtype=jnp.float32),
+        shock_auc_delta=jnp.asarray(shock_delta, dtype=jnp.float32),
+        adaptive_observations=tuple(adaptive_observations),
     )

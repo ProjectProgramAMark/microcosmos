@@ -36,6 +36,11 @@ from microcosmos.structs.population import EcosystemState
         "identity_valid",
         "events_valid",
         "operator_counts",
+        "operator_probability_sum",
+        "resolved_success_count",
+        "resolved_failure_count",
+        "distinct_birth_count",
+        "resolved_distinct_success_count",
         "policy_violation_count",
         "infrastructure_valid",
     ],
@@ -58,6 +63,11 @@ class EcosystemChunkMetrics:
     identity_valid: jax.Array
     events_valid: jax.Array
     operator_counts: jax.Array
+    operator_probability_sum: jax.Array
+    resolved_success_count: jax.Array
+    resolved_failure_count: jax.Array
+    distinct_birth_count: jax.Array
+    resolved_distinct_success_count: jax.Array
     policy_violation_count: jax.Array
     infrastructure_valid: jax.Array
 
@@ -80,11 +90,22 @@ def _state_numeric_valid(state: EcosystemState) -> jax.Array:
         population.founder_lineage_id,
         population.intake_ema,
         population.population_change_ema,
+        population.birth_rate_ema,
+        population.death_rate_ema,
+        population.birth_operator,
+        population.birth_step,
+        population.has_reproduced,
+        population.genome_changed_from_parent,
+        population.shock_ancestor_id,
+        population.operator_success_ema,
+        population.operator_usage_ema,
+        population.operator_evidence_ema,
         population.next_individual_id,
         state.time,
         state.base_rest_lengths,
         state.base_bending_rest_angles,
         state.actuator_gain,
+        state.actuation_cost_multiplier,
         state.resource_capacity_map,
         state.resource_regeneration_map,
     )
@@ -96,7 +117,14 @@ def _state_numeric_valid(state: EcosystemState) -> jax.Array:
         (connection_index == I_INF) | ((connection_index >= 0) & (connection_index < MAX_CONNECTIONS))
     )
     actuator_valid = jnp.all((state.actuator_gain >= 0.0) & (state.actuator_gain <= 1.0))
-    return finite & actuator_valid & cache_valid & population_numeric_valid(population.genome)
+    cost_valid = jnp.isfinite(state.actuation_cost_multiplier) & (state.actuation_cost_multiplier > 0.0)
+    credit_valid = (
+        jnp.all((population.birth_operator >= -1) & (population.birth_operator < 6))
+        & jnp.all((population.operator_success_ema >= 0.0) & (population.operator_success_ema <= 1.0))
+        & jnp.all((population.operator_usage_ema >= 0.0) & (population.operator_usage_ema <= 1.0))
+        & jnp.all((population.operator_evidence_ema >= 0.0) & (population.operator_evidence_ema <= 1.0))
+    )
+    return finite & actuator_valid & cost_valid & credit_valid & cache_valid & population_numeric_valid(population.genome)
 
 
 def _identity_valid(previous: EcosystemState, state: EcosystemState) -> jax.Array:
@@ -116,7 +144,10 @@ def _identity_valid(previous: EcosystemState, state: EcosystemState) -> jax.Arra
     return ~duplicated & ids_in_range & (population.next_individual_id >= previous.population.next_individual_id)
 
 
-def initialize_chunk_metrics(state: EcosystemState) -> EcosystemChunkMetrics:
+def initialize_chunk_metrics(
+    state: EcosystemState,
+    num_operators: int = NUM_OPERATORS,
+) -> EcosystemChunkMetrics:
     alive_count = jnp.sum(state.population.alive).astype(jnp.int32)
     live_energy = jnp.min(jnp.where(state.population.alive, state.population.energy, jnp.inf))
     live_energy = jnp.where(jnp.any(state.population.alive), live_energy, 0.0)
@@ -136,7 +167,12 @@ def initialize_chunk_metrics(state: EcosystemState) -> EcosystemChunkMetrics:
         finite=_state_numeric_valid(state),
         identity_valid=jnp.array(True),
         events_valid=jnp.array(True),
-        operator_counts=jnp.zeros(NUM_OPERATORS, dtype=jnp.int32),
+        operator_counts=jnp.zeros(num_operators, dtype=jnp.int32),
+        operator_probability_sum=jnp.zeros(num_operators, dtype=jnp.float32),
+        resolved_success_count=jnp.zeros(6, dtype=jnp.int32),
+        resolved_failure_count=jnp.zeros(6, dtype=jnp.int32),
+        distinct_birth_count=jnp.zeros((), dtype=jnp.int32),
+        resolved_distinct_success_count=jnp.zeros(6, dtype=jnp.int32),
         policy_violation_count=jnp.array(0, dtype=jnp.int32),
         infrastructure_valid=jnp.array(True),
     )
@@ -183,6 +219,11 @@ def update_chunk_metrics(
         identity_valid=metrics.identity_valid & _identity_valid(previous, state),
         events_valid=metrics.events_valid & births_valid & deaths_valid,
         operator_counts=metrics.operator_counts + telemetry.operator_counts,
+        operator_probability_sum=(metrics.operator_probability_sum + telemetry.operator_probability_sum),
+        resolved_success_count=(metrics.resolved_success_count + telemetry.resolved_success_count),
+        resolved_failure_count=(metrics.resolved_failure_count + telemetry.resolved_failure_count),
+        distinct_birth_count=metrics.distinct_birth_count + telemetry.distinct_birth_count,
+        resolved_distinct_success_count=(metrics.resolved_distinct_success_count + telemetry.resolved_distinct_success_count),
         policy_violation_count=(metrics.policy_violation_count + telemetry.policy_violation_count),
         infrastructure_valid=(metrics.infrastructure_valid & telemetry.infrastructure_valid),
     )
@@ -210,6 +251,11 @@ def combine_chunk_metrics(
         identity_valid=first.identity_valid & second.identity_valid,
         events_valid=first.events_valid & second.events_valid,
         operator_counts=first.operator_counts + second.operator_counts,
+        operator_probability_sum=first.operator_probability_sum + second.operator_probability_sum,
+        resolved_success_count=first.resolved_success_count + second.resolved_success_count,
+        resolved_failure_count=first.resolved_failure_count + second.resolved_failure_count,
+        distinct_birth_count=first.distinct_birth_count + second.distinct_birth_count,
+        resolved_distinct_success_count=(first.resolved_distinct_success_count + second.resolved_distinct_success_count),
         policy_violation_count=(first.policy_violation_count + second.policy_violation_count),
         infrastructure_valid=(first.infrastructure_valid & second.infrastructure_valid),
     )
@@ -217,7 +263,7 @@ def combine_chunk_metrics(
 
 def run_ecosystem_chunk(env, state: EcosystemState, keys: jax.Array, action=None):
     """Return only final state and compact metrics for a fixed-size key chunk."""
-    initial_metrics = initialize_chunk_metrics(state)
+    initial_metrics = initialize_chunk_metrics(state, env.num_operators)
 
     def scan_step(carry, key):
         current, metrics = carry

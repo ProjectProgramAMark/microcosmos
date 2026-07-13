@@ -56,6 +56,16 @@ def _population(energy=(5.0, 0.0, 0.0)):
         founder_lineage_id=jnp.where(alive, jnp.arange(count), -1),
         intake_ema=jnp.zeros(count, dtype=jnp.float32),
         population_change_ema=jnp.zeros((), dtype=jnp.float32),
+        birth_rate_ema=jnp.zeros((), dtype=jnp.float32),
+        death_rate_ema=jnp.zeros((), dtype=jnp.float32),
+        birth_operator=jnp.full(count, -1, dtype=jnp.int32),
+        birth_step=jnp.full(count, -1, dtype=jnp.int32),
+        has_reproduced=jnp.zeros(count, dtype=jnp.bool_),
+        genome_changed_from_parent=jnp.zeros(count, dtype=jnp.bool_),
+        shock_ancestor_id=jnp.full(count, -1, dtype=jnp.int32),
+        operator_success_ema=jnp.full(6, 0.5, dtype=jnp.float32),
+        operator_usage_ema=jnp.zeros(6, dtype=jnp.float32),
+        operator_evidence_ema=jnp.zeros(6, dtype=jnp.float32),
         next_individual_id=jnp.array(1, dtype=jnp.int32),
     )
 
