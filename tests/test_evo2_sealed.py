@@ -319,10 +319,20 @@ def test_worker_requires_global_ledger_and_resumes_only_missing_policy(
     punctuated = _frozen_dir(tmp_path, "punctuated", b"punctuated", manifest)
     result_dir = tmp_path / "results"
     finalists = workflow.load_frozen_finalists(stable, punctuated)
+    dynamic_namespace = {}
+    exec(  # noqa: S102 - reproduces the validated synthetic candidate module
+        compile(
+            "def make_offspring(*args, **kwargs):\n    return None\n",
+            "<validated-dynamic-candidate>",
+            "exec",
+        ),
+        dynamic_namespace,
+    )
+    dynamic_candidate = dynamic_namespace["make_offspring"]
     loaded = {
         finalist.label: workflow._LoadedCandidate(
             finalist,
-            SimpleNamespace(make_offspring=_candidate_function),
+            SimpleNamespace(make_offspring=dynamic_candidate),
             _candidate_function,
         )
         for finalist in finalists

@@ -1,0 +1,772 @@
+{
+  "baseline_table": [
+    {
+      "candidate_score": 0.11456147581338882,
+      "policy": "clone",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "2ca78d74467d323e975a12f652484d42235b2c69aa1fe848567a9f7e90c08882",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.1274581972055263,
+          -0.051934113387938484
+        ],
+        "count": 36,
+        "fraction_positive": 0.2222222222222222,
+        "mean": -0.08836051119897333,
+        "median": -0.048260122836966596
+      },
+      "survival_rate": 0.625
+    },
+    {
+      "candidate_score": 0.06773068755865097,
+      "policy": "fixed_mixed",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "64943877566acb9ff09fbf6bc568950040d2ace77a16d9c5fb4a20b8f40ed0a7",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.05391040548533307,
+          -0.0007080477796095536
+        ],
+        "count": 36,
+        "fraction_positive": 0.3888888888888889,
+        "mean": -0.027433508184494425,
+        "median": 0.0
+      },
+      "survival_rate": 0.5972222222222222
+    },
+    {
+      "candidate_score": 0.12542220950126648,
+      "policy": "fixed_parametric",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "351f034007906f1006537b7d42dada9585200398b7119c81a6d0a818413e71db",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.07704863923988993,
+          -0.009655027105173353
+        ],
+        "count": 36,
+        "fraction_positive": 0.3333333333333333,
+        "mean": -0.04324138938357696,
+        "median": -0.0014013836293348245
+      },
+      "survival_rate": 0.5972222222222222
+    },
+    {
+      "candidate_score": 0.0850449651479721,
+      "policy": "stress_responsive",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "9551f8063d7f737e7cd4adf8b940f2a0d5b232c796e4928db1ffc23041b4391f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.09773155108106403,
+          -0.01976186293386153
+        ],
+        "count": 36,
+        "fraction_positive": 0.3055555555555556,
+        "mean": -0.056383962383709824,
+        "median": -0.013582045874500182
+      },
+      "survival_rate": 0.5833333333333334
+    }
+  ],
+  "bootstrap_confidence": 0.95,
+  "bootstrap_replicates": 10000,
+  "bootstrap_seed": 20260712,
+  "champion_comparison": {
+    "candidate_score_difference": -0.0016741231083869934,
+    "secondary_punctuated_minus_stable_difference_in_differences": {
+      "confidence_interval": [
+        -0.01233136103430708,
+        0.0011228292751607652
+      ],
+      "count": 36,
+      "fraction_positive": 0.2222222222222222,
+      "mean": -0.004623234345096393,
+      "median": 0.0
+    }
+  },
+  "champions": {
+    "punctuated": "shinka_punctuated",
+    "stable": "shinka_stable"
+  },
+  "manifest_sha256": "ff361145bfa4a06572f15c52310d87c44cdd6178eb38e0b7d294e3ad41d00077",
+  "numerical_repeats": 3,
+  "policies": {
+    "clone": {
+      "candidate_score": 0.11456147581338882,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "2ca78d74467d323e975a12f652484d42235b2c69aa1fe848567a9f7e90c08882",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.1274581972055263,
+          -0.051934113387938484
+        ],
+        "count": 36,
+        "fraction_positive": 0.2222222222222222,
+        "mean": -0.08836051119897333,
+        "median": -0.048260122836966596
+      },
+      "survival_rate": 0.625
+    },
+    "fixed_mixed": {
+      "candidate_score": 0.06773068755865097,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "64943877566acb9ff09fbf6bc568950040d2ace77a16d9c5fb4a20b8f40ed0a7",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.05391040548533307,
+          -0.0007080477796095536
+        ],
+        "count": 36,
+        "fraction_positive": 0.3888888888888889,
+        "mean": -0.027433508184494425,
+        "median": 0.0
+      },
+      "survival_rate": 0.5972222222222222
+    },
+    "fixed_parametric": {
+      "candidate_score": 0.12542220950126648,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "351f034007906f1006537b7d42dada9585200398b7119c81a6d0a818413e71db",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.07704863923988993,
+          -0.009655027105173353
+        ],
+        "count": 36,
+        "fraction_positive": 0.3333333333333333,
+        "mean": -0.04324138938357696,
+        "median": -0.0014013836293348245
+      },
+      "survival_rate": 0.5972222222222222
+    },
+    "shinka_punctuated": {
+      "candidate_score": 0.08657422661781311,
+      "policy_kind": "candidate",
+      "policy_source_sha256": "7c26b7daf6e7e634f0976c8ca1800ae54a0b8b1f2e9dcb2b094a88ebed227183",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.09304718818510851,
+          -0.030433806724389778
+        ],
+        "count": 36,
+        "fraction_positive": 0.25,
+        "mean": -0.05981959847938217,
+        "median": -0.02694182248633874
+      },
+      "survival_rate": 0.5694444444444444
+    },
+    "shinka_stable": {
+      "candidate_score": 0.0882483497262001,
+      "policy_kind": "candidate",
+      "policy_source_sha256": "dccf12357181310a47b201131fbe6592fd5bfd5f2db211efd44add97c52979d9",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.08619196207023741,
+          -0.023380567933944284
+        ],
+        "count": 36,
+        "fraction_positive": 0.25,
+        "mean": -0.055196364134285775,
+        "median": -0.02675721282815045
+      },
+      "survival_rate": 0.5694444444444444
+    },
+    "stress_responsive": {
+      "candidate_score": 0.0850449651479721,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "9551f8063d7f737e7cd4adf8b940f2a0d5b232c796e4928db1ffc23041b4391f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.09773155108106403,
+          -0.01976186293386153
+        ],
+        "count": 36,
+        "fraction_positive": 0.3055555555555556,
+        "mean": -0.056383962383709824,
+        "median": -0.013582045874500182
+      },
+      "survival_rate": 0.5833333333333334
+    }
+  },
+  "primary_shocked_world_auc_contrasts": {
+    "punctuated_minus_fixed_mixed": {
+      "confidence_interval": [
+        -0.028054944408416875,
+        0.03347554368312638
+      ],
+      "count": 36,
+      "fraction_positive": 0.2777777777777778,
+      "mean": 0.0026504860487193208,
+      "median": 0.0,
+      "paired_effects": [
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-00",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.042340761316674094,
+          "pair_id": "sealed-relocation-01",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.08267964791905667,
+          "pair_id": "sealed-relocation-02",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-03",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0714127578040851,
+          "pair_id": "sealed-relocation-04",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.004400913204465593,
+          "pair_id": "sealed-relocation-05",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.029573519847222743,
+          "pair_id": "sealed-relocation-06",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.02688238876206534,
+          "pair_id": "sealed-relocation-07",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.019833476149610105,
+          "pair_id": "sealed-relocation-08",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-09",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.3126971808129123,
+          "pair_id": "sealed-relocation-10",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-11",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.17478061878743273,
+          "pair_id": "sealed-abundance-00",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-01",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-02",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.014230364269375663,
+          "pair_id": "sealed-abundance-03",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.0004912147091494668,
+          "pair_id": "sealed-abundance-04",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-05",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.029197759926319122,
+          "pair_id": "sealed-abundance-06",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-07",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.07014318415895104,
+          "pair_id": "sealed-abundance-08",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-09",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-10",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-11",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.3241654448211193,
+          "pair_id": "sealed-lineage-00",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.117895373608917,
+          "pair_id": "sealed-lineage-01",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-02",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-03",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-04",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -0.09215586775098927,
+          "pair_id": "sealed-lineage-05",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -0.08335191709920764,
+          "pair_id": "sealed-lineage-06",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.010077519807964563,
+          "pair_id": "sealed-lineage-07",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -0.12401411758037284,
+          "pair_id": "sealed-lineage-08",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0006277787033468485,
+          "pair_id": "sealed-lineage-09",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.1076805554330349,
+          "pair_id": "sealed-lineage-10",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -0.08766657602973282,
+          "pair_id": "sealed-lineage-11",
+          "scenario_family": "dominant_lineage_cull"
+        }
+      ]
+    },
+    "punctuated_minus_stable": {
+      "confidence_interval": [
+        -0.01468031285855241,
+        0.005807735905624275
+      ],
+      "count": 36,
+      "fraction_positive": 0.08333333333333333,
+      "mean": -0.003985744925434299,
+      "median": 0.0,
+      "paired_effects": [
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-00",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-01",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -9.501559127654546e-05,
+          "pair_id": "sealed-relocation-02",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-03",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.008752489728587012,
+          "pair_id": "sealed-relocation-04",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-05",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-06",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-07",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-08",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-09",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.004067705012857914,
+          "pair_id": "sealed-relocation-10",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-11",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 5.4965416590391225e-05,
+          "pair_id": "sealed-abundance-00",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-01",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-02",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-03",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-04",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-05",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.1096017873949475,
+          "pair_id": "sealed-abundance-06",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-07",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-08",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-09",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-10",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-11",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.03466463088989258,
+          "pair_id": "sealed-lineage-00",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -0.1005463832989335,
+          "pair_id": "sealed-lineage-01",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-02",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-03",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-04",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-05",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-06",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-07",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-08",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-09",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.10605081915855408,
+          "pair_id": "sealed-lineage-10",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-11",
+          "scenario_family": "dominant_lineage_cull"
+        }
+      ]
+    },
+    "punctuated_minus_stress_responsive": {
+      "confidence_interval": [
+        -0.013205254354250505,
+        0.013260556162422258
+      ],
+      "count": 36,
+      "fraction_positive": 0.19444444444444445,
+      "mean": -0.0001885703790681821,
+      "median": 0.0,
+      "paired_effects": [
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-00",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-01",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0783044412133417,
+          "pair_id": "sealed-relocation-02",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-03",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.008752489728587012,
+          "pair_id": "sealed-relocation-04",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.015416320147258895,
+          "pair_id": "sealed-relocation-05",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-06",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-07",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": -0.005492020664470534,
+          "pair_id": "sealed-relocation-08",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-09",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0037489425324435804,
+          "pair_id": "sealed-relocation-10",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-relocation-11",
+          "scenario_family": "unseen_resource_geometry"
+        },
+        {
+          "effect": 5.4965416590391225e-05,
+          "pair_id": "sealed-abundance-00",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-01",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-02",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0025861800270124344,
+          "pair_id": "sealed-abundance-03",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-04",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-05",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.10826568305492404,
+          "pair_id": "sealed-abundance-06",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-07",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-08",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-09",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-10",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-abundance-11",
+          "scenario_family": "unseen_resource_abundance"
+        },
+        {
+          "effect": -0.12231382355093956,
+          "pair_id": "sealed-lineage-00",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.1602170750265941,
+          "pair_id": "sealed-lineage-01",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-02",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-03",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-04",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-05",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0032558660313952714,
+          "pair_id": "sealed-lineage-06",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-07",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": -4.5297201722860336e-07,
+          "pair_id": "sealed-lineage-08",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-09",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.005284786224365234,
+          "pair_id": "sealed-lineage-10",
+          "scenario_family": "dominant_lineage_cull"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-lineage-11",
+          "scenario_family": "dominant_lineage_cull"
+        }
+      ]
+    }
+  },
+  "schema_version": 1,
+  "simulator_source_sha256": "d483f02938d686cbac4d2d2539135877dc6a6c2079ce40da430655af758143f7"
+}

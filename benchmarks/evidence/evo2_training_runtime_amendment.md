@@ -83,3 +83,41 @@ corrected. The launcher now performs and closes an explicit
 `wal_checkpoint(TRUNCATE)` before publishing future completion hashes, with a
 regression test covering the ordering. Neither hidden manifest had been opened,
 and no search artifact or scientific result was changed.
+
+The first derived finalist directories then exposed a second fail-closed
+contract issue: their ranked-candidate entries contained the required repeat
+scores and coherent-median index, but the sealed validator also required the
+winner's same three fields at the top level. Sealed was still mode `000`. The
+producer was aligned with the already-tested schema, its regression test was
+strengthened, and the two invalid derived directories were retained under
+`aborted_runs/evo2-production-20260712-r1-freeze-record-contract`. The
+development evaluations were reused byte-for-byte to regenerate the freeze
+records; no candidate was reevaluated, reordered, or changed. Both regenerated
+finalists passed the sealed-readiness validator before the sealed manifest was
+opened.
+
+## Post-unlock sealed serializer correction
+
+The first sealed worker completed the stable finalist's simulation but failed
+before its atomic result write. The generic baseline serializer attempted
+`inspect.getsource()` on the sandboxed candidate function, whose synthetic
+compile filename intentionally has no source-loader entry. Consequently the
+only sealed artifact was the precommitted suite record: no policy result,
+episode metric, aggregate score, or summary was published or inspected.
+
+The fix changes no simulator, policy, manifest, metric, repeat, or analysis
+logic. Candidate records now give the generic serializer an inspectable trusted
+placeholder and immediately replace its provisional hash with the finalist's
+already-frozen source SHA-256, which was the existing intended behavior. A
+regression test now uses a synthetic dynamically compiled candidate to exercise
+this exact boundary.
+
+Because the trusted sealed-workflow source hash changed after unlock, finalist
+selection was not rerun—the selector correctly refuses to operate once sealed
+is readable. Instead, the already-selected directories were restored unchanged
+and their two provenance records were amended only with the old/new workflow
+hashes and the fact that no sealed result had been published. The failed suite
+record and pre-fix provenance snapshots remain under
+`aborted_runs/evo2-production-20260712-r1-sealed-serializer`. Both amended
+finalists passed the sealed validator before the unchanged six-policy suite was
+restarted from an empty result directory.
