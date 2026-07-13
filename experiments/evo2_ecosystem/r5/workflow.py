@@ -474,14 +474,20 @@ def _guarded_python_command(
                 "JAX_PLATFORMS",
                 "-u",
                 "JAX_PLATFORM_NAME",
-                "PYTHONDONTWRITEBYTECODE=1",
-                f"PYTHONPATH={project_pythonpath}",
             ]
         )
         if on_demand_allocator:
-            python.append("XLA_PYTHON_CLIENT_PREALLOCATE=false")
+            allocator = ["XLA_PYTHON_CLIENT_PREALLOCATE=false"]
         else:
             python.extend(["-u", "XLA_PYTHON_CLIENT_PREALLOCATE"])
+            allocator = []
+        python.extend(
+            [
+                "PYTHONDONTWRITEBYTECODE=1",
+                f"PYTHONPATH={project_pythonpath}",
+                *allocator,
+            ]
+        )
     python.extend(["python", "-B", *arguments])
     if cpu:
         return python
@@ -620,6 +626,10 @@ def run_phase2_founder_gate(
         from ..founder_artifacts import load_founder_index
 
         load_founder_index(bank_directory / "index.json", verify_artifacts=True)
+    except subprocess.CalledProcessError:
+        # Worker-launch failures are resumable infrastructure errors, not
+        # evidence that the frozen scientific gate failed.
+        raise
     except BaseException as error:
         record_stop_report(
             "phase-2-founder-gate",
@@ -766,6 +776,10 @@ def run_phase3_gates(
         if opportunity.get("passed") is not True:
             raise WorkflowStopped("operator-opportunity gate did not pass")
         return selected
+    except subprocess.CalledProcessError:
+        # The trusted workers publish ordinary failed gate evidence and exit
+        # successfully.  A nonzero child exit is therefore infrastructure.
+        raise
     except BaseException as error:
         record_stop_report(
             "phase-3-disturbance-or-opportunity",

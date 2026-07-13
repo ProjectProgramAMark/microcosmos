@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 from types import SimpleNamespace
 
@@ -84,6 +85,36 @@ def test_scientific_gate_commands_each_use_a_fresh_guarded_worker(
         assert command[:4] == ["systemd-run", "--user", "--scope", "--quiet"]
         assert "MemoryMax=24G" in command
         assert subcommand in command
+        env_start = command.index("env")
+        python_start = command.index("python", env_start)
+        subprocess.run(
+            [*command[env_start:python_start], "true"],
+            check=True,
+        )
+
+
+def test_founder_worker_launch_failure_is_resumable_not_a_scientific_stop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    world = _write(tmp_path / "world.json")
+    monkeypatch.setattr(workflow, "validate_world_qualification", lambda path: {})
+    monkeypatch.setattr(
+        workflow,
+        "record_stop_report",
+        lambda *args, **kwargs: pytest.fail("infrastructure failure became a stop"),
+    )
+
+    def fail_launch(*args, **kwargs):
+        raise subprocess.CalledProcessError(127, args[0])
+
+    with pytest.raises(subprocess.CalledProcessError):
+        workflow.run_phase2_founder_gate(
+            world_qualification_path=world,
+            bank_directory=tmp_path / "founders",
+            screening_record_path=tmp_path / "screen.jsonl",
+            launcher=fail_launch,
+        )
 
 
 def test_shinka_candidate_shortfall_writes_bound_failure_once(

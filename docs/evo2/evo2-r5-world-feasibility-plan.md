@@ -626,8 +626,11 @@ Acceptance checkpoint:
   founders with valid hashes and unchanged eligibility rules.
 - [ ] Failure writes one immutable stop report and Phase 3 cannot start.
 
-Rollback point: none for published scientific evidence. A failure is final for
-this r5 run ID.
+Rollback point: none for published scientific evidence. An authenticated
+failed scientific gate is final for this r5 run ID. A child-process
+launch/runtime failure that publishes no failed-gate evidence is infrastructure,
+not an ecological result; preserve its log and resume from existing write-once
+evidence after fixing the infrastructure.
 
 ### Phase 3: Qualify the disturbance and operator opportunity
 
