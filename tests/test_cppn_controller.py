@@ -1,3 +1,4 @@
+import hashlib
 import math
 
 import jax
@@ -84,6 +85,65 @@ def test_founder_panel_is_deterministic_and_only_living_slots_are_varied():
         assert _equal_with_nan(first.node_genes[slot], canonical.node_genes)
         assert _equal_with_nan(first.connection_genes[slot], canonical.connection_genes)
     assert any(not _equal_with_nan(first.connection_genes[slot], canonical.connection_genes) for slot in range(3))
+
+
+def test_explicit_panel_key_preserves_default_bytes_and_selects_new_panel():
+    default = initialize_cppn_population(capacity=5, initial_population=3)
+    explicit_default = initialize_cppn_population(
+        capacity=5,
+        initial_population=3,
+        panel_key=jax.random.PRNGKey(0),
+    )
+    fresh = initialize_cppn_population(
+        capacity=5,
+        initial_population=3,
+        panel_key=jax.random.PRNGKey(5_005),
+    )
+
+    assert jax.device_get(default.node_genes).tobytes() == jax.device_get(
+        explicit_default.node_genes
+    ).tobytes()
+    assert jax.device_get(default.connection_genes).tobytes() == jax.device_get(
+        explicit_default.connection_genes
+    ).tobytes()
+    assert not _equal_with_nan(default.node_genes[:3], fresh.node_genes[:3])
+    assert not _equal_with_nan(
+        default.connection_genes[:3], fresh.connection_genes[:3]
+    )
+    assert _equal_with_nan(default.node_genes[3:], fresh.node_genes[3:])
+    assert _equal_with_nan(
+        default.connection_genes[3:], fresh.connection_genes[3:]
+    )
+
+
+def test_explicit_founder_and_panel_key_are_mutually_exclusive():
+    with pytest.raises(ValueError, match="cannot be combined"):
+        initialize_cppn_population(
+            capacity=2,
+            initial_population=1,
+            founder_genome=canonical_cppn_genome(),
+            panel_key=jax.random.PRNGKey(5_005),
+        )
+
+
+def test_r5_panel_seed_repeats_at_the_frozen_full_capacity_digest():
+    def panel_bytes():
+        panel = initialize_cppn_population(
+            capacity=80,
+            initial_population=80,
+            panel_key=jax.random.PRNGKey(5_005),
+        )
+        return (
+            jax.device_get(panel.node_genes).tobytes()
+            + jax.device_get(panel.connection_genes).tobytes()
+        )
+
+    first = panel_bytes()
+    second = panel_bytes()
+    assert first == second
+    assert hashlib.sha256(first).hexdigest() == (
+        "9b3c479771bd8f020e0bc072827af28d535d26610c089b06a33f4d221e85628f"
+    )
 
 
 def test_explicit_founder_is_canonicalized_and_broadcast_across_every_slot():

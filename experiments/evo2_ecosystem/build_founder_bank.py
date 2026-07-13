@@ -329,13 +329,17 @@ def selection_rule_sha256(spec: ScreeningSpec) -> str:
     return _sha256(_canonical_json_bytes(_selection_rule(spec)))
 
 
-def _protocol(spec: ScreeningSpec) -> dict[str, object]:
+def _protocol(
+    spec: ScreeningSpec,
+    *,
+    panel_seed: int = FOUNDER_PANEL_SEED,
+) -> dict[str, object]:
     seed_horizons = _screening_horizons(spec)
     return {
         "builder_source_sha256": _sha256(Path(__file__).read_bytes()),
         "candidate_generator": {
             "candidate_count": spec.candidate_count,
-            "founder_panel_seed": FOUNDER_PANEL_SEED,
+            "founder_panel_seed": panel_seed,
             "function": ("microcosmos.cppn.initialize_cppn_population"),
             "function_source_sha256": _source_sha256(initialize_cppn_population),
             "initial_population": spec.candidate_count,
@@ -390,11 +394,47 @@ def validate_execution_contract(spec: ScreeningSpec, *, backend: str) -> None:
         raise RuntimeError("smoke screening must use the no-fluid substrate")
 
 
-def candidate_pool(spec: ScreeningSpec) -> tuple[CPPNGenome, ...]:
+def validate_configured_r4_execution_contract(
+    spec: ScreeningSpec,
+    *,
+    backend: str,
+) -> None:
+    """Validate a full-scale r4-shaped screen with prospectively supplied seeds."""
+    if not isinstance(spec, ScreeningSpec):
+        raise TypeError("spec must be a ScreeningSpec")
+    if not isinstance(backend, str):
+        raise TypeError("backend must be a string")
+    if (
+        not isinstance(spec.selection_rule_id, str)
+        or not spec.selection_rule_id
+    ):
+        raise ValueError("selection_rule_id must be a non-empty string")
+    expected = replace(
+        R4_PRODUCTION_SPEC,
+        seeds=spec.seeds,
+        selection_rule_id=spec.selection_rule_id,
+    )
+    if spec != expected:
+        raise RuntimeError(
+            "configured screening may change only r4 world seeds and the "
+            "prospectively frozen selection-rule identifier"
+        )
+    if backend != "gpu":
+        raise RuntimeError("configured production screening requires the JAX GPU backend")
+
+
+def candidate_pool(
+    spec: ScreeningSpec,
+    *,
+    panel_seed: int = FOUNDER_PANEL_SEED,
+) -> tuple[CPPNGenome, ...]:
     """Generate the one fixed varied-founder panel named by ``spec``."""
+    if not isinstance(panel_seed, int) or isinstance(panel_seed, bool) or panel_seed < 0:
+        raise ValueError("panel_seed must be a nonnegative integer")
     population = initialize_cppn_population(
         capacity=spec.candidate_count,
         initial_population=spec.candidate_count,
+        panel_key=jax.random.PRNGKey(panel_seed),
     )
     return tuple(
         CPPNGenome(
@@ -567,8 +607,15 @@ def _publish_bank(
     selection_rule_id: str = SELECTION_RULE_ID,
     *,
     lock_holdouts: bool = False,
+    selection_seed: int = FOUNDER_PANEL_SEED,
 ) -> tuple[FounderIndex, str]:
     """Publish through the trusted artifact API after all quotas pass."""
+    if (
+        not isinstance(selection_seed, int)
+        or isinstance(selection_seed, bool)
+        or selection_seed < 0
+    ):
+        raise ValueError("selection_seed must be a nonnegative integer")
     staging = bank_directory.with_name(f".{bank_directory.name}.staging")
     if bank_directory.exists():
         raise FileExistsError(f"refusing to replace immutable founder bank: {bank_directory}")
@@ -589,7 +636,7 @@ def _publish_bank(
                         artifact=artifact,
                         digests=digests,
                         selection_rule=selection_rule_id,
-                        selection_seed=FOUNDER_PANEL_SEED,
+                        selection_seed=selection_seed,
                     )
                 )
                 # Candidate index is intentionally kept in the append-only
@@ -620,25 +667,43 @@ def run_founder_bank_builder(
     screening_record_path: Path,
     runner: CandidateRunner | None = None,
     backend: str | None = None,
+    configured_spec: ScreeningSpec | None = None,
+    panel_seed: int = FOUNDER_PANEL_SEED,
 ) -> dict[str, object]:
     """Screen a prepartitioned pool and atomically publish a complete bank."""
-    if smoke and r4:
-        raise ValueError("smoke and r4 modes are mutually exclusive")
-    spec = SMOKE_SPEC if smoke else (R4_PRODUCTION_SPEC if r4 else PRODUCTION_SPEC)
     actual_backend = jax.default_backend()
-    if not smoke and (runner is not None or backend is not None):
-        raise RuntimeError("production founder screening forbids injected runners and backend overrides")
-    if backend is not None and backend != actual_backend:
-        raise RuntimeError("declared smoke backend does not match jax.default_backend()")
-    validate_execution_contract(spec, backend=actual_backend)
+    if configured_spec is not None:
+        if smoke or r4:
+            raise ValueError("configured screening is mutually exclusive with smoke/r4 modes")
+        if runner is not None or backend is not None:
+            raise RuntimeError(
+                "configured production screening forbids injected runners and backend overrides"
+            )
+        spec = configured_spec
+        validate_configured_r4_execution_contract(spec, backend=actual_backend)
+    else:
+        if smoke and r4:
+            raise ValueError("smoke and r4 modes are mutually exclusive")
+        if panel_seed != FOUNDER_PANEL_SEED:
+            raise ValueError("a custom panel_seed requires configured_spec")
+        spec = SMOKE_SPEC if smoke else (R4_PRODUCTION_SPEC if r4 else PRODUCTION_SPEC)
+        if not smoke and (runner is not None or backend is not None):
+            raise RuntimeError(
+                "production founder screening forbids injected runners and backend overrides"
+            )
+        if backend is not None and backend != actual_backend:
+            raise RuntimeError(
+                "declared smoke backend does not match jax.default_backend()"
+            )
+        validate_execution_contract(spec, backend=actual_backend)
     if bank_directory.exists():
         raise FileExistsError(f"refusing to replace immutable founder bank: {bank_directory}")
     if screening_record_path.resolve() == bank_directory.resolve():
         raise ValueError("screening record and bank directory must differ")
 
-    protocol = _protocol(spec)
+    protocol = _protocol(spec, panel_seed=panel_seed)
     protocol_sha256 = _sha256(_canonical_json_bytes(protocol))
-    pool = candidate_pool(spec)
+    pool = candidate_pool(spec, panel_seed=panel_seed)
     screen = make_screen_runner(spec) if runner is None else runner
     selected: dict[str, list[tuple[int, CPPNGenome]]] = {partition: [] for partition in PARTITION_ORDER}
 
@@ -737,6 +802,7 @@ def run_founder_bank_builder(
             selected,
             spec.selection_rule_id,
             lock_holdouts=spec.mode == "r4_production",
+            selection_seed=panel_seed,
         )
         record.append(
             {

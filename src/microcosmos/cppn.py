@@ -202,18 +202,23 @@ def initialize_cppn_population(
     initial_population: int,
     *,
     founder_genome: CPPNGenome | None = None,
+    panel_key: jax.Array | None = None,
 ) -> CPPNGenome:
     """Create a fixed-capacity population from varied or clonal founders.
 
     With no explicit founder, retain the deterministic varied-founder panel used
-    by the original ecosystem experiments.  An explicit founder is validated,
-    canonicalized, and broadcast across every slot so world initialization can
-    begin from one frozen genotype without coupling it to the ecological seed.
+    by the original ecosystem experiments.  ``panel_key`` may select a different
+    reproducible varied panel without changing that default.  An explicit
+    founder is validated, canonicalized, and broadcast across every slot so
+    world initialization can begin from one frozen genotype without coupling it
+    to the ecological seed.
     """
     if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1:
         raise ValueError("capacity must be a positive integer")
     if not isinstance(initial_population, int) or isinstance(initial_population, bool) or not 0 <= initial_population <= capacity:
         raise ValueError("initial_population must be within capacity")
+    if founder_genome is not None and panel_key is not None:
+        raise ValueError("panel_key cannot be combined with an explicit founder")
 
     if founder_genome is not None:
         founder_genome, _, _, founder_valid = transform_and_validate_genome(founder_genome)
@@ -231,12 +236,28 @@ def initialize_cppn_population(
         )
 
     canonical = canonical_cppn_genome()
+    target_device = canonical.node_genes.device
+    panel_device = target_device
+    if panel_key is not None:
+        panel_device = jax.devices("cpu")[0]
+        canonical = CPPNGenome(
+            jax.device_put(canonical.node_genes, panel_device),
+            jax.device_put(canonical.connection_genes, panel_device),
+        )
     nodes = jnp.broadcast_to(canonical.node_genes, (capacity, *canonical.node_genes.shape))
     connections = jnp.broadcast_to(
         canonical.connection_genes,
         (capacity, *canonical.connection_genes.shape),
     )
-    founder_key = jax.random.PRNGKey(FOUNDER_PANEL_SEED)
+    if panel_key is None:
+        founder_key = jax.random.PRNGKey(FOUNDER_PANEL_SEED)
+    else:
+        # A prospectively supplied panel must name identical genomes on CPU and
+        # GPU.  Floating-point normal transforms are backend-dependent, so use
+        # the canonical CPU backend for this one initialization and transfer the
+        # small result to the simulator's device below.  The legacy default path
+        # above remains byte-for-byte unchanged.
+        founder_key = jax.device_put(panel_key, panel_device)
     node_key, connection_key = jax.random.split(founder_key)
 
     node_noise = jax.random.normal(node_key, (capacity, 2, 2), dtype=jnp.float32) * FOUNDER_VARIATION_STD
@@ -274,10 +295,21 @@ def initialize_cppn_population(
         )
     )
 
-    living = jnp.arange(capacity) < initial_population
+    living = jax.device_put(
+        jnp.arange(capacity) < initial_population,
+        panel_device,
+    )
     nodes = jnp.where(living[:, None, None], varied_nodes, nodes)
     connections = jnp.where(living[:, None, None], varied_connections, connections)
-    return jax.vmap(canonicalize_neutral_attributes)(CPPNGenome(nodes, connections))
+    population = jax.vmap(canonicalize_neutral_attributes)(
+        CPPNGenome(nodes, connections)
+    )
+    if panel_key is not None and target_device != panel_device:
+        population = CPPNGenome(
+            jax.device_put(population.node_genes, target_device),
+            jax.device_put(population.connection_genes, target_device),
+        )
+    return population
 
 
 def transform_genome(genome: CPPNGenome) -> tuple[jax.Array, jax.Array]:
