@@ -18,6 +18,9 @@ from .protocol import (
 )
 
 
+DEFAULT_HIERARCHICAL_BOOTSTRAP_SEED = 20_260_712
+
+
 @dataclass(frozen=True)
 class PairedWorldMetrics:
     """One shocked-minus-null comparison; the world pair is the unit."""
@@ -42,6 +45,56 @@ class EffectSummary:
     mean: float
     median: float
     fraction_positive: float
+    confidence_interval: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class FounderWorldObservation:
+    """One policy outcome identified by its complete ecological pairing key."""
+
+    founder_id: str
+    world_seed: int
+    pair_id: str
+    value: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.founder_id, str) or not self.founder_id:
+            raise ValueError("founder_id must be a nonempty string")
+        if not isinstance(self.world_seed, int) or isinstance(self.world_seed, bool) or self.world_seed < 0:
+            raise ValueError("world_seed must be a nonnegative integer")
+        if not isinstance(self.pair_id, str) or not self.pair_id:
+            raise ValueError("pair_id must be a nonempty string")
+        try:
+            value_is_finite = bool(
+                not isinstance(self.value, (bool, complex, np.bool_, np.complexfloating)) and np.isscalar(self.value) and np.isfinite(self.value)
+            )
+        except TypeError:
+            value_is_finite = False
+        if not value_is_finite:
+            raise ValueError("value must be finite")
+
+
+@dataclass(frozen=True)
+class FounderEffect:
+    """Observed candidate-minus-comparator effects within one founder."""
+
+    founder_id: str
+    count: int
+    mean: float
+    median: float
+    fraction_positive: float
+
+
+@dataclass(frozen=True)
+class HierarchicalEffectSummary:
+    """Founder-equal paired summary with a hierarchical percentile interval."""
+
+    count: int
+    founder_count: int
+    mean: float
+    median: float
+    fraction_positive: float
+    per_founder_effects: tuple[FounderEffect, ...]
     confidence_interval: tuple[float, float]
 
 
@@ -162,6 +215,100 @@ def stratified_equal_weight_summary(
         fraction_positive=float(np.mean(observed_values > 0.0)),
         confidence_interval=(float(interval[0]), float(interval[1])),
     )
+
+
+def hierarchical_paired_effect_summary(
+    candidate: Sequence[FounderWorldObservation],
+    comparator: Sequence[FounderWorldObservation],
+    *,
+    seed: int = DEFAULT_HIERARCHICAL_BOOTSTRAP_SEED,
+    replicates: int = 10_000,
+    confidence: float = 0.95,
+) -> HierarchicalEffectSummary:
+    """Compare policies with founder-first resampling of exact world pairs.
+
+    Candidate and comparator observations must have identical unique
+    ``founder_id × world_seed × pair_id`` keys. Observed summaries first reduce
+    within founder and then give every founder equal weight. The percentile
+    interval resamples founders first and paired observations within each drawn
+    founder.
+    """
+    candidate_by_key = _observations_by_key(candidate, label="candidate")
+    comparator_by_key = _observations_by_key(comparator, label="comparator")
+    candidate_keys = set(candidate_by_key)
+    comparator_keys = set(comparator_by_key)
+    if candidate_keys != comparator_keys:
+        missing_candidate = sorted(comparator_keys - candidate_keys)
+        missing_comparator = sorted(candidate_keys - comparator_keys)
+        raise ValueError(
+            "candidate and comparator must have identical pairing keys; "
+            f"missing candidate keys={missing_candidate}, "
+            f"missing comparator keys={missing_comparator}"
+        )
+
+    _validate_bootstrap(replicates, confidence)
+    if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
+
+    effects_by_founder: dict[str, list[float]] = {}
+    for key in sorted(candidate_keys):
+        founder_id = key[0]
+        effect = candidate_by_key[key].value - comparator_by_key[key].value
+        effects_by_founder.setdefault(founder_id, []).append(float(effect))
+
+    founder_ids = tuple(sorted(effects_by_founder))
+    founder_arrays = tuple(_effect_array(effects_by_founder[founder_id]) for founder_id in founder_ids)
+    per_founder = tuple(
+        FounderEffect(
+            founder_id=founder_id,
+            count=int(effects.size),
+            mean=float(np.mean(effects)),
+            median=float(np.median(effects)),
+            fraction_positive=float(np.mean(effects > 0.0)),
+        )
+        for founder_id, effects in zip(founder_ids, founder_arrays, strict=True)
+    )
+
+    rng = np.random.default_rng(seed)
+    founder_draws = rng.integers(0, len(founder_arrays), size=(replicates, len(founder_arrays)))
+    bootstrap_means = np.empty(replicates, dtype=np.float64)
+    for replicate_index, sampled_founders in enumerate(founder_draws):
+        sampled_founder_means = np.empty(len(sampled_founders), dtype=np.float64)
+        for sample_index, founder_index in enumerate(sampled_founders):
+            effects = founder_arrays[int(founder_index)]
+            observation_draws = rng.integers(0, effects.size, size=effects.size)
+            sampled_founder_means[sample_index] = np.mean(effects[observation_draws])
+        bootstrap_means[replicate_index] = np.mean(sampled_founder_means)
+
+    tail = (1.0 - confidence) / 2.0
+    interval = np.quantile(bootstrap_means, [tail, 1.0 - tail])
+    return HierarchicalEffectSummary(
+        count=sum(effect.count for effect in per_founder),
+        founder_count=len(per_founder),
+        mean=float(np.mean([effect.mean for effect in per_founder])),
+        median=float(np.median([effect.median for effect in per_founder])),
+        fraction_positive=float(np.mean([effect.fraction_positive for effect in per_founder])),
+        per_founder_effects=per_founder,
+        confidence_interval=(float(interval[0]), float(interval[1])),
+    )
+
+
+def _observations_by_key(
+    observations: Sequence[FounderWorldObservation],
+    *,
+    label: str,
+) -> dict[tuple[str, int, str], FounderWorldObservation]:
+    if not observations:
+        raise ValueError(f"{label} observations must not be empty")
+    by_key: dict[tuple[str, int, str], FounderWorldObservation] = {}
+    for observation in observations:
+        if not isinstance(observation, FounderWorldObservation):
+            raise TypeError(f"every {label} observation must be a FounderWorldObservation")
+        key = (observation.founder_id, observation.world_seed, observation.pair_id)
+        if key in by_key:
+            raise ValueError(f"duplicate {label} pairing key: {key!r}")
+        by_key[key] = observation
+    return by_key
 
 
 def _effect_array(values: Sequence[float] | np.ndarray) -> np.ndarray:

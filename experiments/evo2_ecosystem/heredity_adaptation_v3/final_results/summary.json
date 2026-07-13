@@ -1,0 +1,1589 @@
+{
+  "baseline_table": [
+    {
+      "candidate_score": 0.2744051516056061,
+      "policy": "clone",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "2ca78d74467d323e975a12f652484d42235b2c69aa1fe848567a9f7e90c08882",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.0052877654552192285,
+          0.13042198611186023
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8888888888888888,
+        "mean": 0.06626126258783914,
+        "median": 0.05006825387577659,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 1.0,
+            "mean": 0.11968942203992615,
+            "median": 0.08191968414134214
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.007449471339997321,
+            "median": 0.016174450516700745
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.07164489438359394,
+            "median": 0.05006825387577659
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    {
+      "candidate_score": 0.22214871644973755,
+      "policy": "fixed_mixed",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "64943877566acb9ff09fbf6bc568950040d2ace77a16d9c5fb4a20b8f40ed0a7",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.032686588097332915,
+          0.06384409904026793
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.6666666666666666,
+        "mean": 0.018767386404028013,
+        "median": 0.015182408607668342,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.016455050855357617,
+            "median": 0.015182408607668342
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.052989661782732365,
+            "median": 0.08277359925624397
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.6666666666666666,
+            "mean": -0.013142553426005952,
+            "median": 0.014764609436194107
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    {
+      "candidate_score": 0.21993882954120636,
+      "policy": "fixed_parametric",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "351f034007906f1006537b7d42dada9585200398b7119c81a6d0a818413e71db",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.014443735767939418,
+          0.09349500393091804
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8888888888888888,
+        "mean": 0.05070847270076909,
+        "median": 0.039331073756329715,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.029504908259801954,
+            "median": 0.006042535487318257
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 1.0,
+            "mean": 0.04294827036910983,
+            "median": 0.039331073756329715
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.07967223947339551,
+            "median": 0.045750871691520194
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    {
+      "candidate_score": 0.2368457317352295,
+      "policy": "fixed_structural",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "0713edd9678c15bf483fff6bec30cb5974ca693a362da223499cfa842ec5cc7f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.022677800113838076,
+          0.09522864001791563
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8333333333333334,
+        "mean": 0.059220567830512216,
+        "median": 0.04631932777544806,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 1.0,
+            "mean": 0.07693573404471934,
+            "median": 0.06522031849811943
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 1.0,
+            "mean": 0.05466145710609515,
+            "median": 0.04631932777544806
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.5,
+            "mean": 0.04606451234072214,
+            "median": 0.0347592986684518
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    {
+      "candidate_score": 0.20695045590400696,
+      "policy": "stress_responsive",
+      "policy_kind": "baseline",
+      "policy_source_sha256": "9551f8063d7f737e7cd4adf8b940f2a0d5b232c796e4928db1ffc23041b4391f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.018372131889207513,
+          0.059197135730441545
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.7777777777777777,
+        "mean": 0.03790086108108646,
+        "median": 0.032101659908972034,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.03255055963163421,
+            "median": 0.00779166680695198
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.04317773624986076,
+            "median": 0.03386245567041141
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.037974287361764426,
+            "median": 0.032101659908972034
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    }
+  ],
+  "bootstrap_confidence": 0.95,
+  "bootstrap_replicates": 10000,
+  "bootstrap_seed": 20260712,
+  "champion_comparison": {
+    "candidate_score_difference": -0.00767865777015686,
+    "secondary_punctuated_minus_stable_difference_in_differences": {
+      "confidence_interval": [
+        -0.02251473563035435,
+        0.09475337871874834
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.5555555555555555,
+      "mean": 0.030548378920229064,
+      "median": 0.012427347157426992,
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.5,
+          "mean": 0.034905206714443034,
+          "median": 0.012427347157426992
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.5,
+          "mean": -0.016854828453481338,
+          "median": -0.002527891879990002
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.6666666666666666,
+          "mean": 0.07359475849972551,
+          "median": 0.06350894177669235
+        }
+      ]
+    }
+  },
+  "champions": {
+    "punctuated": "shinka_punctuated",
+    "stable": "shinka_stable"
+  },
+  "manifest_sha256": "29449c7a96497cf52009a865f91c6be649a3027ea699dd401e68bbf0efc362fa",
+  "numerical_repeats": 3,
+  "policies": {
+    "clone": {
+      "candidate_score": 0.2744051516056061,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "2ca78d74467d323e975a12f652484d42235b2c69aa1fe848567a9f7e90c08882",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.0052877654552192285,
+          0.13042198611186023
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8888888888888888,
+        "mean": 0.06626126258783914,
+        "median": 0.05006825387577659,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 1.0,
+            "mean": 0.11968942203992615,
+            "median": 0.08191968414134214
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.007449471339997321,
+            "median": 0.016174450516700745
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.07164489438359394,
+            "median": 0.05006825387577659
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "fixed_mixed": {
+      "candidate_score": 0.22214871644973755,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "64943877566acb9ff09fbf6bc568950040d2ace77a16d9c5fb4a20b8f40ed0a7",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.032686588097332915,
+          0.06384409904026793
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.6666666666666666,
+        "mean": 0.018767386404028013,
+        "median": 0.015182408607668342,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.016455050855357617,
+            "median": 0.015182408607668342
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.052989661782732365,
+            "median": 0.08277359925624397
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.6666666666666666,
+            "mean": -0.013142553426005952,
+            "median": 0.014764609436194107
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "fixed_parametric": {
+      "candidate_score": 0.21993882954120636,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "351f034007906f1006537b7d42dada9585200398b7119c81a6d0a818413e71db",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.014443735767939418,
+          0.09349500393091804
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8888888888888888,
+        "mean": 0.05070847270076909,
+        "median": 0.039331073756329715,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.029504908259801954,
+            "median": 0.006042535487318257
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 1.0,
+            "mean": 0.04294827036910983,
+            "median": 0.039331073756329715
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.07967223947339551,
+            "median": 0.045750871691520194
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "fixed_structural": {
+      "candidate_score": 0.2368457317352295,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "0713edd9678c15bf483fff6bec30cb5974ca693a362da223499cfa842ec5cc7f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.022677800113838076,
+          0.09522864001791563
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8333333333333334,
+        "mean": 0.059220567830512216,
+        "median": 0.04631932777544806,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 1.0,
+            "mean": 0.07693573404471934,
+            "median": 0.06522031849811943
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 1.0,
+            "mean": 0.05466145710609515,
+            "median": 0.04631932777544806
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.5,
+            "mean": 0.04606451234072214,
+            "median": 0.0347592986684518
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "initial_scheduler": {
+      "candidate_score": 0.21754637360572815,
+      "policy_kind": "reference",
+      "policy_source_sha256": "e9831cc257f00c0735808e828b04b22f9260bef0094d3f3c88d7ea8b94de5c8a",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.0077238687467517725,
+          0.07142811665394724
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8333333333333334,
+        "mean": 0.030713474320327488,
+        "median": 0.02208072750363499,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.8333333333333334,
+            "mean": 0.036206313206387446,
+            "median": 0.03324368229461093
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.8333333333333334,
+            "mean": 0.032061984226447994,
+            "median": 0.02208072750363499
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.8333333333333334,
+            "mean": 0.023872125528147017,
+            "median": 0.008146643012762994
+          }
+        ]
+      },
+      "survival_rate": 0.9166666666666666
+    },
+    "shinka_punctuated": {
+      "candidate_score": 0.21363432705402374,
+      "policy_kind": "candidate",
+      "policy_source_sha256": "dabb75aa937af4ff1a3b35c27d4feb77b40b14d04486f9dd39c8c24d27d870e0",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.013954416415124887,
+          0.09755120901150983
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.8333333333333334,
+        "mean": 0.05351572359020831,
+        "median": 0.010170987815702859,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.8333333333333334,
+            "mean": 0.04477138804614942,
+            "median": 0.010170987815702859
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.03064033075910598,
+            "median": 0.004699943087366085
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.0851354519653695,
+            "median": 0.052105836961085776
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "shinka_stable": {
+      "candidate_score": 0.2213129848241806,
+      "policy_kind": "candidate",
+      "policy_source_sha256": "47fe62ef49a23234727571c1f20d31dfd08c016f0f0335175dfff82ac2b3c232",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          -0.02416672666982597,
+          0.06517751595942978
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.6666666666666666,
+        "mean": 0.02296734466997923,
+        "median": 0.033125918597054105,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.009866181331706386,
+            "median": 0.01838958222005102
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.04749515921258732,
+            "median": 0.07701845449351129
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.011540693465643993,
+            "median": 0.033125918597054105
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    },
+    "stress_responsive": {
+      "candidate_score": 0.20695045590400696,
+      "policy_kind": "baseline",
+      "policy_source_sha256": "9551f8063d7f737e7cd4adf8b940f2a0d5b232c796e4928db1ffc23041b4391f",
+      "shock_minus_null_primary_effect": {
+        "confidence_interval": [
+          0.018372131889207513,
+          0.059197135730441545
+        ],
+        "count": 18,
+        "founder_count": 3,
+        "fraction_positive": 0.7777777777777777,
+        "mean": 0.03790086108108646,
+        "median": 0.032101659908972034,
+        "per_founder_effects": [
+          {
+            "count": 6,
+            "founder_id": "sealed-00",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.03255055963163421,
+            "median": 0.00779166680695198
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-01",
+            "fraction_positive": 0.6666666666666666,
+            "mean": 0.04317773624986076,
+            "median": 0.03386245567041141
+          },
+          {
+            "count": 6,
+            "founder_id": "sealed-02",
+            "fraction_positive": 1.0,
+            "mean": 0.037974287361764426,
+            "median": 0.032101659908972034
+          }
+        ]
+      },
+      "survival_rate": 1.0
+    }
+  },
+  "primary_contrast": {
+    "confidence_interval": [
+      -0.10901868074913934,
+      0.14876878275822353
+    ],
+    "count": 18,
+    "founder_count": 3,
+    "fraction_positive": 0.5555555555555555,
+    "mean": 0.00748908797923691,
+    "median": 0.007318679702317837,
+    "paired_effects": [
+      {
+        "effect": -0.1551511221461826,
+        "pair_id": "sealed-sealed-00-5014",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.07599995657801628,
+        "pair_id": "sealed-sealed-00-5018",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.11745988839122999,
+        "pair_id": "sealed-sealed-00-5019",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.12256428185436458,
+        "pair_id": "sealed-sealed-00-5020",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.048681526041036705,
+        "pair_id": "sealed-sealed-00-5021",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.3564725125699104,
+        "pair_id": "sealed-sealed-00-5023",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.26707066290287507,
+        "pair_id": "sealed-sealed-01-5014",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.12054360697948141,
+        "pair_id": "sealed-sealed-01-5018",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.22001903610570084,
+        "pair_id": "sealed-sealed-01-5019",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.013184179862340273,
+        "pair_id": "sealed-sealed-01-5020",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.001453179542295402,
+        "pair_id": "sealed-sealed-01-5021",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.10890534839459831,
+        "pair_id": "sealed-sealed-01-5023",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.3936458151373598,
+        "pair_id": "sealed-sealed-02-5014",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.2347307856525731,
+        "pair_id": "sealed-sealed-02-5018",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.09082879977566855,
+        "pair_id": "sealed-sealed-02-5019",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.3494139405277868,
+        "pair_id": "sealed-sealed-02-5020",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": 0.3847467901650816,
+        "pair_id": "sealed-sealed-02-5021",
+        "scenario_family": "actuator_injury"
+      },
+      {
+        "effect": -0.34912415680342485,
+        "pair_id": "sealed-sealed-02-5023",
+        "scenario_family": "actuator_injury"
+      }
+    ],
+    "per_founder_effects": [
+      {
+        "count": 6,
+        "founder_id": "sealed-00",
+        "fraction_positive": 0.3333333333333333,
+        "mean": -0.07986680178599648,
+        "median": -0.08307070721613335
+      },
+      {
+        "count": 6,
+        "founder_id": "sealed-01",
+        "fraction_positive": 0.6666666666666666,
+        "mean": -0.0034626681346092425,
+        "median": 0.007318679702317837
+      },
+      {
+        "count": 6,
+        "founder_id": "sealed-02",
+        "fraction_positive": 0.6666666666666666,
+        "mean": 0.10579673385831645,
+        "median": 0.22012137015172767
+      }
+    ]
+  },
+  "primary_shocked_world_auc_contrasts": {
+    "punctuated_minus_clone": {
+      "confidence_interval": [
+        -0.19291499636976508,
+        0.06599990379674754
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.3333333333333333,
+      "mean": -0.06714356771104701,
+      "median": -0.11041250615380704,
+      "paired_effects": [
+        {
+          "effect": 0.23676282084650466,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.1288766972720623,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.3688051263743546,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.06198489086495501,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.37789306244667387,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.28414966285345145,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.25880160953642595,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.10996125964447856,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.31092947082860123,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.008840675155321776,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.3686744989572617,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.11086375266313553,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3723078264544407,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.2763931135978055,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.14014854548232894,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.030680235889222918,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.06801122147589922,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.0747893003613821,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.3333333333333333,
+          "mean": -0.14349613953918042,
+          "median": -0.20651318006275687
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.16666666666666666,
+          "mean": -0.09103538752133704,
+          "median": -0.11041250615380704
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.5,
+          "mean": 0.0331008239273764,
+          "median": 0.01866549279333815
+        }
+      ]
+    },
+    "punctuated_minus_fixed_mixed": {
+      "confidence_interval": [
+        -0.09206605712482413,
+        0.11408613355250995
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.4444444444444444,
+      "mean": 0.008859796914069268,
+      "median": -0.013607782835837473,
+      "paired_effects": [
+        {
+          "effect": 0.005713658200369953,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.20303335692733526,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.029374959167658487,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0021593934959835415,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.10680971541296458,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.3726285665387487,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.12663116621681386,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0809828361379914,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3879719674587249,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.016029010216395134,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.2856753617270442,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.03751925379037857,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.33306432805127567,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.08781035378160595,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.19415496555822237,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.2097792194949256,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.12547976523637772,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.0694252287835947,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.5,
+          "mean": -0.0496511387492805,
+          "median": -0.013607782835837473
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.3333333333333333,
+          "mean": 0.0005166686076807555,
+          "median": -0.026774132003386852
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.5,
+          "mean": 0.07571386088380755,
+          "median": 0.06236486838731384
+        }
+      ]
+    },
+    "punctuated_minus_fixed_parametric": {
+      "confidence_interval": [
+        -0.019297506175880268,
+        0.006234231962109786
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.16666666666666666,
+      "mean": -0.004900864265533365,
+      "median": -0.00021104680167305379,
+      "paired_effects": [
+        {
+          "effect": -0.01747389303313357,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.019034095108509064,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.012006552682982563,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.039662543684244156,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0561914550406592,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.07321923971176147,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.004762337750435108,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0018710664340427785,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.00042209360334610757,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.012542961372269512,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.00522255152463913,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.16666666666666666,
+          "mean": -0.0017410584346011782,
+          "median": 0.0
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.3333333333333333,
+          "mean": -0.00993026661195646,
+          "median": -0.002381168875217554
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.0,
+          "mean": -0.003031267750042458,
+          "median": -0.00021104680167305379
+        }
+      ]
+    },
+    "punctuated_minus_fixed_structural": {
+      "confidence_interval": [
+        -0.1597759377905905,
+        0.10157335861289589
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.5,
+      "mean": -0.02606381862770757,
+      "median": 0.03380738124842679,
+      "paired_effects": [
+        {
+          "effect": 0.20182016326321497,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.32658745907247066,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.5323540003779011,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.021498226457171976,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.325490993585845,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.013917877301407443,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.2887346349760062,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.1284512539859861,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3967541951153959,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.05386068754725981,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.4096892866982671,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.03238070117575781,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.38569019555062467,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.21751762361782312,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.1117534887577806,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.04413872626092702,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.1560743236914277,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.4091798341833055,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.3333333333333333,
+          "mean": -0.06080891256443999,
+          "median": -0.01770805187928971
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.6666666666666666,
+          "mean": -0.014496180641645614,
+          "median": 0.04312069436150881
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.5,
+          "mean": -0.002886362677037115,
+          "median": 0.03380738124842679
+        }
+      ]
+    },
+    "punctuated_minus_initial": {
+      "confidence_interval": [
+        -0.10901868074913934,
+        0.14876878275822353
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.5555555555555555,
+      "mean": 0.00748908797923691,
+      "median": 0.007318679702317837,
+      "paired_effects": [
+        {
+          "effect": -0.1551511221461826,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.07599995657801628,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.11745988839122999,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.12256428185436458,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.048681526041036705,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.3564725125699104,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.26707066290287507,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.12054360697948141,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.22001903610570084,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.013184179862340273,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.001453179542295402,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.10890534839459831,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3936458151373598,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.2347307856525731,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.09082879977566855,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3494139405277868,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3847467901650816,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.34912415680342485,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.3333333333333333,
+          "mean": -0.07986680178599648,
+          "median": -0.08307070721613335
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.6666666666666666,
+          "mean": -0.0034626681346092425,
+          "median": 0.007318679702317837
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.6666666666666666,
+          "mean": 0.10579673385831645,
+          "median": 0.22012137015172767
+        }
+      ]
+    },
+    "punctuated_minus_stable": {
+      "confidence_interval": [
+        -0.09462581617079469,
+        0.11382577965729411
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.4444444444444444,
+      "mean": 0.007595530044749929,
+      "median": -0.013607782835837473,
+      "paired_effects": [
+        {
+          "effect": 0.0022210048304663887,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.1686541847884655,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.029374959167658487,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0021593934959835415,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.10680971541296458,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.3726285665387487,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.12663116621681386,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0809828361379914,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3879719674587249,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.03277456760406494,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.2934335116042348,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.014712809451988773,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.3410030011501577,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.08781035378160595,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.19415496555822237,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.2097792194949256,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.11660615354776382,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.0694252287835947,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.5,
+          "mean": -0.05596310966740939,
+          "median": -0.013607782835837473
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.3333333333333333,
+          "mean": 0.00023379145326898887,
+          "median": -0.023743688528026857
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.5,
+          "mean": 0.07851590834839019,
+          "median": 0.06236486838731384
+        }
+      ]
+    },
+    "punctuated_minus_stress_responsive": {
+      "confidence_interval": [
+        -0.05936774874081283,
+        0.08168995024501283
+      ],
+      "count": 18,
+      "founder_count": 3,
+      "fraction_positive": 0.4444444444444444,
+      "mean": 0.014491311983614903,
+      "median": 0.006871658066908509,
+      "paired_effects": [
+        {
+          "effect": 0.19916567040814295,
+          "pair_id": "sealed-sealed-00-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.01838463731110096,
+          "pair_id": "sealed-sealed-00-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.013743316133817018,
+          "pair_id": "sealed-sealed-00-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-00-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.028389526065438986,
+          "pair_id": "sealed-sealed-01-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.04363435064442456,
+          "pair_id": "sealed-sealed-01-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.056175985506602744,
+          "pair_id": "sealed-sealed-01-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.09743540154563057,
+          "pair_id": "sealed-sealed-01-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.10120376662598574,
+          "pair_id": "sealed-sealed-01-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": -0.11202995798417503,
+          "pair_id": "sealed-sealed-01-5023",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.016352915101581156,
+          "pair_id": "sealed-sealed-02-5014",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-02-5018",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.1337098889052868,
+          "pair_id": "sealed-sealed-02-5019",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.04576877256234485,
+          "pair_id": "sealed-sealed-02-5020",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.2158083515241742,
+          "pair_id": "sealed-sealed-02-5021",
+          "scenario_family": "actuator_injury"
+        },
+        {
+          "effect": 0.0,
+          "pair_id": "sealed-sealed-02-5023",
+          "scenario_family": "actuator_injury"
+        }
+      ],
+      "per_founder_effects": [
+        {
+          "count": 6,
+          "founder_id": "sealed-00",
+          "fraction_positive": 0.5,
+          "mean": 0.03854893730884349,
+          "median": 0.006871658066908509
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-01",
+          "fraction_positive": 0.16666666666666666,
+          "mean": -0.06368165604022995,
+          "median": -0.07680569352611666
+        },
+        {
+          "count": 6,
+          "founder_id": "sealed-02",
+          "fraction_positive": 0.6666666666666666,
+          "mean": 0.06860665468223116,
+          "median": 0.031060843831963003
+        }
+      ]
+    }
+  },
+  "schema_version": 2,
+  "simulator_source_sha256": "ebc69f2a24f6eaafa457982aa4c84e31f58ad7c95a4c6ee252438b3a8d11ea34"
+}

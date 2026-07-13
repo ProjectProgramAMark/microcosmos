@@ -1,0 +1,1 @@
+{"partitions":{"development":[5008,5011,5012,5013],"sealed":[5014,5018,5019,5020,5021,5023],"training":[5002,5005,5006]},"protocol_sha256":"a6d77754ce1eea6feddcee981de40fb23692e65015feeeab6efc712ac77992ef","schema_version":1,"selection_rule_id":"first_canonical_ready_world_seeds_v1"}

@@ -6,12 +6,13 @@ from dataclasses import asdict, dataclass, replace
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable, Mapping, cast
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
+from microcosmos.cppn import CPPNGenome
 from microcosmos.gym import EcosystemEnv, LineTopology
 from microcosmos.heredity import OffspringPolicy
 from microcosmos.rng import RNGTag, derive_key
@@ -23,15 +24,24 @@ from microcosmos.rollout import (
 from microcosmos.solver.config import PBD_SCHEME, PBD_SCHEME_NO_FLUID
 from microcosmos.structs.population import EcosystemState, PopulationState
 
+from .founder_artifacts import (
+    FounderIndex,
+    load_founder_artifact,
+    load_founder_index,
+)
 from .protocol import (
+    ActuatorInjuryParameters,
     DominantLineageCullParameters,
     EventKind,
     EventRecord,
     RandomBottleneckParameters,
     ResourceRelocationParameters,
+    PILOT_SCHEMA_VERSION,
+    SCHEMA_VERSION,
     ScenarioManifest,
     WorldScenario,
     aggregate_candidate_score,
+    apply_actuator_injury,
     apply_dominant_founder_lineage_cull,
     apply_null_event,
     apply_random_bottleneck,
@@ -40,6 +50,14 @@ from .protocol import (
     post_event_productivity_auc,
 )
 from .frozen_config import CALIBRATED_ECOLOGY, NUMERICAL_REPEATS
+
+
+_MANIFEST_TO_FOUNDER_PARTITION = {
+    "calibration": "training",
+    "training": "training",
+    "development": "development",
+    "sealed_final": "sealed",
+}
 
 
 @dataclass(frozen=True)
@@ -265,6 +283,15 @@ def _apply_event(
             )
         )
         return apply(state, root_key)
+    if world.event_kind is EventKind.ACTUATOR_INJURY:
+        injury = cast(ActuatorInjuryParameters, parameters)
+        apply = jax.jit(
+            lambda current: apply_actuator_injury(
+                current,
+                injury.hinge_gains,
+            )
+        )
+        return apply(state)
     lineage_cull = cast(DominantLineageCullParameters, parameters)
     apply = jax.jit(
         lambda current, key: apply_dominant_founder_lineage_cull(
@@ -284,9 +311,14 @@ def _prepare_pre_event(
     world: WorldScenario,
     *,
     chunk_steps: int,
+    founder_genome: CPPNGenome | None = None,
 ) -> tuple[jax.Array, EcosystemState, EcosystemChunkMetrics]:
     root_key = jax.random.PRNGKey(world.world_seed)
-    _, state = env.reset(root_key)
+    if founder_genome is None:
+        # Preserve the schema-v1 pilot reset path exactly.
+        _, state = env.reset(root_key)
+    else:
+        _, state = env.reset(root_key, founder_genome=founder_genome)
     state, pre_metrics, _ = _run_chunks(
         compiled_chunk,
         state,
@@ -375,12 +407,14 @@ def _run_world(
     horizon: int,
     chunk_steps: int,
     capture_finalist: bool,
+    founder_genome: CPPNGenome | None = None,
 ) -> EpisodeResult:
     root_key, state, pre_metrics = _prepare_pre_event(
         env,
         compiled_chunk,
         world,
         chunk_steps=chunk_steps,
+        founder_genome=founder_genome,
     )
     return _finish_world(
         env,
@@ -403,8 +437,15 @@ def run_world_scenario(
     horizon: int,
     chunk_steps: int,
     capture_finalist: bool = False,
+    founder_index_path: str | Path | None = None,
+    founder_partition: str | None = None,
 ) -> EpisodeResult:
-    """Evaluate one already-validated world with compact chunk summaries."""
+    """Evaluate one world, resolving declared founders through a trusted index.
+
+    The two founder arguments are required together only when ``world`` carries
+    schema-v2 founder metadata. Worlds without founder metadata retain the
+    schema-v1 varied-founder reset behavior.
+    """
     if not isinstance(world, WorldScenario):
         raise ValueError("world must be a WorldScenario")
     if not isinstance(capture_finalist, bool):
@@ -417,6 +458,11 @@ def run_world_scenario(
         raise ValueError("event_step must be strictly inside the horizon")
     if horizon % chunk_steps or world.event_step % chunk_steps:
         raise ValueError("horizon and event_step must fall on chunk boundaries")
+    founder_genome = _resolve_world_founder(
+        world,
+        founder_index_path=founder_index_path,
+        founder_partition=founder_partition,
+    )
     env = build_environment(
         config,
         offspring_policy,
@@ -430,6 +476,7 @@ def run_world_scenario(
         horizon=horizon,
         chunk_steps=chunk_steps,
         capture_finalist=capture_finalist,
+        founder_genome=founder_genome,
     )
 
 
@@ -440,11 +487,18 @@ def evaluate_manifest(
     *,
     capture_finalists: bool = False,
     numerical_repeats: int = NUMERICAL_REPEATS,
+    founder_index_path: str | Path | None = None,
 ) -> ManifestEvaluation:
     """Select the coherent median of repeated full-manifest measurements."""
-    _validate_manifest_inputs(manifest, config, capture_finalists)
+    _validate_manifest_inputs(
+        manifest,
+        config,
+        capture_finalists,
+        founder_index_path=founder_index_path,
+    )
     if not isinstance(numerical_repeats, int) or isinstance(numerical_repeats, bool) or numerical_repeats <= 0 or numerical_repeats % 2 == 0:
         raise ValueError("numerical_repeats must be a positive odd integer")
+    founders = _resolve_manifest_founders(manifest, founder_index_path)
     env = build_environment(config, offspring_policy, horizon=manifest.horizon)
     compiled_chunk = jax.jit(lambda state, keys: run_ecosystem_chunk(env, state, keys))
     evaluations = tuple(
@@ -452,6 +506,7 @@ def evaluate_manifest(
             manifest,
             env,
             compiled_chunk,
+            founders,
             capture_finalists=capture_finalists,
         )
         for _ in range(numerical_repeats)
@@ -471,6 +526,8 @@ def _validate_manifest_inputs(
     manifest: ScenarioManifest,
     config: SimulatorConfig,
     capture_finalists: bool,
+    *,
+    founder_index_path: str | Path | None,
 ) -> None:
     if not isinstance(manifest, ScenarioManifest):
         raise ValueError("manifest must be a ScenarioManifest")
@@ -478,12 +535,118 @@ def _validate_manifest_inputs(
         raise ValueError("manifest simulator config hash does not match config")
     if not isinstance(capture_finalists, bool):
         raise ValueError("capture_finalists must be a bool")
+    if manifest.schema_version == SCHEMA_VERSION and founder_index_path is None:
+        raise ValueError("schema_version 2 requires a trusted founder_index_path")
+    if (
+        manifest.schema_version == PILOT_SCHEMA_VERSION
+        and founder_index_path is not None
+    ):
+        raise ValueError("schema_version 1 must not declare a founder_index_path")
+
+    grouped: dict[str, list[WorldScenario]] = {}
+    for world in manifest.worlds:
+        grouped.setdefault(world.pair_id, []).append(world)
+    for worlds in grouped.values():
+        reference = worlds[0]
+        if any(
+            world.world_seed != reference.world_seed
+            or world.event_step != reference.event_step
+            for world in worlds
+        ):
+            raise ValueError("paired worlds must share world_seed and event_step")
+        if any(
+            (world.founder_id, world.founder_sha256)
+            != (reference.founder_id, reference.founder_sha256)
+            for world in worlds
+        ):
+            raise ValueError("paired worlds must share founder identity")
+
+
+def _founder_partition(partition: str) -> str:
+    try:
+        return _MANIFEST_TO_FOUNDER_PARTITION[partition]
+    except KeyError as error:
+        raise ValueError(
+            f"schema-version-2 partition {partition!r} has no founder-bank partition"
+        ) from error
+
+
+def _load_founders(
+    worlds: tuple[WorldScenario, ...],
+    *,
+    founder_index_path: str | Path,
+    expected_partition: str,
+) -> dict[str, CPPNGenome]:
+    """Load one trusted index and each unique declared founder exactly once."""
+    path = Path(founder_index_path)
+    index: FounderIndex = load_founder_index(path, verify_artifacts=False)
+    founders: dict[str, CPPNGenome] = {}
+    for world in worlds:
+        if world.founder_id is None or world.founder_sha256 is None:
+            raise ValueError("founder metadata is required when resolving founders")
+        record = index.record(
+            world.founder_id,
+            expected_partition=expected_partition,
+        )
+        if record.artifact_sha256 != world.founder_sha256:
+            raise ValueError(
+                f"manifest founder hash mismatch for {world.founder_id!r}"
+            )
+        if world.founder_id not in founders:
+            founders[world.founder_id] = load_founder_artifact(
+                path.parent,
+                record,
+                expected_partition=expected_partition,
+            )
+    return founders
+
+
+def _resolve_manifest_founders(
+    manifest: ScenarioManifest,
+    founder_index_path: str | Path | None,
+) -> dict[str, CPPNGenome]:
+    if manifest.schema_version == PILOT_SCHEMA_VERSION:
+        return {}
+    if founder_index_path is None:  # Defensive; validated before this boundary.
+        raise ValueError("schema_version 2 requires a trusted founder_index_path")
+    return _load_founders(
+        manifest.worlds,
+        founder_index_path=founder_index_path,
+        expected_partition=_founder_partition(manifest.partition),
+    )
+
+
+def _resolve_world_founder(
+    world: WorldScenario,
+    *,
+    founder_index_path: str | Path | None,
+    founder_partition: str | None,
+) -> CPPNGenome | None:
+    has_founder = world.founder_id is not None
+    if not has_founder:
+        if founder_index_path is not None or founder_partition is not None:
+            raise ValueError("worlds without founder metadata do not use a founder index")
+        return None
+    if founder_index_path is None or founder_partition is None:
+        raise ValueError(
+            "world founder metadata requires founder_index_path and founder_partition"
+        )
+    expected_partition = (
+        _MANIFEST_TO_FOUNDER_PARTITION.get(founder_partition, founder_partition)
+    )
+    founders = _load_founders(
+        (world,),
+        founder_index_path=founder_index_path,
+        expected_partition=expected_partition,
+    )
+    return founders[cast(str, world.founder_id)]
 
 
 def _evaluate_manifest_once(
     manifest: ScenarioManifest,
     env: EcosystemEnv,
     compiled_chunk: CompiledChunk,
+    founders: Mapping[str, CPPNGenome],
     *,
     capture_finalists: bool,
 ) -> ManifestEvaluation:
@@ -493,13 +656,17 @@ def _evaluate_manifest_once(
     episodes: list[EpisodeResult | None] = [None] * len(manifest.worlds)
     for indices in grouped.values():
         reference = manifest.worlds[indices[0]]
-        if any(manifest.worlds[index].world_seed != reference.world_seed or manifest.worlds[index].event_step != reference.event_step for index in indices):
-            raise ValueError("paired worlds must share world_seed and event_step")
+        founder_genome = (
+            None
+            if reference.founder_id is None
+            else founders[reference.founder_id]
+        )
         root_key, state, pre_metrics = _prepare_pre_event(
             env,
             compiled_chunk,
             reference,
             chunk_steps=manifest.chunk_steps,
+            founder_genome=founder_genome,
         )
         for index in indices:
             episodes[index] = _finish_world(

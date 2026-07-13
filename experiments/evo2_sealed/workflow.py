@@ -29,7 +29,9 @@ import numpy as np
 from microcosmos.heredity import mutate_cppn
 
 from experiments.evo2_ecosystem.analysis import (
+    FounderWorldObservation,
     PairedWorldMetrics,
+    hierarchical_paired_effect_summary,
     paired_world_metrics,
     stratified_equal_weight_summary,
 )
@@ -41,6 +43,10 @@ from experiments.evo2_ecosystem.episode import (
     simulator_source_sha256,
 )
 from experiments.evo2_ecosystem.frozen_config import NUMERICAL_REPEATS
+from experiments.evo2_ecosystem.founder_artifacts import (
+    founder_index_sha256,
+    load_founder_index,
+)
 from experiments.evo2_ecosystem.protocol import (
     ScenarioManifest,
     canonical_manifest_bytes,
@@ -55,11 +61,18 @@ from experiments.evo2_ecosystem.run_baselines import (
 )
 
 
-SEALED_MANIFEST_SHA256 = "ff361145bfa4a06572f15c52310d87c44cdd6178eb38e0b7d294e3ad41d00077"
 MICROCOSMOS_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = MICROCOSMOS_ROOT.parent
 SHINKA_ROOT = PROJECT_ROOT / "ShinkaEvolve"
-SEALED_RESULTS_DIR = Path(__file__).with_name("final_results")
+SEALED_MANIFEST_PATH = (
+    MICROCOSMOS_ROOT
+    / "experiments/evo2_ecosystem/heredity_adaptation_v3/manifests/sealed.json"
+)
+SEALED_MANIFEST_SHA256 = "29449c7a96497cf52009a865f91c6be649a3027ea699dd401e68bbf0efc362fa"
+SEALED_RESULTS_DIR = (
+    MICROCOSMOS_ROOT
+    / "experiments/evo2_ecosystem/heredity_adaptation_v3/final_results"
+)
 BOOTSTRAP_SEED = 20_260_712
 BOOTSTRAP_REPLICATES = 10_000
 SELECTION_TOP_K = 3
@@ -78,6 +91,20 @@ TRUSTED_SOURCE_PATHS = {
     "heredity": MICROCOSMOS_ROOT / "src/microcosmos/heredity.py",
     "preregistration": PROJECT_ROOT / "plans/experiment-analysis-plan.md",
 }
+
+V2_TRUSTED_SOURCE_PATHS = {
+    "initial": SHINKA_ROOT / "examples/evo2_ecosystem/initial.py",
+    "evaluator": SHINKA_ROOT / "examples/evo2_ecosystem/evaluate.py",
+    "launcher": SHINKA_ROOT / "examples/evo2_ecosystem/run_evo.py",
+    "finalist_selector": SHINKA_ROOT / "examples/evo2_ecosystem/freeze_finalist.py",
+    "lineage_selector": SHINKA_ROOT / "examples/evo2_ecosystem/program_lineage.py",
+    "run_spec_module": SHINKA_ROOT / "examples/evo2_ecosystem/run_spec.py",
+    "analysis": MICROCOSMOS_ROOT / "experiments/evo2_ecosystem/analysis.py",
+    "baseline": MICROCOSMOS_ROOT / "experiments/evo2_ecosystem/run_baselines.py",
+    "dependency_lock": MICROCOSMOS_ROOT / "uv.lock",
+}
+
+INITIAL_POLICY_LABEL = "initial_scheduler"
 
 
 @dataclass(frozen=True)
@@ -112,7 +139,7 @@ class _LoadedCandidate:
 
 def load_sealed_manifest(path: Path | None = None) -> ScenarioManifest:
     """Load the final manifest only through its hard-coded integrity boundary."""
-    path = Path(__file__).with_name("final.json") if path is None else path
+    path = SEALED_MANIFEST_PATH if path is None else path
     raw = path.read_bytes()
     manifest = manifest_from_json_bytes(raw)
     if raw != canonical_manifest_bytes(manifest) + b"\n":
@@ -136,25 +163,60 @@ def _load_run_spec_module() -> ModuleType:
     return importlib.import_module("examples.evo2_ecosystem.run_spec")
 
 
-def _trusted_source_hashes() -> dict[str, str]:
+def _trusted_source_hashes(spec: Mapping[str, Any] | None = None) -> dict[str, str]:
+    """Hash the exact source set named by a v1 or v2 run specification."""
+    paths = (
+        V2_TRUSTED_SOURCE_PATHS
+        if spec is not None and spec.get("schema_version") == 2
+        else TRUSTED_SOURCE_PATHS
+    )
     hashes = {}
-    for name, path in TRUSTED_SOURCE_PATHS.items():
+    for name, path in paths.items():
         if not path.is_file():
             raise RuntimeError(f"trusted source is missing: {name}")
         hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     hashes["simulator"] = simulator_source_sha256()
+    if spec is not None and spec.get("schema_version") == 2:
+        module = _load_run_spec_module()
+        for name in ("preregistration", "implementation_plan"):
+            path = module.artifact_path(spec[name])
+            if not path.is_file():
+                raise RuntimeError(f"trusted source is missing: {name}")
+            hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return hashes
+
+
+def _validate_bound_file(binding: Mapping[str, Any], label: str) -> Path:
+    """Resolve and authenticate one project-relative v2 artifact binding."""
+    module = _load_run_spec_module()
+    path = module.artifact_path(dict(binding))
+    if not path.is_file():
+        raise ValueError(f"bound {label} is missing")
+    if label == "founder index":
+        digest = founder_index_sha256(load_founder_index(path, verify_artifacts=True))
+    elif label.endswith("manifest"):
+        raw = path.read_bytes()
+        manifest = manifest_from_json_bytes(raw)
+        if raw != canonical_manifest_bytes(manifest) + b"\n":
+            raise ValueError(f"bound {label} is not canonical JSON")
+        digest = manifest_sha256(manifest)
+    else:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != binding.get("sha256"):
+        raise ValueError(f"bound {label} has the wrong SHA-256")
+    return path
 
 
 def _validate_run_spec(spec: Any) -> None:
     if not isinstance(spec, dict):
         raise ValueError("run_spec must be an object")
     _load_run_spec_module()._validate(spec)
+    module = _load_run_spec_module()
     if (
         spec.get("top_k") != SELECTION_TOP_K
         or spec.get("numerical_repeats") != NUMERICAL_REPEATS
         or spec.get("simulator_config_sha256") != simulator_config_sha256(SimulatorConfig())
-        or spec.get("manifest_sha256", {}).get("sealed") != SEALED_MANIFEST_SHA256
+        or module.manifest_hash(spec, "sealed") != SEALED_MANIFEST_SHA256
         or spec.get("bootstrap")
         != {
             "confidence": 0.95,
@@ -163,21 +225,16 @@ def _validate_run_spec(spec: Any) -> None:
         }
     ):
         raise ValueError("run_spec does not match the sealed protocol")
-    trusted = _trusted_source_hashes()
-    expected_sources = {
-        key: trusted[key]
-        for key in (
-            "initial",
-            "evaluator",
-            "simulator",
-            "analysis",
-            "baseline",
-            "dependency_lock",
-            "preregistration",
-        )
-    }
+    trusted = _trusted_source_hashes(spec)
+    expected_sources = {key: trusted[key] for key in spec["source_sha256"]}
     if spec.get("source_sha256") != expected_sources:
         raise ValueError("run_spec trusted sources do not match the codebase")
+    if spec.get("schema_version") == 2:
+        for role, binding in spec["manifests"].items():
+            _validate_bound_file(binding, f"{role} manifest")
+        _validate_bound_file(spec["founder_index"], "founder index")
+        _validate_bound_file(spec["preregistration"], "preregistration")
+        _validate_bound_file(spec["implementation_plan"], "implementation plan")
 
 
 def _validate_matched_run_counts(value: Any, spec: Mapping[str, Any]) -> None:
@@ -255,20 +312,25 @@ def load_frozen_finalist(frozen_dir: Path, regime: str) -> FrozenFinalist:
     development_score = record.get("development_score")
     if isinstance(development_score, bool) or not isinstance(development_score, (int, float)) or not math.isfinite(development_score):
         raise ValueError(f"{regime} finalist has an invalid development score")
-    trusted = record.get("source_sha256")
-    if trusted != _trusted_source_hashes():
-        raise ValueError(f"{regime} trusted source hashes do not match the codebase")
     run_spec = record.get("run_spec")
     _validate_run_spec(run_spec)
+    trusted = record.get("source_sha256")
+    if trusted != _trusted_source_hashes(run_spec):
+        raise ValueError(f"{regime} trusted source hashes do not match the codebase")
     if record.get("run_spec_sha256") != _run_spec_sha256(run_spec):
         raise ValueError(f"{regime} preregistered run specification hash is invalid")
+    preregistration_hash = (
+        run_spec["preregistration"]["sha256"]
+        if run_spec.get("schema_version") == 2
+        else trusted["preregistration"]
+    )
     if (
         record.get("selection_rule") != _expected_selection_rule()
         or record.get("bootstrap_config") != run_spec["bootstrap"]
         or record.get("sealed_manifest_sha256") != SEALED_MANIFEST_SHA256
         or record.get("sealed_manifest_locked") is not True
         or record.get("preregistration_complete") is not True
-        or record.get("preregistration_sha256") != trusted["preregistration"]
+        or record.get("preregistration_sha256") != preregistration_hash
         or record.get("development_integrity_valid") is not True
         or record.get("simulator_config_sha256") != simulator_config_sha256(SimulatorConfig())
     ):
@@ -373,7 +435,7 @@ def _suite_record(
 ) -> dict[str, Any]:
     stable, punctuated = _validate_matched_finalists(*finalists)
     run_spec = stable.freeze_record["run_spec"]
-    if run_spec["manifest_sha256"]["sealed"] != manifest_sha256(manifest):
+    if _load_run_spec_module().manifest_hash(run_spec, "sealed") != manifest_sha256(manifest):
         raise ValueError("finalist run specification names a different final manifest")
     if run_spec["simulator_config_sha256"] != simulator_config_sha256(config):
         raise ValueError("finalist run specification names a different simulator")
@@ -396,8 +458,21 @@ def _suite_record(
         "selection_rule": stable.freeze_record["selection_rule"],
         "matched_run_counts": stable.freeze_record["matched_run_counts"],
         "preregistration_complete": True,
-        "preregistration_sha256": run_spec["source_sha256"]["preregistration"],
-        "expected_policies": [stable.label, punctuated.label, *BASELINE_NAMES],
+        "preregistration_sha256": (
+            run_spec["preregistration"]["sha256"]
+            if run_spec.get("schema_version") == 2
+            else run_spec["source_sha256"]["preregistration"]
+        ),
+        "expected_policies": [
+            stable.label,
+            punctuated.label,
+            *(
+                [INITIAL_POLICY_LABEL]
+                if run_spec.get("schema_version") == 2
+                else []
+            ),
+            *run_spec["baselines"],
+        ],
     }
 
 
@@ -465,21 +540,32 @@ def run_sealed_policy(
     """Worker: evaluate one policy under an already-precommitted global suite."""
     if require_gpu and jax.default_backend() != "gpu":
         raise RuntimeError("sealed evaluation requires the GPU backend")
-    expected_policies = ("shinka_stable", "shinka_punctuated", *BASELINE_NAMES)
-    if policy_label not in expected_policies:
-        raise ValueError(f"unknown sealed policy {policy_label!r}")
     _, loaded, manifest, config, suite = _load_suite_context(
         stable_dir,
         punctuated_dir,
         manifest_loader=manifest_loader,
     )
+    if policy_label not in suite["expected_policies"]:
+        raise ValueError(f"unknown sealed policy {policy_label!r}")
     _commit_or_match_suite_record(suite, result_dir=result_dir, allow_create=False)
     output = result_dir / f"{policy_label}.json"
     if output.exists():
         raise FileExistsError(f"sealed result for {policy_label!r} already exists")
 
     loaded_candidate = loaded.get(policy_label)
-    if loaded_candidate is None:
+    initial_module = None
+    if policy_label == INITIAL_POLICY_LABEL:
+        boundary = _load_shinka_boundary()
+        initial_path = TRUSTED_SOURCE_PATHS["initial"]
+        expected_hash = suite["run_spec"]["source_sha256"]["initial"]
+        if hashlib.sha256(initial_path.read_bytes()).hexdigest() != expected_hash:
+            raise RuntimeError("initial scheduler source no longer matches the run specification")
+        initial_module = boundary._load_candidate(initial_path)
+        boundary._smoke_validate_candidate(initial_module)
+        policy = boundary._build_policy(initial_module, mutate_cppn)
+        kind = "reference"
+        source_callable = load_frozen_candidate
+    elif loaded_candidate is None:
         kind = "baseline"
         policy = baseline_policy(policy_label)
         source_callable = policy
@@ -491,12 +577,11 @@ def run_sealed_policy(
         # Validated candidate functions are deliberately compiled under a
         # synthetic filename, so their source is not available to ``inspect``.
         source_callable = load_frozen_candidate
-    evaluation = evaluator(
-        manifest,
-        config,
-        policy,
-        numerical_repeats=NUMERICAL_REPEATS,
-    )
+    evaluation_kwargs: dict[str, Any] = {"numerical_repeats": NUMERICAL_REPEATS}
+    run_spec = suite["run_spec"]
+    if run_spec.get("schema_version") == 2:
+        evaluation_kwargs["founder_index_path"] = _load_run_spec_module().founder_index_path(run_spec)
+    evaluation = evaluator(manifest, config, policy, **evaluation_kwargs)
     record = baseline_result_record(
         manifest,
         config,
@@ -505,7 +590,9 @@ def run_sealed_policy(
         evaluation,
     )
     record["policy_kind"] = kind
-    if loaded_candidate is not None:
+    if initial_module is not None:
+        record["policy_source_sha256"] = suite["run_spec"]["source_sha256"]["initial"]
+    elif loaded_candidate is not None:
         frozen = loaded_candidate.finalist
         record["policy_source_sha256"] = frozen.source_sha256
         record["training_regime"] = frozen.regime
@@ -545,6 +632,8 @@ def _validate_completed_result(
         raise ValueError(f"existing sealed result has the wrong policy: {label}")
     finalist_hashes = {finalist["label"]: finalist["source_sha256"] for finalist in suite["finalists"]}
     expected_source_hash = finalist_hashes.get(label)
+    if label == INITIAL_POLICY_LABEL:
+        expected_source_hash = suite["run_spec"]["source_sha256"]["initial"]
     if expected_source_hash is None:
         expected_source_hash = hashlib.sha256(inspect.getsource(baseline_policy(label)).encode("utf-8")).hexdigest()
     if record.get("policy_source_sha256") != expected_source_hash:
@@ -742,6 +831,83 @@ def _stratified_summary(
     )
 
 
+def _founder_observations(
+    manifest: ScenarioManifest,
+    evaluation: ManifestEvaluation,
+    *,
+    shocked: bool,
+) -> list[FounderWorldObservation]:
+    observations = []
+    for world, episode in zip(manifest.worlds, evaluation.episodes, strict=True):
+        if (world.event_kind.value != "null") != shocked:
+            continue
+        observations.append(
+            FounderWorldObservation(
+                founder_id=world.founder_id or "legacy-founder",
+                world_seed=world.world_seed,
+                pair_id=world.pair_id,
+                value=float(np.asarray(episode.primary_score)),
+            )
+        )
+    return observations
+
+
+def _paired_metric_observations(
+    manifest: ScenarioManifest,
+    metrics: Sequence[PairedWorldMetrics],
+) -> list[FounderWorldObservation]:
+    shocks = {
+        world.pair_id: world
+        for world in manifest.worlds
+        if world.event_kind.value != "null"
+    }
+    return [
+        FounderWorldObservation(
+            founder_id=shocks[metric.pair_id].founder_id or "legacy-founder",
+            world_seed=shocks[metric.pair_id].world_seed,
+            pair_id=metric.pair_id,
+            value=metric.primary_effect,
+        )
+        for metric in metrics
+    ]
+
+
+def _direct_policy_contrast(
+    manifest: ScenarioManifest,
+    candidate: ManifestEvaluation,
+    comparator: ManifestEvaluation,
+    *,
+    seed: int,
+    replicates: int,
+) -> dict[str, Any]:
+    if manifest.schema_version == 2:
+        return _summary_dict(
+            hierarchical_paired_effect_summary(
+                _founder_observations(manifest, candidate, shocked=True),
+                _founder_observations(manifest, comparator, shocked=True),
+                seed=seed,
+                replicates=replicates,
+            )
+        )
+    metrics = paired_world_metrics(manifest, candidate)
+    candidate_scores = {
+        world.pair_id: float(np.asarray(episode.primary_score))
+        for world, episode in zip(manifest.worlds, candidate.episodes, strict=True)
+        if world.event_kind.value != "null"
+    }
+    comparator_scores = {
+        world.pair_id: float(np.asarray(episode.primary_score))
+        for world, episode in zip(manifest.worlds, comparator.episodes, strict=True)
+        if world.event_kind.value != "null"
+    }
+    return _stratified_summary(
+        metrics,
+        [candidate_scores[item.pair_id] - comparator_scores[item.pair_id] for item in metrics],
+        seed=seed,
+        replicates=replicates,
+    )
+
+
 def summarize_sealed_records(
     manifest: ScenarioManifest,
     records: Mapping[str, Mapping[str, Any]],
@@ -752,7 +918,11 @@ def summarize_sealed_records(
     """Build the preregistered paired final comparison and baseline table."""
     stable_champion = "shinka_stable"
     punctuated_champion = "shinka_punctuated"
-    required_baselines = BASELINE_NAMES
+    required_baselines = tuple(
+        label
+        for label, record in records.items()
+        if record.get("policy_kind") == "baseline"
+    )
     if stable_champion not in records or punctuated_champion not in records:
         raise ValueError("both champion records are required")
     if records[stable_champion].get("policy_kind") != "candidate":
@@ -763,6 +933,11 @@ def summarize_sealed_records(
         raise ValueError("stable champion record has the wrong training regime")
     if records[punctuated_champion].get("training_regime") != "punctuated":
         raise ValueError("punctuated champion record has the wrong training regime")
+    if (
+        manifest.schema_version == 2
+        and records.get(INITIAL_POLICY_LABEL, {}).get("policy_kind") != "reference"
+    ):
+        raise ValueError("the frozen initial scheduler result is required")
     missing_baselines = [name for name in required_baselines if name not in records]
     if missing_baselines:
         raise ValueError(f"required baseline results are missing: {missing_baselines}")
@@ -800,12 +975,22 @@ def summarize_sealed_records(
             hashlib.sha256(label.encode("utf-8")).hexdigest()[:8],
             16,
         )
-        effect = _stratified_summary(
-            metrics,
-            [item.primary_effect for item in metrics],
-            seed=policy_seed,
-            replicates=bootstrap_replicates,
-        )
+        if manifest.schema_version == 2:
+            effect = _summary_dict(
+                hierarchical_paired_effect_summary(
+                    _founder_observations(manifest, evaluation, shocked=True),
+                    _founder_observations(manifest, evaluation, shocked=False),
+                    seed=policy_seed,
+                    replicates=bootstrap_replicates,
+                )
+            )
+        else:
+            effect = _stratified_summary(
+                metrics,
+                [item.primary_effect for item in metrics],
+                seed=policy_seed,
+                replicates=bootstrap_replicates,
+            )
         survival = float(np.mean([float(np.asarray(episode.survived)) for episode in evaluation.episodes]))
         policy_summaries[label] = {
             "policy_kind": records[label].get("policy_kind"),
@@ -818,23 +1003,38 @@ def summarize_sealed_records(
             baseline_table.append({"policy": label, **policy_summaries[label]})
     baseline_table.sort(key=lambda row: row["policy"])
 
-    comparison = _stratified_summary(
-        difference_metrics,
-        resilience_differences,
-        seed=bootstrap_seed,
-        replicates=bootstrap_replicates,
-    )
+    if manifest.schema_version == 2:
+        comparison = _summary_dict(
+            hierarchical_paired_effect_summary(
+                _paired_metric_observations(manifest, paired[punctuated_champion]),
+                _paired_metric_observations(manifest, paired[stable_champion]),
+                seed=bootstrap_seed,
+                replicates=bootstrap_replicates,
+            )
+        )
+    else:
+        comparison = _stratified_summary(
+            difference_metrics,
+            resilience_differences,
+            seed=bootstrap_seed,
+            replicates=bootstrap_replicates,
+        )
     direct_contrasts = {}
-    comparators = {
-        "punctuated_minus_stable": stable_champion,
-        "punctuated_minus_fixed_mixed": "fixed_mixed",
-        "punctuated_minus_stress_responsive": "stress_responsive",
-    }
+    comparators = {"punctuated_minus_stable": stable_champion}
+    if INITIAL_POLICY_LABEL in records:
+        comparators = {
+            "punctuated_minus_initial": INITIAL_POLICY_LABEL,
+            **comparators,
+        }
+    comparators.update(
+        {f"punctuated_minus_{name}": name for name in required_baselines}
+    )
     for contrast_name, comparator in comparators.items():
         differences = [shock_scores[punctuated_champion][pair_id] - shock_scores[comparator][pair_id] for pair_id in ordered_ids]
-        contrast = _stratified_summary(
-            difference_metrics,
-            differences,
+        contrast = _direct_policy_contrast(
+            manifest,
+            evaluations[punctuated_champion],
+            evaluations[comparator],
             seed=bootstrap_seed + int(hashlib.sha256(comparator.encode("utf-8")).hexdigest()[:8], 16),
             replicates=bootstrap_replicates,
         )
@@ -848,7 +1048,7 @@ def summarize_sealed_records(
         ]
         direct_contrasts[contrast_name] = contrast
     return {
-        "schema_version": 1,
+        "schema_version": 2 if manifest.schema_version == 2 else 1,
         "manifest_sha256": manifest_sha256(manifest),
         "simulator_source_sha256": simulator_source_sha256(),
         "numerical_repeats": NUMERICAL_REPEATS,
@@ -860,6 +1060,7 @@ def summarize_sealed_records(
             "punctuated": punctuated_champion,
         },
         "primary_shocked_world_auc_contrasts": direct_contrasts,
+        "primary_contrast": direct_contrasts.get("punctuated_minus_initial"),
         "champion_comparison": {
             "candidate_score_difference": (policy_summaries[punctuated_champion]["candidate_score"] - policy_summaries[stable_champion]["candidate_score"]),
             "secondary_punctuated_minus_stable_difference_in_differences": comparison,
@@ -899,7 +1100,7 @@ def _validated_suite_record(
         raise ValueError("sealed suite record has the wrong manifest hash")
     if record["simulator_config_sha256"] != simulator_config_sha256(SimulatorConfig()):
         raise ValueError("sealed suite record has the wrong simulator hash")
-    if record["source_sha256"] != _trusted_source_hashes():
+    if record["source_sha256"] != _trusted_source_hashes(record["run_spec"]):
         raise ValueError("sealed suite record has stale trusted source hashes")
     _validate_run_spec(record["run_spec"])
     if record["run_spec_sha256"] != _run_spec_sha256(record["run_spec"]):
@@ -911,9 +1112,23 @@ def _validated_suite_record(
         raise ValueError("sealed suite record has an invalid preregistration hash")
     if record["preregistration_complete"] is not True:
         raise ValueError("sealed suite record lacks completed preregistration")
-    if record["preregistration_sha256"] != record["source_sha256"]["preregistration"]:
+    expected_preregistration = (
+        record["run_spec"]["preregistration"]["sha256"]
+        if record["run_spec"].get("schema_version") == 2
+        else record["source_sha256"]["preregistration"]
+    )
+    if record["preregistration_sha256"] != expected_preregistration:
         raise ValueError("sealed suite record has the wrong preregistration hash")
-    expected_policies = ["shinka_stable", "shinka_punctuated", *BASELINE_NAMES]
+    expected_policies = [
+        "shinka_stable",
+        "shinka_punctuated",
+        *(
+            [INITIAL_POLICY_LABEL]
+            if record["run_spec"].get("schema_version") == 2
+            else []
+        ),
+        *record["run_spec"]["baselines"],
+    ]
     if record["expected_policies"] != expected_policies:
         raise ValueError("sealed suite record has the wrong policy set")
     finalists = record["finalists"]
@@ -968,11 +1183,7 @@ def _parse_args() -> argparse.Namespace:
     for command in (run_all, worker):
         command.add_argument("--stable-frozen-dir", type=Path, required=True)
         command.add_argument("--punctuated-frozen-dir", type=Path, required=True)
-    worker.add_argument(
-        "--policy",
-        choices=("shinka_stable", "shinka_punctuated", *BASELINE_NAMES),
-        required=True,
-    )
+    worker.add_argument("--policy", required=True)
     subparsers.add_parser("summarize", help="summarize the complete fixed final suite")
     return parser.parse_args()
 

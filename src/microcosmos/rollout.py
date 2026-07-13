@@ -84,6 +84,7 @@ def _state_numeric_valid(state: EcosystemState) -> jax.Array:
         state.time,
         state.base_rest_lengths,
         state.base_bending_rest_angles,
+        state.actuator_gain,
         state.resource_capacity_map,
         state.resource_regeneration_map,
     )
@@ -94,7 +95,8 @@ def _state_numeric_valid(state: EcosystemState) -> jax.Array:
     cache_valid = jnp.all((order == I_INF) | ((order >= 0) & (order < MAX_NODES))) & jnp.all(
         (connection_index == I_INF) | ((connection_index >= 0) & (connection_index < MAX_CONNECTIONS))
     )
-    return finite & cache_valid & population_numeric_valid(population.genome)
+    actuator_valid = jnp.all((state.actuator_gain >= 0.0) & (state.actuator_gain <= 1.0))
+    return finite & actuator_valid & cache_valid & population_numeric_valid(population.genome)
 
 
 def _identity_valid(previous: EcosystemState, state: EcosystemState) -> jax.Array:

@@ -154,6 +154,53 @@ def test_reset_is_deterministic_and_uses_capacity_shapes():
     assert float(center_distance) > 2.0 * env.body_radius
 
 
+def test_explicit_founder_initializes_clones_without_collapsing_pedigree_ids():
+    founder = zero_action_genome()
+    env = _env(
+        max_creatures=4,
+        initial_population=2,
+        founder_genome=founder,
+    )
+    _, state = env.reset(jax.random.PRNGKey(1000))
+
+    for slot in range(env.max_creatures):
+        assert jnp.array_equal(
+            state.population.genome.node_genes[slot],
+            state.population.genome.node_genes[0],
+            equal_nan=True,
+        )
+        assert jnp.array_equal(
+            state.population.genome.connection_genes[slot],
+            state.population.genome.connection_genes[0],
+            equal_nan=True,
+        )
+    assert state.population.founder_lineage_id.tolist() == [0, 1, -1, -1]
+
+
+def test_one_environment_can_reset_with_different_explicit_founders():
+    env = _env(max_creatures=3, initial_population=2)
+    reset_key = jax.random.PRNGKey(1001)
+
+    _, zero_state = env.reset(reset_key, founder_genome=zero_action_genome())
+    _, wave_state = env.reset(reset_key, founder_genome=traveling_wave_genome())
+
+    assert zero_state.population.genome.node_genes.shape == wave_state.population.genome.node_genes.shape
+    assert zero_state.population.genome.connection_genes.shape == wave_state.population.genome.connection_genes.shape
+    assert not jnp.array_equal(
+        zero_state.population.genome.connection_genes,
+        wave_state.population.genome.connection_genes,
+        equal_nan=True,
+    )
+    assert jnp.array_equal(zero_state.nodes.position, wave_state.nodes.position)
+    assert zero_state.population.founder_lineage_id.tolist() == [0, 1, -1]
+    assert wave_state.population.founder_lineage_id.tolist() == [0, 1, -1]
+
+    compiled_step = jax.jit(env.step)
+    zero_result = compiled_step(jax.random.PRNGKey(1002), zero_state)[1]
+    wave_result = compiled_step(jax.random.PRNGKey(1002), wave_state)[1]
+    assert zero_result.nodes.position.shape == wave_result.nodes.position.shape
+
+
 def test_spawn_separation_is_derived_from_body_geometry():
     env = _env(initial_population=1, position_margin=1.25)
     assert np.isclose(env.spawn_separation, 2.0 * env.body_radius + env.position_margin)

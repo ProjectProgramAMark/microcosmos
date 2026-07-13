@@ -19,7 +19,9 @@ from microcosmos.rng import RNGTag, keys_for_identities
 from microcosmos.structs.population import EcosystemState
 
 
-SCHEMA_VERSION = 1
+PILOT_SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = frozenset({PILOT_SCHEMA_VERSION, SCHEMA_VERSION})
 CONTROLLER_LAYOUT = "cppn-4x1-15n-30c-v1"
 _PARTITIONS = frozenset({"calibration", "training", "development", "sealed_final"})
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -33,6 +35,7 @@ class EventKind(str, Enum):
     RESOURCE_RELOCATION = "resource_relocation"
     RANDOM_BOTTLENECK = "random_bottleneck"
     DOMINANT_FOUNDER_LINEAGE_CULL = "dominant_founder_lineage_cull"
+    ACTUATOR_INJURY = "actuator_injury"
 
 
 @dataclass(frozen=True)
@@ -80,7 +83,24 @@ class DominantLineageCullParameters:
         _require_fraction("maximum_removal_fraction", self.maximum_removal_fraction)
 
 
-EventParameters: TypeAlias = NullEventParameters | ResourceRelocationParameters | RandomBottleneckParameters | DominantLineageCullParameters
+@dataclass(frozen=True)
+class ActuatorInjuryParameters:
+    """Persistent efficacy gains for local bending hinges in every organism."""
+
+    hinge_gains: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.hinge_gains, tuple) or not self.hinge_gains:
+            raise ValueError("hinge_gains must be a non-empty tuple")
+        for gain in self.hinge_gains:
+            _require_fraction("hinge_gains value", gain)
+        if all(gain == 1.0 for gain in self.hinge_gains):
+            raise ValueError("actuator injury must weaken at least one hinge")
+
+
+EventParameters: TypeAlias = (
+    NullEventParameters | ResourceRelocationParameters | RandomBottleneckParameters | DominantLineageCullParameters | ActuatorInjuryParameters
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +114,8 @@ class WorldScenario:
     event_kind: EventKind
     event_step: int
     event_parameters: EventParameters
+    founder_id: str | None = None
+    founder_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _require_nonnegative_int("world_seed", self.world_seed)
@@ -108,9 +130,16 @@ class WorldScenario:
             EventKind.RESOURCE_RELOCATION: ResourceRelocationParameters,
             EventKind.RANDOM_BOTTLENECK: RandomBottleneckParameters,
             EventKind.DOMINANT_FOUNDER_LINEAGE_CULL: DominantLineageCullParameters,
+            EventKind.ACTUATOR_INJURY: ActuatorInjuryParameters,
         }[self.event_kind]
         if not isinstance(self.event_parameters, expected):
             raise ValueError(f"{self.event_kind.value} requires {expected.__name__}")
+        if (self.founder_id is None) != (self.founder_sha256 is None):
+            raise ValueError("founder_id and founder_sha256 must be provided together")
+        if self.founder_id is not None:
+            _require_identifier("founder_id", self.founder_id)
+            if not _is_sha256(self.founder_sha256):
+                raise ValueError("founder_sha256 must be a lowercase SHA-256")
 
 
 @dataclass(frozen=True)
@@ -126,8 +155,8 @@ class ScenarioManifest:
     worlds: tuple[WorldScenario, ...]
 
     def __post_init__(self) -> None:
-        if self.schema_version != SCHEMA_VERSION:
-            raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
+        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+            raise ValueError(f"schema_version must be one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}")
         if self.partition not in _PARTITIONS:
             raise ValueError(f"partition must be one of {sorted(_PARTITIONS)}")
         if self.controller_layout != CONTROLLER_LAYOUT:
@@ -142,6 +171,12 @@ class ScenarioManifest:
             raise ValueError("worlds must be a non-empty tuple")
         if any(not isinstance(world, WorldScenario) for world in self.worlds):
             raise ValueError("worlds must contain only WorldScenario values")
+        if self.schema_version == PILOT_SCHEMA_VERSION and any(world.event_kind is EventKind.ACTUATOR_INJURY for world in self.worlds):
+            raise ValueError("actuator_injury requires manifest schema_version 2")
+        if self.schema_version == PILOT_SCHEMA_VERSION and any(world.founder_id is not None for world in self.worlds):
+            raise ValueError("founder metadata requires manifest schema_version 2")
+        if self.schema_version == SCHEMA_VERSION and any(world.founder_id is None for world in self.worlds):
+            raise ValueError("schema_version 2 worlds require founder metadata")
         scenario_ids = [world.scenario_id for world in self.worlds]
         if len(scenario_ids) != len(set(scenario_ids)):
             raise ValueError("scenario_id values must be unique")
@@ -165,6 +200,10 @@ def _require_positive_int(name: str, value: object) -> None:
 def _require_identifier(name: str, value: object) -> None:
     if not isinstance(value, str) or not _IDENTIFIER.fullmatch(value):
         raise ValueError(f"{name} must be a non-empty portable identifier")
+
+
+def _is_sha256(value: object) -> bool:
+    return isinstance(value, str) and _SHA256.fullmatch(value) is not None
 
 
 def _require_finite_pair(name: str, values: tuple[float, float]) -> None:
@@ -223,12 +262,18 @@ def _parse_event_parameters(event_kind: EventKind, value: object) -> EventParame
     if event_kind is EventKind.RANDOM_BOTTLENECK:
         _require_exact_keys(value, {"removal_fraction"}, "bottleneck event_parameters")
         return RandomBottleneckParameters(removal_fraction=value["removal_fraction"])
-    _require_exact_keys(
-        value,
-        {"maximum_removal_fraction"},
-        "dominant-lineage event_parameters",
-    )
-    return DominantLineageCullParameters(maximum_removal_fraction=value["maximum_removal_fraction"])
+    if event_kind is EventKind.DOMINANT_FOUNDER_LINEAGE_CULL:
+        _require_exact_keys(
+            value,
+            {"maximum_removal_fraction"},
+            "dominant-lineage event_parameters",
+        )
+        return DominantLineageCullParameters(maximum_removal_fraction=value["maximum_removal_fraction"])
+    _require_exact_keys(value, {"hinge_gains"}, "actuator injury event_parameters")
+    hinge_gains = value["hinge_gains"]
+    if not isinstance(hinge_gains, list):
+        raise ValueError("actuator injury hinge_gains must be a JSON array")
+    return ActuatorInjuryParameters(hinge_gains=tuple(hinge_gains))
 
 
 def manifest_from_dict(value: dict[str, Any]) -> ScenarioManifest:
@@ -248,6 +293,9 @@ def manifest_from_dict(value: dict[str, Any]) -> ScenarioManifest:
     raw_worlds = value["worlds"]
     if not isinstance(raw_worlds, list):
         raise ValueError("worlds must be a JSON array")
+    schema_version = value["schema_version"]
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise ValueError(f"schema_version must be one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}")
     worlds = []
     world_keys = {
         "world_seed",
@@ -258,6 +306,8 @@ def manifest_from_dict(value: dict[str, Any]) -> ScenarioManifest:
         "event_step",
         "event_parameters",
     }
+    if schema_version == SCHEMA_VERSION:
+        world_keys |= {"founder_id", "founder_sha256"}
     for raw_world in raw_worlds:
         if not isinstance(raw_world, dict):
             raise ValueError("each world must be an object")
@@ -275,6 +325,8 @@ def manifest_from_dict(value: dict[str, Any]) -> ScenarioManifest:
                 event_kind=event_kind,
                 event_step=raw_world["event_step"],
                 event_parameters=_parse_event_parameters(event_kind, raw_world["event_parameters"]),
+                founder_id=raw_world.get("founder_id"),
+                founder_sha256=raw_world.get("founder_sha256"),
             )
         )
     return ScenarioManifest(
@@ -312,7 +364,9 @@ def _event_parameters_dict(parameters: EventParameters) -> dict[str, Any]:
         }
     if isinstance(parameters, RandomBottleneckParameters):
         return {"removal_fraction": parameters.removal_fraction}
-    return {"maximum_removal_fraction": parameters.maximum_removal_fraction}
+    if isinstance(parameters, DominantLineageCullParameters):
+        return {"maximum_removal_fraction": parameters.maximum_removal_fraction}
+    return {"hinge_gains": list(parameters.hinge_gains)}
 
 
 def _manifest_dict(manifest: ScenarioManifest) -> dict[str, Any]:
@@ -323,19 +377,24 @@ def _manifest_dict(manifest: ScenarioManifest) -> dict[str, Any]:
         "simulator_config_sha256": manifest.simulator_config_sha256,
         "horizon": manifest.horizon,
         "chunk_steps": manifest.chunk_steps,
-        "worlds": [
-            {
-                "world_seed": world.world_seed,
-                "scenario_id": world.scenario_id,
-                "pair_id": world.pair_id,
-                "scenario_family": world.scenario_family,
-                "event_kind": world.event_kind.value,
-                "event_step": world.event_step,
-                "event_parameters": _event_parameters_dict(world.event_parameters),
-            }
-            for world in manifest.worlds
-        ],
+        "worlds": [_world_dict(world, manifest.schema_version) for world in manifest.worlds],
     }
+
+
+def _world_dict(world: WorldScenario, schema_version: int) -> dict[str, Any]:
+    value = {
+        "world_seed": world.world_seed,
+        "scenario_id": world.scenario_id,
+        "pair_id": world.pair_id,
+        "scenario_family": world.scenario_family,
+        "event_kind": world.event_kind.value,
+        "event_step": world.event_step,
+        "event_parameters": _event_parameters_dict(world.event_parameters),
+    }
+    if schema_version == SCHEMA_VERSION:
+        value["founder_id"] = world.founder_id
+        value["founder_sha256"] = world.founder_sha256
+    return value
 
 
 def canonical_manifest_bytes(manifest: ScenarioManifest) -> bytes:
@@ -373,6 +432,7 @@ _EVENT_CODE = {
     EventKind.RESOURCE_RELOCATION: 1,
     EventKind.RANDOM_BOTTLENECK: 2,
     EventKind.DOMINANT_FOUNDER_LINEAGE_CULL: 3,
+    EventKind.ACTUATOR_INJURY: 4,
 }
 
 
@@ -428,6 +488,21 @@ def apply_resource_relocation(
             resource_regeneration_map=regeneration,
         ),
         _event_record(EventKind.RESOURCE_RELOCATION, alive, alive),
+    )
+
+
+def apply_actuator_injury(
+    state: EcosystemState,
+    hinge_gains: tuple[float, ...] | jax.Array,
+) -> tuple[EcosystemState, EventRecord]:
+    """Install a persistent world-level actuator regime without changing life state."""
+    gains = jnp.asarray(hinge_gains, dtype=state.actuator_gain.dtype)
+    if gains.ndim != 1 or gains.shape != state.actuator_gain.shape:
+        raise ValueError("hinge_gains must exactly match the world's local-hinge actuator shape")
+    alive = jnp.sum(state.population.alive).astype(jnp.int32)
+    return (
+        replace(state, actuator_gain=gains),
+        _event_record(EventKind.ACTUATOR_INJURY, alive, alive),
     )
 
 

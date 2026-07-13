@@ -10,6 +10,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from experiments.evo2_ecosystem.analysis import (  # noqa: E402
+    FounderWorldObservation,
+    hierarchical_paired_effect_summary,
     paired_effect_summary,
     paired_world_metrics,
     stratified_equal_weight_summary,
@@ -145,3 +147,85 @@ def test_stratified_summary_weights_families_equally():
     assert summary.count == 11
     assert summary.mean == pytest.approx(0.0)
     assert summary.confidence_interval == pytest.approx((0.0, 0.0))
+
+
+def _founder_observation(founder_id, world_seed, pair_id, value):
+    return FounderWorldObservation(
+        founder_id=founder_id,
+        world_seed=world_seed,
+        pair_id=pair_id,
+        value=value,
+    )
+
+
+def test_hierarchical_paired_bootstrap_is_deterministic_and_founder_equal():
+    candidate = (
+        _founder_observation("founder-a", 1, "injury-1", 2.0),
+        _founder_observation("founder-a", 2, "injury-2", 2.0),
+        _founder_observation("founder-a", 3, "injury-3", 2.0),
+        _founder_observation("founder-b", 1, "injury-1", -2.0),
+    )
+    comparator = tuple(_founder_observation(item.founder_id, item.world_seed, item.pair_id, 0.0) for item in reversed(candidate))
+
+    first = hierarchical_paired_effect_summary(candidate, comparator, replicates=1_000)
+    second = hierarchical_paired_effect_summary(candidate, comparator, replicates=1_000)
+
+    assert first == second
+    assert first.count == 4
+    assert first.founder_count == 2
+    assert first.mean == pytest.approx(0.0)
+    assert first.median == pytest.approx(0.0)
+    assert first.fraction_positive == pytest.approx(0.5)
+    assert first.per_founder_effects[0].founder_id == "founder-a"
+    assert first.per_founder_effects[0].count == 3
+    assert first.per_founder_effects[0].mean == pytest.approx(2.0)
+    assert first.per_founder_effects[1].founder_id == "founder-b"
+    assert first.per_founder_effects[1].count == 1
+    assert first.per_founder_effects[1].mean == pytest.approx(-2.0)
+    assert first.confidence_interval[0] == pytest.approx(-2.0)
+    assert first.confidence_interval[1] == pytest.approx(2.0)
+
+
+def test_hierarchical_paired_bootstrap_rejects_unmatched_or_duplicate_keys():
+    candidate = (_founder_observation("founder-a", 1, "injury", 1.0),)
+    comparator = (_founder_observation("founder-a", 2, "injury", 0.0),)
+    with pytest.raises(ValueError, match="identical pairing keys"):
+        hierarchical_paired_effect_summary(candidate, comparator, replicates=10)
+
+    duplicate = (candidate[0], candidate[0])
+    with pytest.raises(ValueError, match="duplicate candidate pairing key"):
+        hierarchical_paired_effect_summary(duplicate, candidate, replicates=10)
+
+
+def test_hierarchical_paired_bootstrap_resamples_observations_within_founder():
+    candidate = (
+        _founder_observation("founder-a", 1, "injury-1", 0.0),
+        _founder_observation("founder-a", 2, "injury-2", 2.0),
+    )
+    comparator = tuple(_founder_observation(item.founder_id, item.world_seed, item.pair_id, 0.0) for item in candidate)
+
+    summary = hierarchical_paired_effect_summary(
+        candidate,
+        comparator,
+        seed=5,
+        replicates=1_000,
+    )
+
+    assert summary.mean == pytest.approx(1.0)
+    assert summary.confidence_interval == pytest.approx((0.0, 2.0))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"founder_id": "", "world_seed": 1, "pair_id": "injury", "value": 1.0}, "founder_id"),
+        ({"founder_id": "founder", "world_seed": -1, "pair_id": "injury", "value": 1.0}, "world_seed"),
+        ({"founder_id": "founder", "world_seed": 1, "pair_id": "", "value": 1.0}, "pair_id"),
+        ({"founder_id": "founder", "world_seed": 1, "pair_id": "injury", "value": np.nan}, "value"),
+        ({"founder_id": "founder", "world_seed": 1, "pair_id": "injury", "value": True}, "value"),
+        ({"founder_id": "founder", "world_seed": 1, "pair_id": "injury", "value": 1.0j}, "value"),
+    ],
+)
+def test_founder_world_observation_rejects_invalid_identity_or_value(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        FounderWorldObservation(**kwargs)

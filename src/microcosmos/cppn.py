@@ -167,12 +167,35 @@ def canonicalize_neutral_attributes(genome: CPPNGenome) -> CPPNGenome:
 def initialize_cppn_population(
     capacity: int,
     initial_population: int,
+    *,
+    founder_genome: CPPNGenome | None = None,
 ) -> CPPNGenome:
-    """Create a canonical fixed-capacity population with varied living founders."""
+    """Create a fixed-capacity population from varied or clonal founders.
+
+    With no explicit founder, retain the deterministic varied-founder panel used
+    by the original ecosystem experiments.  An explicit founder is validated,
+    canonicalized, and broadcast across every slot so world initialization can
+    begin from one frozen genotype without coupling it to the ecological seed.
+    """
     if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1:
         raise ValueError("capacity must be a positive integer")
     if not isinstance(initial_population, int) or isinstance(initial_population, bool) or not 0 <= initial_population <= capacity:
         raise ValueError("initial_population must be within capacity")
+
+    if founder_genome is not None:
+        founder_genome, _, _, founder_valid = transform_and_validate_genome(founder_genome)
+        if not bool(founder_valid):
+            raise ValueError("founder_genome must be a valid CPPN genome")
+        return CPPNGenome(
+            node_genes=jnp.broadcast_to(
+                founder_genome.node_genes,
+                (capacity, *founder_genome.node_genes.shape),
+            ),
+            connection_genes=jnp.broadcast_to(
+                founder_genome.connection_genes,
+                (capacity, *founder_genome.connection_genes.shape),
+            ),
+        )
 
     canonical = canonical_cppn_genome()
     nodes = jnp.broadcast_to(canonical.node_genes, (capacity, *canonical.node_genes.shape))

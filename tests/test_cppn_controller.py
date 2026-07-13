@@ -86,6 +86,47 @@ def test_founder_panel_is_deterministic_and_only_living_slots_are_varied():
     assert any(not _equal_with_nan(first.connection_genes[slot], canonical.connection_genes) for slot in range(3))
 
 
+def test_explicit_founder_is_canonicalized_and_broadcast_across_every_slot():
+    canonical = canonical_cppn_genome()
+    founder = CPPNGenome(
+        node_genes=canonical.node_genes.at[HIDDEN_ROW, NODE_BIAS].set(0.75).at[0, NODE_BIAS].set(3.0),
+        connection_genes=canonical.connection_genes.at[0, CONNECTION_WEIGHT].set(2.5),
+    )
+
+    population = initialize_cppn_population(
+        capacity=5,
+        initial_population=2,
+        founder_genome=founder,
+    )
+
+    assert population.node_genes.shape == (5, MAX_NODES, 5)
+    assert population.connection_genes.shape == (5, MAX_CONNECTIONS, 3)
+    for slot in range(5):
+        assert _equal_with_nan(population.node_genes[slot], population.node_genes[0])
+        assert _equal_with_nan(
+            population.connection_genes[slot],
+            population.connection_genes[0],
+        )
+    assert population.node_genes[0, HIDDEN_ROW, NODE_BIAS] == 0.75
+    assert population.connection_genes[0, 0, CONNECTION_WEIGHT] == 2.5
+    assert population.node_genes[0, 0, NODE_BIAS] == 0.0
+
+
+def test_explicit_founder_rejects_invalid_genome():
+    canonical = canonical_cppn_genome()
+    invalid = CPPNGenome(
+        canonical.node_genes,
+        canonical.connection_genes.at[0, CONNECTION_OUTPUT].set(99.0),
+    )
+
+    with pytest.raises(ValueError, match="founder_genome"):
+        initialize_cppn_population(
+            capacity=3,
+            initial_population=2,
+            founder_genome=invalid,
+        )
+
+
 @pytest.mark.parametrize(
     ("capacity", "initial_population"),
     [(0, 0), (True, 0), (2, -1), (2, 3), (2, True)],

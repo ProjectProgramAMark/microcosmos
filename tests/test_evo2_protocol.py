@@ -13,11 +13,14 @@ import pytest
 # ``experiments`` is intentionally not part of the Microcosmos wheel.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from experiments.evo2_ecosystem.manifests import load_bound_manifest  # noqa: E402
 from experiments.evo2_ecosystem.protocol import (  # noqa: E402
+    ActuatorInjuryParameters,
     CONTROLLER_LAYOUT,
     EventKind,
     ScenarioManifest,
     aggregate_candidate_score,
+    apply_actuator_injury,
     apply_dominant_founder_lineage_cull,
     apply_null_event,
     apply_random_bottleneck,
@@ -65,6 +68,17 @@ def _manifest_dict(event_kind="resource_relocation", event_parameters=None):
             }
         ],
     }
+
+
+def _injury_manifest_dict():
+    value = _manifest_dict(
+        event_kind="actuator_injury",
+        event_parameters={"hinge_gains": [0.2, 1.0, 1.0]},
+    )
+    value["schema_version"] = 2
+    value["worlds"][0]["founder_id"] = "train-founder-00"
+    value["worlds"][0]["founder_sha256"] = "b" * 64
+    return value
 
 
 def _state(capacity=6):
@@ -115,6 +129,119 @@ def test_manifest_round_trip_has_stable_canonical_bytes_and_hash():
 
     differently_formatted = json.dumps(_manifest_dict(), indent=4, sort_keys=False).encode()
     assert canonical_manifest_bytes(manifest_from_json_bytes(differently_formatted)) == canonical
+
+
+def test_bound_manifest_loader_enforces_hash_canonical_bytes_and_partition(
+    tmp_path: Path,
+):
+    manifest = manifest_from_dict(_manifest_dict())
+    path = tmp_path / "training.json"
+    path.write_bytes(canonical_manifest_bytes(manifest) + b"\n")
+    digest = manifest_sha256(manifest)
+
+    assert (
+        load_bound_manifest(
+            path,
+            expected_sha256=digest,
+            expected_partition="training",
+        )
+        == manifest
+    )
+    with pytest.raises(RuntimeError, match="frozen SHA-256"):
+        load_bound_manifest(
+            path,
+            expected_sha256="0" * 64,
+            expected_partition="training",
+        )
+    with pytest.raises(RuntimeError, match="wrong partition"):
+        load_bound_manifest(
+            path,
+            expected_sha256=digest,
+            expected_partition="development",
+        )
+
+    path.write_bytes(json.dumps(_manifest_dict(), indent=2).encode("utf-8") + b"\n")
+    with pytest.raises(RuntimeError, match="canonical JSON"):
+        load_bound_manifest(
+            path,
+            expected_sha256=digest,
+            expected_partition="training",
+        )
+
+
+def test_pilot_manifest_canonical_bytes_and_hashes_are_unchanged():
+    manifest_dir = Path(__file__).resolve().parents[1] / "experiments" / "evo2_ecosystem" / "manifests"
+    expected_hashes = {
+        "development.json": "563c614250054089bbdbbdae06f78adae27da1d13b29be923c3d70fa99602ace",
+        "training_punctuated.json": "535b759c613bb91252934d3b91645b4017add1379b78b7164e984fc58d3e8fbf",
+        "training_stable.json": "716f306f684646cfa2ea62c36c3cef5735e1d682425de3eeee5ca1018ae1b021",
+    }
+    for name, expected_hash in expected_hashes.items():
+        payload = (manifest_dir / name).read_bytes()
+        manifest = manifest_from_json_bytes(payload)
+        assert manifest.schema_version == 1
+        assert canonical_manifest_bytes(manifest) + b"\n" == payload
+        assert manifest_sha256(manifest) == expected_hash
+
+
+def test_schema_v2_injury_and_founder_metadata_round_trip_canonically():
+    value = _injury_manifest_dict()
+    manifest = manifest_from_dict(value)
+    world = manifest.worlds[0]
+    assert world.event_kind is EventKind.ACTUATOR_INJURY
+    assert world.event_parameters == ActuatorInjuryParameters((0.2, 1.0, 1.0))
+    assert world.founder_id == "train-founder-00"
+    assert world.founder_sha256 == "b" * 64
+
+    canonical = canonical_manifest_bytes(manifest)
+    assert canonical_manifest_bytes(manifest_from_json_bytes(canonical)) == canonical
+    assert manifest_sha256(manifest) == "05d93de67522c6899ea6a8355c0c4ebe65883047ae95d8e5faf70202607086f5"
+    assert b'"founder_id":"train-founder-00"' in canonical
+    assert b'"hinge_gains":[0.2,1.0,1.0]' in canonical
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (lambda value: value["worlds"][0].pop("founder_id"), "invalid world keys"),
+        (
+            lambda value: value["worlds"][0].update(founder_sha256="not-a-hash"),
+            "founder_sha256",
+        ),
+        (
+            lambda value: value["worlds"][0]["event_parameters"].update(hinge_gains=[]),
+            "non-empty tuple",
+        ),
+        (
+            lambda value: value["worlds"][0]["event_parameters"].update(hinge_gains=[1.0, 1.0]),
+            "weaken at least one hinge",
+        ),
+        (
+            lambda value: value["worlds"][0]["event_parameters"].update(hinge_gains=[-0.1, 1.0]),
+            "within \\[0, 1\\]",
+        ),
+    ],
+)
+def test_schema_v2_injury_rejects_noncanonical_or_unsafe_inputs(mutate, message):
+    value = _injury_manifest_dict()
+    mutate(value)
+    with pytest.raises(ValueError, match=message):
+        manifest_from_dict(value)
+
+
+def test_schema_v1_rejects_new_injury_and_founder_semantics():
+    injury = _injury_manifest_dict()
+    injury["schema_version"] = 1
+    injury["worlds"][0].pop("founder_id")
+    injury["worlds"][0].pop("founder_sha256")
+    with pytest.raises(ValueError, match="requires manifest schema_version 2"):
+        manifest_from_dict(injury)
+
+    founder = _manifest_dict()
+    founder["worlds"][0]["founder_id"] = "unexpected-founder"
+    founder["worlds"][0]["founder_sha256"] = "b" * 64
+    with pytest.raises(ValueError, match="invalid world keys"):
+        manifest_from_dict(founder)
 
 
 @pytest.mark.parametrize(
@@ -169,6 +296,28 @@ def test_null_and_resource_relocation_are_exact_boundary_transforms():
         )
     )
     assert jnp.array_equal(relocated.nodes.position, state.nodes.position)
+
+
+def test_actuator_injury_is_an_exact_persistent_world_transform():
+    _, state = _state(capacity=4)
+    gains = tuple(0.2 if index == 0 else 1.0 for index in range(state.actuator_gain.shape[0]))
+    injured, record = jax.jit(apply_actuator_injury)(state, gains)
+
+    assert int(record.event_code) == 4
+    assert int(record.catastrophe_death_count) == 0
+    assert jnp.array_equal(injured.actuator_gain, jnp.asarray(gains, dtype=jnp.float32))
+    assert jax.tree.all(
+        jax.tree.map(
+            lambda first, second: jnp.array_equal(first, second, equal_nan=True),
+            injured.population,
+            state.population,
+        )
+    )
+    assert jnp.array_equal(injured.nodes.position, state.nodes.position)
+    assert jnp.array_equal(injured.fields.energy, state.fields.energy)
+
+    with pytest.raises(ValueError, match="exactly match"):
+        apply_actuator_injury(state, (0.2,))
 
 
 def test_random_bottleneck_is_identity_keyed_and_slot_order_invariant():

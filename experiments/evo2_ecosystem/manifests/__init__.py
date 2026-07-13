@@ -23,14 +23,35 @@ VISIBLE_MANIFEST_SHA256 = MappingProxyType(
 
 def _load_visible(filename: str, partition: str) -> ScenarioManifest:
     path = Path(__file__).with_name(filename)
+    return load_bound_manifest(
+        path,
+        expected_sha256=VISIBLE_MANIFEST_SHA256[filename],
+        expected_partition=partition,
+    )
+
+
+def load_bound_manifest(
+    path: str | Path,
+    *,
+    expected_sha256: str,
+    expected_partition: str,
+) -> ScenarioManifest:
+    """Load one canonical manifest through an externally frozen binding.
+
+    The caller owns the immutable path/hash selection (for example a run
+    specification). This loader owns strict parsing, canonical-byte checking,
+    and partition enforcement. It deliberately does not discover profiles or
+    accept unverified manifests on the candidate's behalf.
+    """
+    path = Path(path)
     raw = path.read_bytes()
     manifest = manifest_from_json_bytes(raw)
     if raw != canonical_manifest_bytes(manifest) + b"\n":
-        raise RuntimeError(f"{filename} is not stored as canonical JSON")
-    if manifest_sha256(manifest) != VISIBLE_MANIFEST_SHA256[filename]:
-        raise RuntimeError(f"{filename} does not match its frozen SHA-256")
-    if manifest.partition != partition:
-        raise RuntimeError(f"{filename} has the wrong partition")
+        raise RuntimeError(f"{path.name} is not stored as canonical JSON")
+    if manifest_sha256(manifest) != expected_sha256:
+        raise RuntimeError(f"{path.name} does not match its frozen SHA-256")
+    if manifest.partition != expected_partition:
+        raise RuntimeError(f"{path.name} has the wrong partition")
     return manifest
 
 
@@ -50,6 +71,7 @@ def load_development_manifest() -> ScenarioManifest:
 
 __all__ = [
     "VISIBLE_MANIFEST_SHA256",
+    "load_bound_manifest",
     "load_development_manifest",
     "load_training_manifest",
 ]

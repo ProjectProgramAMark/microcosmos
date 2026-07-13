@@ -1,0 +1,181 @@
+{
+  "expected_policies": [
+    "shinka_stable",
+    "shinka_punctuated",
+    "initial_scheduler",
+    "clone",
+    "fixed_parametric",
+    "fixed_structural",
+    "fixed_mixed",
+    "stress_responsive"
+  ],
+  "finalists": [
+    {
+      "freeze_record_sha256": "1a34ca8ca15a16c1f88995e972a8f8c89886815bffdb88c0f2e349b312ab22be",
+      "label": "shinka_stable",
+      "regime": "stable",
+      "source_sha256": "47fe62ef49a23234727571c1f20d31dfd08c016f0f0335175dfff82ac2b3c232"
+    },
+    {
+      "freeze_record_sha256": "ae728fb8c0c1ff9386aed9e08754f6c7e5753e422d3d6de72e7ccbc9c1114b24",
+      "label": "shinka_punctuated",
+      "regime": "punctuated",
+      "source_sha256": "dabb75aa937af4ff1a3b35c27d4feb77b40b14d04486f9dd39c8c24d27d870e0"
+    }
+  ],
+  "manifest_sha256": "29449c7a96497cf52009a865f91c6be649a3027ea699dd401e68bbf0efc362fa",
+  "matched_run_counts": {
+    "punctuated": {
+      "archive_correct_program_count": 15,
+      "archive_program_count": 16,
+      "command_record_sha256": {
+        "launch.json": "b1e5a55719410e5ece64ade47e91c5e34064748af7a9f888357fcac96b43f8b0"
+      },
+      "completed_evaluation_count": 15,
+      "completion_marker_sha256": "b3c6fc01d8769fc4d11754310ca5ba845ff1d7cbf12cbccf70a7e8f3a9f4a4e5",
+      "correct_evaluation_count": 14,
+      "database_sha256": "8bd952e9437445ea79dd100bac16e3f46d6a39b369ee411da7feff3a40b98c9a",
+      "full_evaluation_count": 14,
+      "generation_budget": 15,
+      "integrity_failed_evaluation_count": 0,
+      "invalid_proposal_count": 1
+    },
+    "stable": {
+      "archive_correct_program_count": 15,
+      "archive_program_count": 16,
+      "command_record_sha256": {
+        "launch.json": "f8d996dda04b99b7a0caf291d09a139ad34a06ae6dd5982705fad0f540b60337"
+      },
+      "completed_evaluation_count": 15,
+      "completion_marker_sha256": "0451fa02846fc58f4fea8d84882c6c2be5d101e57f86b5f85686ae516e1b7f86",
+      "correct_evaluation_count": 14,
+      "database_sha256": "00043809fe3604de530f6e70f1ab67548c8c303d269243f90fbe0e1cbe1b02dd",
+      "full_evaluation_count": 14,
+      "generation_budget": 15,
+      "integrity_failed_evaluation_count": 0,
+      "invalid_proposal_count": 1
+    }
+  },
+  "preregistration_complete": true,
+  "preregistration_sha256": "5e129682ba59e29cbe7052a069db38b3fc1d85b386e0c9c6cd9c6a71fad04f31",
+  "run_spec": {
+    "archive": {
+      "archive_size": 16,
+      "num_archive_inspirations": 1,
+      "num_islands": 2,
+      "num_top_k_inspirations": 1
+    },
+    "artifact_roots": {
+      "frozen": "ShinkaEvolve/examples/evo2_ecosystem/frozen",
+      "results": "ShinkaEvolve/examples/evo2_ecosystem/results"
+    },
+    "baselines": [
+      "clone",
+      "fixed_parametric",
+      "fixed_structural",
+      "fixed_mixed",
+      "stress_responsive"
+    ],
+    "bootstrap": {
+      "confidence": 0.95,
+      "replicates": 10000,
+      "seed": 20260712
+    },
+    "candidate_output_width": 4,
+    "founder_index": {
+      "path": "microcosmos/experiments/evo2_ecosystem/founders/heredity_adaptation_v2/index.json",
+      "sha256": "2fcec499fb1d5ecbddafdbbe446c6dc3e52cd644a64e9452ef9de0c56111593f"
+    },
+    "generations": 15,
+    "headless_command": "npx -y @roberttlange/headless@0.4.0",
+    "implementation_plan": {
+      "path": "plans/evo2-rsi-final-implementation-plan.md",
+      "sha256": "4578758492c6488d5a64b1ec0e630550014545c604360877f5c447a1f5a1e1fd"
+    },
+    "manifests": {
+      "development": {
+        "path": "microcosmos/experiments/evo2_ecosystem/heredity_adaptation_v3/manifests/development.json",
+        "sha256": "7613d980f17629f85a3eaa2bd4d4d5682558859444defceb98e29f6c66547920"
+      },
+      "sealed": {
+        "path": "microcosmos/experiments/evo2_ecosystem/heredity_adaptation_v3/manifests/sealed.json",
+        "sha256": "29449c7a96497cf52009a865f91c6be649a3027ea699dd401e68bbf0efc362fa"
+      },
+      "training_punctuated": {
+        "path": "microcosmos/experiments/evo2_ecosystem/heredity_adaptation_v3/manifests/training_punctuated.json",
+        "sha256": "df994642e135bd6074c40656d0533527ecc5523496f8e543cbe7a6cf0046dbec"
+      },
+      "training_stable": {
+        "path": "microcosmos/experiments/evo2_ecosystem/heredity_adaptation_v3/manifests/training_stable.json",
+        "sha256": "969389548cf5f98c35483de892e885f52560eb003b846c18bb17fdfcb723da2a"
+      }
+    },
+    "model": "headless/codex@gpt-5.5?effort=high",
+    "numerical_repeats": 3,
+    "outer_seed": 17,
+    "preregistration": {
+      "path": "plans/evo2-actuator-rsi-r3-preregistration.md",
+      "sha256": "5e129682ba59e29cbe7052a069db38b3fc1d85b386e0c9c6cd9c6a71fad04f31"
+    },
+    "run_id": "evo2-actuator-rsi-20260713-r3",
+    "schema_version": 2,
+    "search": {
+      "evaluation_timeout": "00:10:00",
+      "max_db_workers": 1,
+      "max_evaluation_jobs": 1,
+      "max_novelty_attempts": 1,
+      "max_patch_attempts": 2,
+      "max_patch_resamples": 2,
+      "max_proposal_jobs": 1,
+      "max_tokens": 8192,
+      "patch_type_probs": [
+        0.7,
+        0.3
+      ],
+      "patch_types": [
+        "diff",
+        "full"
+      ],
+      "reasoning_effort": "high",
+      "temperature": 0.0
+    },
+    "simulator_config_sha256": "cd3278775210c4859ab2e4f0a8b391d45ec1b6d05a506df17d2ea59df2b9a10b",
+    "source_sha256": {
+      "analysis": "90c0377389cafca6dde51cfc19d77daf7f8b9f48ca994399b8383b30407a1181",
+      "baseline": "5b94a602682551db94e4df1fe52e838859b5f1135870c6bf90c0bc138c2257db",
+      "dependency_lock": "d0500d8ed41fd4757bb14454ac03532f0f409217e68cbfed90c36cc14c8c6ace",
+      "evaluator": "b7c4204fc9a94b5b080570a4e6fecbf6616949e6d86e190ba70822875e238c52",
+      "finalist_selector": "3d5d26864006dcdc88f601a7975fda54ee11f852eb7aaad57730dded9f5db9e0",
+      "initial": "e9831cc257f00c0735808e828b04b22f9260bef0094d3f3c88d7ea8b94de5c8a",
+      "launcher": "2cd208819b0dd13631faa12532cf8d81ca6cb1711684e10af0c95b678c44c758",
+      "lineage_selector": "59556b4ca105d03f802ad5218470d39d0d95a3411bed8bed7a21a32044696751",
+      "run_spec_module": "d9e5e0a9d94e8cf53dec352f91dd5252afbf88db6b1d7e80d1e928f13dd55b57",
+      "simulator": "ebc69f2a24f6eaafa457982aa4c84e31f58ad7c95a4c6ee252438b3a8d11ea34"
+    },
+    "top_k": 3
+  },
+  "run_spec_sha256": "f89dcbd370ecf7d637a0b8ac5e9225b4fa8e16adf5ab87f3e99c2c0d6c51dfbd",
+  "schema_version": 2,
+  "selection_rule": {
+    "development_rank": "integrity, median repeated score, then generation",
+    "name": "development_score_desc_then_generation_asc",
+    "numerical_repeats": 3,
+    "top_k": 3,
+    "training_rank": "descending combined_score, then generation"
+  },
+  "simulator_config_sha256": "cd3278775210c4859ab2e4f0a8b391d45ec1b6d05a506df17d2ea59df2b9a10b",
+  "source_sha256": {
+    "analysis": "90c0377389cafca6dde51cfc19d77daf7f8b9f48ca994399b8383b30407a1181",
+    "baseline": "5b94a602682551db94e4df1fe52e838859b5f1135870c6bf90c0bc138c2257db",
+    "dependency_lock": "d0500d8ed41fd4757bb14454ac03532f0f409217e68cbfed90c36cc14c8c6ace",
+    "evaluator": "b7c4204fc9a94b5b080570a4e6fecbf6616949e6d86e190ba70822875e238c52",
+    "finalist_selector": "3d5d26864006dcdc88f601a7975fda54ee11f852eb7aaad57730dded9f5db9e0",
+    "implementation_plan": "4578758492c6488d5a64b1ec0e630550014545c604360877f5c447a1f5a1e1fd",
+    "initial": "e9831cc257f00c0735808e828b04b22f9260bef0094d3f3c88d7ea8b94de5c8a",
+    "launcher": "2cd208819b0dd13631faa12532cf8d81ca6cb1711684e10af0c95b678c44c758",
+    "lineage_selector": "59556b4ca105d03f802ad5218470d39d0d95a3411bed8bed7a21a32044696751",
+    "preregistration": "5e129682ba59e29cbe7052a069db38b3fc1d85b386e0c9c6cd9c6a71fad04f31",
+    "run_spec_module": "d9e5e0a9d94e8cf53dec352f91dd5252afbf88db6b1d7e80d1e928f13dd55b57",
+    "simulator": "ebc69f2a24f6eaafa457982aa4c84e31f58ad7c95a4c6ee252438b3a8d11ea34"
+  }
+}

@@ -1,7 +1,9 @@
 """Immutable protocol primitives for Evo²-Ecosystem experiments."""
 
 from .protocol import (
+    ActuatorInjuryParameters,
     CONTROLLER_LAYOUT,
+    PILOT_SCHEMA_VERSION,
     SCHEMA_VERSION,
     DominantLineageCullParameters,
     EventKind,
@@ -13,6 +15,7 @@ from .protocol import (
     ScenarioManifest,
     WorldScenario,
     aggregate_candidate_score,
+    apply_actuator_injury,
     apply_dominant_founder_lineage_cull,
     apply_null_event,
     apply_random_bottleneck,
@@ -30,7 +33,9 @@ from .protocol import (
 )
 
 __all__ = [
+    "ActuatorInjuryParameters",
     "CONTROLLER_LAYOUT",
+    "PILOT_SCHEMA_VERSION",
     "SCHEMA_VERSION",
     "DominantLineageCullParameters",
     "EventKind",
@@ -42,6 +47,7 @@ __all__ = [
     "ScenarioManifest",
     "WorldScenario",
     "aggregate_candidate_score",
+    "apply_actuator_injury",
     "apply_dominant_founder_lineage_cull",
     "apply_null_event",
     "apply_random_bottleneck",

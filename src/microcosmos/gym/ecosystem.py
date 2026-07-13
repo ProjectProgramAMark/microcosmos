@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from microcosmos.cppn import (
+    CPPNGenome,
     DYNAMIC_NODE_KEY_OFFSET,
     MAX_EXACT_FLOAT32_INTEGER,
     controller_action,
@@ -82,6 +83,8 @@ class EcosystemEnv(Environment):
         placement_candidates: int = 16,
         position_margin: float = 1.0,
         offspring_policy: OffspringPolicy = fixed_mixed_policy,
+        *,
+        founder_genome: CPPNGenome | None = None,
     ):
         if topology is None:
             topology = LineTopology(num_nodes=8)
@@ -240,18 +243,25 @@ class EcosystemEnv(Environment):
             self._bending_coordinate = jnp.zeros(0)
             self._bending_node = jnp.zeros(0, dtype=jnp.int32)
 
-        initial_genomes = initialize_cppn_population(
-            self.max_creatures,
-            self.initial_population,
-        )
         (
             self._initial_genomes,
             self._initial_controller_order,
             self._initial_controller_connection_index,
-            founder_valid,
-        ) = transform_and_validate_population(initial_genomes)
+        ) = self._controller_population(founder_genome)
+
+    def _controller_population(
+        self,
+        founder_genome: CPPNGenome | None,
+    ) -> tuple[CPPNGenome, jax.Array, jax.Array]:
+        initial_genomes = initialize_cppn_population(
+            self.max_creatures,
+            self.initial_population,
+            founder_genome=founder_genome,
+        )
+        genomes, order, connection_index, founder_valid = transform_and_validate_population(initial_genomes)
         if not bool(np.all(np.asarray(jax.device_get(founder_valid)))):
             raise RuntimeError("canonical founder CPPN panel failed validation")
+        return genomes, order, connection_index
 
     @property
     def num_nodes(self) -> int:
@@ -363,7 +373,22 @@ class EcosystemEnv(Environment):
             axis=-1,
         ).reshape(-1)
 
-    def reset(self, key: jax.Array) -> tuple[jax.Array, EcosystemState]:
+    def reset(
+        self,
+        key: jax.Array,
+        *,
+        founder_genome: CPPNGenome | None = None,
+    ) -> tuple[jax.Array, EcosystemState]:
+        if founder_genome is None:
+            initial_genomes = self._initial_genomes
+            initial_controller_order = self._initial_controller_order
+            initial_controller_connection_index = self._initial_controller_connection_index
+        else:
+            (
+                initial_genomes,
+                initial_controller_order,
+                initial_controller_connection_index,
+            ) = self._controller_population(founder_genome)
         initialization_key = derive_key(key, RNGTag.INITIALIZATION)
         key_centers = jax.random.fold_in(initialization_key, 0)
         centers = self._centers(key_centers)
@@ -395,9 +420,9 @@ class EcosystemEnv(Environment):
             generation=jnp.zeros(self.max_creatures, dtype=jnp.int32),
             individual_id=jnp.where(alive, slot_ids, -1),
             parent_id=jnp.full(self.max_creatures, -1, dtype=jnp.int32),
-            genome=self._initial_genomes,
-            controller_order=self._initial_controller_order,
-            controller_connection_index=self._initial_controller_connection_index,
+            genome=initial_genomes,
+            controller_order=initial_controller_order,
+            controller_connection_index=initial_controller_connection_index,
             founder_lineage_id=jnp.where(alive, slot_ids, -1),
             intake_ema=jnp.zeros(self.max_creatures, dtype=jnp.float32),
             population_change_ema=jnp.zeros((), dtype=jnp.float32),
@@ -421,6 +446,7 @@ class EcosystemEnv(Environment):
             time=jnp.array(0, dtype=jnp.int32),
             base_rest_lengths=edges.rest_lengths,
             base_bending_rest_angles=edges.bending_rest_angles,
+            actuator_gain=jnp.ones(self._bending_per_slot, dtype=jnp.float32),
             resource_capacity_map=capacity_map,
             resource_regeneration_map=regeneration_map,
         )
@@ -544,16 +570,22 @@ class EcosystemEnv(Environment):
             pop.alive,
             self.max_bending_delta,
         )
-        bend_action = controller_bend_action
+        intended_bend_action = controller_bend_action
         rest_action = jnp.zeros(self.num_edges)
         if action is not None:
             rest_action = rest_action + action["d_rest_length"]
-            bend_action = bend_action + action["d_bending_angle"]
+            intended_bend_action = intended_bend_action + action["d_bending_angle"]
+
+        actuator_gain = jnp.broadcast_to(
+            state.actuator_gain[None, :],
+            (self.max_creatures, self._bending_per_slot),
+        ).reshape(self.num_bending_pairs)
+        effective_bend_action = intended_bend_action * actuator_gain
 
         acted_edges = replace(
             state.edges,
             rest_lengths=state.base_rest_lengths + rest_action,
-            bending_rest_angles=state.base_bending_rest_angles + bend_action,
+            bending_rest_angles=state.base_bending_rest_angles + effective_bend_action,
         )
         nodes, edges, fields = physics_step(
             nodes,
@@ -577,7 +609,7 @@ class EcosystemEnv(Environment):
         )
         fields = replace(fields, energy=resource)
         bending_energy = actuation_energy_by_slot(
-            bend_action,
+            intended_bend_action,
             self.bending_slot,
             self.max_creatures,
             self.actuation_power_coefficient,
@@ -671,6 +703,7 @@ class EcosystemEnv(Environment):
             time=state.time + 1,
             base_rest_lengths=state.base_rest_lengths,
             base_bending_rest_angles=state.base_bending_rest_angles,
+            actuator_gain=state.actuator_gain,
             resource_capacity_map=state.resource_capacity_map,
             resource_regeneration_map=state.resource_regeneration_map,
         )

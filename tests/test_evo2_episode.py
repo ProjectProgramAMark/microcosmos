@@ -17,7 +17,14 @@ from experiments.evo2_ecosystem.episode import (  # noqa: E402
     simulator_config_sha256,
 )
 from experiments.evo2_ecosystem import episode as episode_module  # noqa: E402
+from experiments.evo2_ecosystem.founder_artifacts import (  # noqa: E402
+    FounderIndex,
+    make_founder_record,
+    write_founder_artifact,
+    write_founder_index,
+)
 from experiments.evo2_ecosystem.protocol import (  # noqa: E402
+    ActuatorInjuryParameters,
     CONTROLLER_LAYOUT,
     DominantLineageCullParameters,
     EventKind,
@@ -29,7 +36,11 @@ from experiments.evo2_ecosystem.protocol import (  # noqa: E402
     aggregate_candidate_score,
     post_event_productivity_auc,
 )
-from microcosmos.cppn import CPPNGenome  # noqa: E402
+from microcosmos.cppn import (  # noqa: E402
+    CONNECTION_WEIGHT,
+    CPPNGenome,
+    canonical_cppn_genome,
+)
 from microcosmos.heredity import (  # noqa: E402
     CLONE,
     OffspringResult,
@@ -121,6 +132,72 @@ def _manifest(config: SimulatorConfig) -> ScenarioManifest:
     )
 
 
+def _write_training_founder_bank(tmp_path):
+    records = []
+    for index, delta in enumerate((0.0, 0.25)):
+        founder_id = f"train-{index:02d}"
+        genome = canonical_cppn_genome()
+        genome = CPPNGenome(
+            node_genes=genome.node_genes,
+            connection_genes=genome.connection_genes.at[
+                0, CONNECTION_WEIGHT
+            ].add(delta),
+        )
+        artifact = f"{founder_id}.npz"
+        digests = write_founder_artifact(tmp_path / artifact, genome)
+        records.append(
+            make_founder_record(
+                founder_id=founder_id,
+                partition="training",
+                artifact=artifact,
+                digests=digests,
+                selection_rule="uninjured_viability_only",
+                selection_seed=index,
+            )
+        )
+    index_path = tmp_path / "index.json"
+    write_founder_index(index_path, FounderIndex(founders=tuple(records)))
+    return index_path, tuple(records)
+
+
+def _schema_v2_manifest(config, records):
+    worlds = []
+    for founder_index, record in enumerate(records):
+        common = {
+            "world_seed": 30 + founder_index,
+            "pair_id": f"{record.founder_id}-pair",
+            "scenario_family": "paired-injury",
+            "event_step": 2,
+            "founder_id": record.founder_id,
+            "founder_sha256": record.artifact_sha256,
+        }
+        worlds.extend(
+            (
+                WorldScenario(
+                    **common,
+                    scenario_id=f"{record.founder_id}-sham",
+                    event_kind=EventKind.NULL,
+                    event_parameters=NullEventParameters(),
+                ),
+                WorldScenario(
+                    **common,
+                    scenario_id=f"{record.founder_id}-injury",
+                    event_kind=EventKind.ACTUATOR_INJURY,
+                    event_parameters=ActuatorInjuryParameters((0.2,)),
+                ),
+            )
+        )
+    return ScenarioManifest(
+        schema_version=2,
+        partition="training",
+        controller_layout=CONTROLLER_LAYOUT,
+        simulator_config_sha256=simulator_config_sha256(config),
+        horizon=4,
+        chunk_steps=2,
+        worlds=tuple(worlds),
+    )
+
+
 def _assert_same_tree(first, second):
     first_leaves = jax.tree.leaves(first)
     second_leaves = jax.tree.leaves(second)
@@ -183,6 +260,40 @@ def test_manifest_evaluation_dispatches_each_event_and_scores_exactly():
         episodes[0].primary_score = jnp.array(0.0)
 
 
+def test_episode_dispatch_installs_actuator_injury_without_lifecycle_changes():
+    config = _config()
+    env = episode_module.build_environment(config, clone_policy, horizon=4)
+    root_key = jax.random.PRNGKey(17)
+    _, state = env.reset(root_key)
+    gains = (0.2,) * state.actuator_gain.shape[0]
+    world = WorldScenario(
+        world_seed=17,
+        scenario_id="injury",
+        pair_id="injury-pair",
+        scenario_family="actuator-injury",
+        event_kind=EventKind.ACTUATOR_INJURY,
+        event_step=2,
+        event_parameters=ActuatorInjuryParameters(gains),
+        founder_id="train-founder-00",
+        founder_sha256="b" * 64,
+    )
+
+    injured, record = episode_module._apply_event(env, state, world, root_key)
+
+    assert int(record.event_code) == 4
+    assert int(record.alive_before) == config.initial_population
+    assert int(record.alive_after) == config.initial_population
+    assert int(record.catastrophe_death_count) == 0
+    assert jnp.array_equal(injured.actuator_gain, jnp.asarray(gains, dtype=jnp.float32))
+    assert jax.tree.all(
+        jax.tree.map(
+            lambda first, second: jnp.array_equal(first, second, equal_nan=True),
+            injured.population,
+            state.population,
+        )
+    )
+
+
 def test_episode_replay_is_deterministic_and_capture_is_explicit():
     config = _config()
     manifest = _manifest(config)
@@ -229,6 +340,165 @@ def test_paired_worlds_fork_one_exact_pre_event_state(monkeypatch):
     _assert_same_tree(
         result.episodes[0].shock_population,
         result.episodes[1].shock_population,
+    )
+
+
+def test_schema_v2_resolves_founders_once_and_reuses_one_compiled_environment(
+    tmp_path,
+    monkeypatch,
+):
+    config = _config()
+    index_path, records = _write_training_founder_bank(tmp_path)
+    manifest = _schema_v2_manifest(config, records)
+    counts = {"index": 0, "artifact": 0, "environment": 0}
+    original_index = episode_module.load_founder_index
+    original_artifact = episode_module.load_founder_artifact
+    original_environment = episode_module.build_environment
+
+    def counted_index(*args, **kwargs):
+        counts["index"] += 1
+        return original_index(*args, **kwargs)
+
+    def counted_artifact(*args, **kwargs):
+        counts["artifact"] += 1
+        return original_artifact(*args, **kwargs)
+
+    def counted_environment(*args, **kwargs):
+        counts["environment"] += 1
+        return original_environment(*args, **kwargs)
+
+    monkeypatch.setattr(episode_module, "load_founder_index", counted_index)
+    monkeypatch.setattr(episode_module, "load_founder_artifact", counted_artifact)
+    monkeypatch.setattr(episode_module, "build_environment", counted_environment)
+
+    result = evaluate_manifest(
+        manifest,
+        config,
+        clone_policy,
+        capture_finalists=True,
+        numerical_repeats=1,
+        founder_index_path=index_path,
+    )
+
+    assert counts == {"index": 1, "artifact": 2, "environment": 1}
+    _assert_same_tree(
+        result.episodes[0].shock_population,
+        result.episodes[1].shock_population,
+    )
+    _assert_same_tree(
+        result.episodes[2].shock_population,
+        result.episodes[3].shock_population,
+    )
+    first = result.episodes[0].shock_population.genome.connection_genes
+    second = result.episodes[2].shock_population.genome.connection_genes
+    assert jnp.array_equal(
+        first,
+        first[0][None, ...].repeat(config.max_creatures, axis=0),
+        equal_nan=True,
+    )
+    assert jnp.array_equal(
+        second,
+        second[0][None, ...].repeat(config.max_creatures, axis=0),
+        equal_nan=True,
+    )
+    assert not jnp.array_equal(first, second, equal_nan=True)
+
+
+def test_schema_v2_requires_a_trusted_matching_founder_index(tmp_path):
+    config = _config()
+    index_path, records = _write_training_founder_bank(tmp_path)
+    manifest = _schema_v2_manifest(config, records)
+
+    with pytest.raises(ValueError, match="trusted founder_index_path"):
+        evaluate_manifest(manifest, config, clone_policy, numerical_repeats=1)
+
+    bad_worlds = tuple(
+        replace(world, founder_sha256="c" * 64)
+        if world.founder_id == records[0].founder_id
+        else world
+        for world in manifest.worlds
+    )
+    with pytest.raises(ValueError, match="manifest founder hash mismatch"):
+        evaluate_manifest(
+            replace(manifest, worlds=bad_worlds),
+            config,
+            clone_policy,
+            numerical_repeats=1,
+            founder_index_path=index_path,
+        )
+
+    with pytest.raises(ValueError, match="belongs to 'training', not 'development'"):
+        evaluate_manifest(
+            replace(manifest, partition="development"),
+            config,
+            clone_policy,
+            numerical_repeats=1,
+            founder_index_path=index_path,
+        )
+
+
+def test_calibration_uses_training_founders_and_pilot_rejects_an_index(tmp_path):
+    config = _config()
+    index_path, records = _write_training_founder_bank(tmp_path)
+    manifest = _schema_v2_manifest(config, records)
+
+    founders = episode_module._resolve_manifest_founders(
+        replace(manifest, partition="calibration"),
+        index_path,
+    )
+    assert set(founders) == {record.founder_id for record in records}
+
+    with pytest.raises(ValueError, match="schema_version 1 must not declare"):
+        evaluate_manifest(
+            _manifest(config),
+            config,
+            clone_policy,
+            numerical_repeats=1,
+            founder_index_path=index_path,
+        )
+
+
+def test_schema_v2_rejects_paired_worlds_with_different_founders(tmp_path):
+    config = _config()
+    index_path, records = _write_training_founder_bank(tmp_path)
+    manifest = _schema_v2_manifest(config, records)
+    mismatched = replace(
+        manifest.worlds[1],
+        founder_id=records[1].founder_id,
+        founder_sha256=records[1].artifact_sha256,
+    )
+
+    with pytest.raises(ValueError, match="paired worlds must share founder identity"):
+        evaluate_manifest(
+            replace(manifest, worlds=(manifest.worlds[0], mismatched)),
+            config,
+            clone_policy,
+            numerical_repeats=1,
+            founder_index_path=index_path,
+        )
+
+
+def test_standalone_schema_v2_world_resolves_founder_through_index(tmp_path):
+    config = _config()
+    index_path, records = _write_training_founder_bank(tmp_path)
+    world = _schema_v2_manifest(config, records).worlds[0]
+
+    result = run_world_scenario(
+        config,
+        clone_policy,
+        world,
+        horizon=4,
+        chunk_steps=2,
+        capture_finalist=True,
+        founder_index_path=index_path,
+        founder_partition="training",
+    )
+
+    genomes = result.shock_population.genome.connection_genes
+    assert jnp.array_equal(
+        genomes,
+        genomes[0][None, ...].repeat(config.max_creatures, axis=0),
+        equal_nan=True,
     )
 
 
