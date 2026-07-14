@@ -64,3 +64,13 @@ the strongest relevant fixed baseline under repeated evaluation.
 - Execution: serial evaluation and proposal jobs inside the standard 24 GiB
   GPU memory guard. All programs, metrics, prompts, database state, manifest,
   source hashes, and launch metadata are retained under the Shinka result ID.
+
+### R7 launch incident
+
+The first `evo2-exploratory-r7-20260714` launch stopped after generation zero:
+the standalone evaluator process could import the installed `shinka` package
+but not the repository's `examples` namespace. The recorded initial evaluation
+is therefore invalid and contains no ecosystem result. The process was stopped
+before accepting a descendant. The evaluator now explicitly adds the pinned
+Shinka checkout to its import path; the corrected search uses a distinct run ID
+so the failed launch remains intact rather than being overwritten.
