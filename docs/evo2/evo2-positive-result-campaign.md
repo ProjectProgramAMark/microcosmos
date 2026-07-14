@@ -74,3 +74,13 @@ is therefore invalid and contains no ecosystem result. The process was stopped
 before accepting a descendant. The evaluator now explicitly adds the pinned
 Shinka checkout to its import path; the corrected search uses a distinct run ID
 so the failed launch remains intact rather than being overwritten.
+
+The corrected `evo2-exploratory-r7b-20260714` launch completed the ancestor
+simulation, but the inherited confirmatory evaluator converted its ecological
+score to `-2.0` because two of sixteen candidate episodes became extinct. The
+run measured a 0.875 survival rate, 49.7 mean births, 4.94 mean generation gain,
+and valid six-action execution; this was ecological variation, not invalid
+code or broken physics. R7b was stopped before evaluating a descendant. For
+exploratory search, extinction now remains part of the ecological performance
+score and survival telemetry rather than making a program invalid. Physical
+integrity failures and heredity-contract violations still invalidate a result.
