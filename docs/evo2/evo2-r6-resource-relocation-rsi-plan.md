@@ -1,6 +1,27 @@
 [PRD]
 # PRD: Evo² R6 — Credit-Adaptive Heredity Under Resource Relocation
 
+## Post-world, pre-founder operational amendment 2: configured founder timing
+
+Date: 2026-07-14
+
+The first frozen launch completed world qualification, then stopped before
+generating or evaluating any R6 founder candidate. The generic configured-R4
+founder runner rejected the preregistered `7,500`-step R6 founder horizon
+because its execution validator allowed prospective callers to bind new world
+seeds and a selection-rule identifier, but not a horizon. A field-by-field
+comparison confirmed that the horizon was the sole mismatch with the reused R4
+execution shape (`4,000` versus the R6 value frozen below).
+
+The generic validator now treats `horizon` like seeds: a value frozen by the
+typed caller contract, while continuing to require the unchanged simulator
+configuration, `500`-step chunks, candidate ranges, viability gates, GPU
+backend, and all other R4 execution fields. This does not change the R6
+founder-screen horizon, candidate bytes, worlds, selection rule, gates, score,
+or any downstream budget. The already published world-qualification artifact
+is retained byte-for-byte. The correction is committed and a new source freeze
+is established before founder generation resumes.
+
 ## Pre-data operational amendment 1: evaluator timeout
 
 Date: 2026-07-14

@@ -399,7 +399,7 @@ def validate_configured_r4_execution_contract(
     *,
     backend: str,
 ) -> None:
-    """Validate a full-scale r4-shaped screen with prospectively supplied seeds."""
+    """Validate a full-scale r4-shaped screen with caller-frozen timing and seeds."""
     if not isinstance(spec, ScreeningSpec):
         raise TypeError("spec must be a ScreeningSpec")
     if not isinstance(backend, str):
@@ -412,12 +412,13 @@ def validate_configured_r4_execution_contract(
     expected = replace(
         R4_PRODUCTION_SPEC,
         seeds=spec.seeds,
+        horizon=spec.horizon,
         selection_rule_id=spec.selection_rule_id,
     )
     if spec != expected:
         raise RuntimeError(
-            "configured screening may change only r4 world seeds and the "
-            "prospectively frozen selection-rule identifier"
+            "configured screening may change only r4 world seeds, horizon, "
+            "and the prospectively frozen selection-rule identifier"
         )
     if backend != "gpu":
         raise RuntimeError("configured production screening requires the JAX GPU backend")

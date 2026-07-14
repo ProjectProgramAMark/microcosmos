@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import sys
@@ -80,6 +80,22 @@ def test_execution_contract_rejects_cpu_production_and_gpu_smoke():
 
     builder.validate_execution_contract(builder.PRODUCTION_SPEC, backend="gpu")
     builder.validate_execution_contract(builder.SMOKE_SPEC, backend="cpu")
+
+
+def test_configured_r4_contract_accepts_caller_frozen_horizon_only():
+    configured = replace(
+        builder.R4_PRODUCTION_SPEC,
+        seeds=(12_000, 12_001),
+        horizon=7_500,
+        selection_rule_id="prospective-r6-rule",
+    )
+    builder.validate_configured_r4_execution_contract(configured, backend="gpu")
+
+    with pytest.raises(RuntimeError, match="may change only"):
+        builder.validate_configured_r4_execution_contract(
+            replace(configured, chunk_steps=250),
+            backend="gpu",
+        )
 
 
 def test_production_builder_rejects_backend_or_runner_injection(tmp_path):
