@@ -101,6 +101,11 @@ def test_observability_is_final_snapshot_and_founder_first():
     assert credit_tv == pytest.approx(1.0)
 
 
+def test_retired_fixture_seeds_cannot_enter_production_r6_manifest():
+    with pytest.raises(ValueError, match="outside the frozen R6 range"):
+        qualification._require_partition_seed_panel("training", (17, 18))
+
+
 def test_imminent_state_wrapper_rejects_reset_state_for_late_window(monkeypatch):
     called = []
 

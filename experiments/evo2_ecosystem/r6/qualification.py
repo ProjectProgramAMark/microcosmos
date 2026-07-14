@@ -78,6 +78,7 @@ from .protocol import POST_OPPORTUNITY_STOP
 from .protocol import PRE_OPPORTUNITY_START
 from .protocol import PRE_OPPORTUNITY_STOP
 from .protocol import PRIVATE_OPPORTUNITY_STAGING_PATH
+from .protocol import PRODUCTION_WORLD_QUALIFICATION_SPEC
 from .protocol import PROTOCOL_REVISION
 from .protocol import SCENARIO_FAMILY
 from .protocol import SHOCK_PARAMETERS
@@ -119,6 +120,27 @@ def _selected_world_seeds(value: Mapping[str, Any]) -> dict[str, tuple[int, int]
             raise ValueError(f"{partition} requires exactly two integer seeds")
         result[partition] = (seeds[0], seeds[1])
     return result
+
+
+def _require_partition_seed_panel(
+    partition: str,
+    seeds: Sequence[int],
+) -> None:
+    ranges = {
+        item.partition: item
+        for item in PRODUCTION_WORLD_QUALIFICATION_SPEC.seed_ranges
+        if item.partition in _REQUIRED_FOUNDERS
+    }
+    if partition not in ranges:
+        raise ValueError(f"unknown R6 manifest partition: {partition}")
+    seed_range = ranges[partition]
+    if len(seeds) != 2 or any(
+        not isinstance(seed, int)
+        or isinstance(seed, bool)
+        or not seed_range.start <= seed < seed_range.stop
+        for seed in seeds
+    ):
+        raise ValueError(f"{partition} seeds lie outside the frozen R6 range")
 
 
 def builder_screening_spec(spec: ScreeningSpec) -> BuilderScreeningSpec:
@@ -231,6 +253,7 @@ def validate_manifest_bundle(
         "sealed": bundle.sealed,
     }
     for partition, manifest in manifests.items():
+        _require_partition_seed_panel(partition, selected_seeds[partition])
         if (
             manifest.schema_version != R4_SCHEMA_VERSION
             or manifest.horizon != HORIZON
