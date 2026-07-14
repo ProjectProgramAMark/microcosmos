@@ -84,3 +84,25 @@ code or broken physics. R7b was stopped before evaluating a descendant. For
 exploratory search, extinction now remains part of the ecological performance
 score and survival telemetry rather than making a program invalid. Physical
 integrity failures and heredity-contract violations still invalidate a result.
+
+### R7c completed search
+
+`evo2-exploratory-r7c-20260714` completed eight program evaluations on the
+punctuated training manifest in 33.6 minutes. Shinka generated seven
+descendants for a recorded API cost of $1.4885. Five descendants passed the
+bounded program contract and two failed static candidate validation before an
+ecosystem simulation.
+
+The best robust training score was generation 2 at `-0.000105` relative to the
+standard-parametric ancestor. Generation 5 scored `-0.001057`, but its mean
+candidate-minus-ancestor effects were positive in both refresh controls
+(`+0.010131`) and resource-relocation treatments (`+0.011535`). It used standard
+parametric mutation for 97.1% of births and made small evidence-gated departures
+through the other trusted operators. Generation 4 showed the largest adaptive
+behavioral change: nonstandard probability rose from 11.6% before relocation to
+24.4% after relocation, and its mean relocation effect was `+0.007660`, although
+its control cost made the robust aggregate negative.
+
+Decision: do not declare a result from one-repeat training measurements. Freeze
+generations 2, 4, and 5, plus all six fixed operators, and evaluate them with
+three numerical repeats on the untouched development founders and worlds.
