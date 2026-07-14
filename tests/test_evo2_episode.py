@@ -139,9 +139,7 @@ def _write_training_founder_bank(tmp_path):
         genome = canonical_cppn_genome()
         genome = CPPNGenome(
             node_genes=genome.node_genes,
-            connection_genes=genome.connection_genes.at[
-                0, CONNECTION_WEIGHT
-            ].add(delta),
+            connection_genes=genome.connection_genes.at[0, CONNECTION_WEIGHT].add(delta),
         )
         artifact = f"{founder_id}.npz"
         digests = write_founder_artifact(tmp_path / artifact, genome)
@@ -285,13 +283,15 @@ def test_episode_dispatch_installs_actuator_injury_without_lifecycle_changes():
     assert int(record.alive_after) == config.initial_population
     assert int(record.catastrophe_death_count) == 0
     assert jnp.array_equal(injured.actuator_gain, jnp.asarray(gains, dtype=jnp.float32))
-    assert jax.tree.all(
-        jax.tree.map(
-            lambda first, second: jnp.array_equal(first, second, equal_nan=True),
-            injured.population,
-            state.population,
-        )
+    expected_population = replace(
+        state.population,
+        shock_ancestor_id=jnp.where(
+            state.population.alive,
+            state.population.individual_id,
+            -1,
+        ),
     )
+    _assert_same_tree(injured.population, expected_population)
 
 
 def test_episode_replay_is_deterministic_and_capture_is_explicit():
@@ -412,12 +412,7 @@ def test_schema_v2_requires_a_trusted_matching_founder_index(tmp_path):
     with pytest.raises(ValueError, match="trusted founder_index_path"):
         evaluate_manifest(manifest, config, clone_policy, numerical_repeats=1)
 
-    bad_worlds = tuple(
-        replace(world, founder_sha256="c" * 64)
-        if world.founder_id == records[0].founder_id
-        else world
-        for world in manifest.worlds
-    )
+    bad_worlds = tuple(replace(world, founder_sha256="c" * 64) if world.founder_id == records[0].founder_id else world for world in manifest.worlds)
     with pytest.raises(ValueError, match="manifest founder hash mismatch"):
         evaluate_manifest(
             replace(manifest, worlds=bad_worlds),

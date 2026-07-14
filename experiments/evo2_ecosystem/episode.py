@@ -62,6 +62,16 @@ _MANIFEST_TO_FOUNDER_PARTITION = {
     "sealed_final": "sealed",
 }
 
+_R6_RESOURCE_SCENARIO_FAMILY = "r6-resource-relocation"
+_R6_CONTROL_SUFFIX = "-control"
+_R6_SHOCK_SUFFIX = "-shock"
+_R6_CONTROL_CENTER = (48.0, 32.0)
+_R6_SHOCK_CENTER = (16.0, 32.0)
+_R6_RESOURCE_RADIUS = 12.0
+_R6_PEAK_CAPACITY = 1.0
+_R6_PEAK_REGENERATION = 0.03
+_R6_STOCK_FRACTION = 1.0
+
 
 @dataclass(frozen=True)
 class SimulatorConfig:
@@ -301,6 +311,16 @@ def _apply_event(
     if world.event_kind is EventKind.NULL:
         return jax.jit(apply_null_event)(state)
 
+    population = replace(
+        state.population,
+        shock_ancestor_id=jnp.where(
+            state.population.alive,
+            state.population.individual_id,
+            -1,
+        ),
+    )
+    state = replace(state, population=population)
+
     parameters = world.event_parameters
     if world.event_kind is EventKind.RESOURCE_RELOCATION:
         relocation = cast(ResourceRelocationParameters, parameters)
@@ -353,6 +373,73 @@ def _apply_event(
         )
     )
     return apply(state, root_key)
+
+
+def _resource_parameters_match(
+    value: ResourceRelocationParameters,
+    *,
+    center: tuple[float, float],
+) -> bool:
+    return (
+        tuple(value.center) == center
+        and value.radius == _R6_RESOURCE_RADIUS
+        and value.peak_capacity == _R6_PEAK_CAPACITY
+        and value.peak_regeneration == _R6_PEAK_REGENERATION
+        and value.stock_fraction == _R6_STOCK_FRACTION
+    )
+
+
+def _resolve_pair_indices(
+    manifest: ScenarioManifest,
+    indices: list[int],
+) -> tuple[int, int]:
+    """Return ``(control, shock)`` indices for historical and R6 pairs.
+
+    Historical manifests retain their exact NULL/non-NULL interpretation.  R6
+    uses two RESOURCE_RELOCATION events, so its roles are authenticated from
+    the frozen scenario identifiers and exact event parameters instead.
+    """
+    if len(indices) != 2:
+        raise ValueError("paired evaluation requires exactly two worlds per pair")
+    worlds = [manifest.worlds[index] for index in indices]
+    null = [
+        index
+        for index, world in zip(indices, worlds, strict=True)
+        if world.event_kind is EventKind.NULL
+    ]
+    nonnull = [
+        index
+        for index, world in zip(indices, worlds, strict=True)
+        if world.event_kind is not EventKind.NULL
+    ]
+    if len(null) == 1 and len(nonnull) == 1:
+        return null[0], nonnull[0]
+
+    pair_id = worlds[0].pair_id
+    if any(world.pair_id != pair_id for world in worlds):
+        raise ValueError("paired worlds must share pair_id")
+    if any(world.scenario_family != _R6_RESOURCE_SCENARIO_FAMILY for world in worlds):
+        raise ValueError("same-kind pairs require the frozen R6 scenario family")
+    by_id = {
+        world.scenario_id: index
+        for index, world in zip(indices, worlds, strict=True)
+    }
+    control_id = f"{pair_id}{_R6_CONTROL_SUFFIX}"
+    shock_id = f"{pair_id}{_R6_SHOCK_SUFFIX}"
+    if set(by_id) != {control_id, shock_id}:
+        raise ValueError("R6 pair roles require exact -control and -shock scenario IDs")
+    control = manifest.worlds[by_id[control_id]]
+    shock = manifest.worlds[by_id[shock_id]]
+    if (
+        control.event_kind is not EventKind.RESOURCE_RELOCATION
+        or shock.event_kind is not EventKind.RESOURCE_RELOCATION
+        or not isinstance(control.event_parameters, ResourceRelocationParameters)
+        or not isinstance(shock.event_parameters, ResourceRelocationParameters)
+        or not _resource_parameters_match(control.event_parameters, center=_R6_CONTROL_CENTER)
+        or not _resource_parameters_match(shock.event_parameters, center=_R6_SHOCK_CENTER)
+    ):
+        raise ValueError("R6 pair roles do not match the frozen resource events")
+    return by_id[control_id], by_id[shock_id]
 
 
 def _prepare_pre_event(
@@ -800,11 +887,7 @@ def _paired_r4_score(
     sham_deltas = []
     shock_deltas = []
     for indices in grouped.values():
-        null_indices = [index for index in indices if manifest.worlds[index].event_kind is EventKind.NULL]
-        shock_indices = [index for index in indices if manifest.worlds[index].event_kind is not EventKind.NULL]
-        if len(null_indices) != 1 or len(shock_indices) != 1:
-            raise ValueError("r4 pairs require exactly one sham and one shock world")
-        null_index, shock_index = null_indices[0], shock_indices[0]
+        null_index, shock_index = _resolve_pair_indices(manifest, indices)
         candidate_sham = float(candidate.episodes[null_index].primary_score)
         ancestor_sham = float(ancestor.episodes[null_index].primary_score)
         candidate_shock = float(candidate.episodes[shock_index].primary_score)
@@ -894,11 +977,22 @@ def evaluate_manifest_paired_delta(
         and all(bool(episode.survived) for episode in (*repeat[0].episodes, *repeat[1].episodes))
         for repeat in repeats
     )
+    pair_indices: dict[str, list[int]] = {}
+    for index, world in enumerate(manifest.worlds):
+        pair_indices.setdefault(world.pair_id, []).append(index)
+    role_indices = {
+        pair_id: _resolve_pair_indices(manifest, indices)
+        for pair_id, indices in pair_indices.items()
+    }
+    control_indices = {control for control, _ in role_indices.values()}
+    shock_indices = {shock for _, shock in role_indices.values()}
     adaptive_observations = []
     for repeat_index, repeat in enumerate(repeats):
         repeat_candidate = repeat[0]
-        for world, episode in zip(manifest.worlds, repeat_candidate.episodes, strict=True):
-            if world.event_kind is EventKind.NULL:
+        for index, (world, episode) in enumerate(
+            zip(manifest.worlds, repeat_candidate.episodes, strict=True)
+        ):
+            if index not in shock_indices:
                 continue
             pre_count = int(episode.pre_selection_probability_count)
             post_count = int(episode.post_selection_probability_count)
@@ -918,8 +1012,8 @@ def evaluate_manifest_paired_delta(
         episodes=candidate.episodes,
         sham_episodes=tuple(
             episode
-            for episode, world in zip(candidate.episodes, manifest.worlds, strict=True)
-            if world.event_kind is EventKind.NULL
+            for index, episode in enumerate(candidate.episodes)
+            if index in control_indices
         ),
         ancestor_episodes=ancestor.episodes,
         candidate_score=jnp.asarray(score, dtype=jnp.float32),

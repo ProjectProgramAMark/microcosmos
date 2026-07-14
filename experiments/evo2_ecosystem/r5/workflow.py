@@ -36,6 +36,7 @@ from ..episode import (
     PairedManifestEvaluation,
     SimulatorConfig,
     _paired_r4_score,
+    _resolve_pair_indices,
     evaluate_manifest_paired_delta,
     simulator_config_sha256,
     simulator_source_sha256,
@@ -92,10 +93,7 @@ PROJECT_ROOT = MICROCOSMOS_ROOT.parent
 SHINKA_ROOT = PROJECT_ROOT / "ShinkaEvolve"
 RUN_ID = "evo2-r5-world-feasibility-20260713"
 PROFILE_NAME = "evo2-r5-world-feasibility"
-PROFILE_PATH = (
-    SHINKA_ROOT
-    / "examples/evo2_ecosystem/run_specs/evo2-r5-world-feasibility.json"
-)
+PROFILE_PATH = SHINKA_ROOT / "examples/evo2_ecosystem/run_specs/evo2-r5-world-feasibility.json"
 PROFILE_HASH_PATH = PROFILE_PATH.with_suffix(".sha256")
 FOUNDER_ROOT = ARTIFACTS_ROOT / "founders"
 FOUNDER_INDEX_PATH = FOUNDER_ROOT / "index.json"
@@ -104,9 +102,7 @@ MANIFEST_ROOT = ARTIFACTS_ROOT / "manifests"
 DISTURBANCE_PATH = ARTIFACTS_ROOT / "disturbance_qualification.json"
 OPPORTUNITY_PATH = ARTIFACTS_ROOT / "operator_opportunity.json"
 FINAL_ROOT = ARTIFACTS_ROOT / "final"
-STOP_REPORT_PATH = (
-    MICROCOSMOS_ROOT / "docs/evo2/evo2-r5-world-feasibility-stop-report.md"
-)
+STOP_REPORT_PATH = MICROCOSMOS_ROOT / "docs/evo2/evo2-r5-world-feasibility-stop-report.md"
 RESULT_ROOT = SHINKA_ROOT / "examples/evo2_ecosystem/results" / RUN_ID
 DEVELOPMENT_COMPLETE_PATH = RESULT_ROOT / "development.complete.json"
 SEALED_SUITE_PATH = FINAL_ROOT / "suite_record.json"
@@ -116,6 +112,72 @@ _SHA256_LENGTH = 64
 
 class WorkflowStopped(RuntimeError):
     """The frozen protocol reached a terminal failed gate."""
+
+
+@dataclass(frozen=True)
+class BoundedWorkflowContext:
+    """Authenticated paths and bindings for one bounded Evo² protocol.
+
+    R5 remains the default context.  Later protocols must construct an
+    explicit context from their authenticated run specification and protocol
+    constants; post-profile orchestration must not consult protocol globals.
+    """
+
+    profile_name: str
+    profile_path: Path
+    profile_hash_path: Path
+    workflow_module: str
+    run_id: str
+    protocol_revision: str
+    schema_version: int
+    sealed_suite_schema_version: int
+    founder_index_path: Path
+    manifest_root: Path
+    world_qualification_path: Path
+    disturbance_path: Path
+    result_root: Path
+    development_complete_path: Path
+    final_root: Path
+    sealed_suite_path: Path
+    analysis_module: str
+    baselines_module: str
+
+    def __post_init__(self) -> None:
+        if not self.profile_name or not self.workflow_module:
+            raise ValueError("workflow context identity must be non-empty")
+        if not self.run_id or not self.protocol_revision:
+            raise ValueError("workflow context protocol identity must be non-empty")
+        if self.schema_version not in {4, 5}:
+            raise ValueError("bounded workflow requires schema 4 or 5")
+        if self.sealed_suite_schema_version not in {1, 2}:
+            raise ValueError("sealed-suite schema must be 1 or 2")
+        if (self.schema_version, self.sealed_suite_schema_version) not in {
+            (4, 1),
+            (5, 2),
+        }:
+            raise ValueError("run-spec and sealed-suite schemas disagree")
+
+
+R5_CONTEXT = BoundedWorkflowContext(
+    profile_name=PROFILE_NAME,
+    profile_path=PROFILE_PATH,
+    profile_hash_path=PROFILE_HASH_PATH,
+    workflow_module="experiments.evo2_ecosystem.r5.workflow",
+    run_id=RUN_ID,
+    protocol_revision=PROTOCOL_REVISION,
+    schema_version=4,
+    sealed_suite_schema_version=1,
+    founder_index_path=FOUNDER_INDEX_PATH,
+    manifest_root=MANIFEST_ROOT,
+    world_qualification_path=WORLD_QUALIFICATION_PATH,
+    disturbance_path=DISTURBANCE_PATH,
+    result_root=RESULT_ROOT,
+    development_complete_path=DEVELOPMENT_COMPLETE_PATH,
+    final_root=FINAL_ROOT,
+    sealed_suite_path=SEALED_SUITE_PATH,
+    analysis_module="experiments.evo2_ecosystem.r5.analysis",
+    baselines_module="experiments.evo2_ecosystem.r5.baselines",
+)
 
 
 @dataclass(frozen=True)
@@ -516,9 +578,7 @@ def world_qualification_commands(
 ) -> tuple[list[str], list[str]]:
     """Return the fresh CPU-scan and guarded selected-only GPU commands."""
     module = "experiments.evo2_ecosystem.r5.workflow"
-    cpu = _guarded_python_command(
-        "-m", module, "world-cpu-stage", "--output", str(cpu_stage.resolve()), cpu=True
-    )
+    cpu = _guarded_python_command("-m", module, "world-cpu-stage", "--output", str(cpu_stage.resolve()), cpu=True)
     gpu = _guarded_python_command(
         "-m",
         module,
@@ -766,10 +826,7 @@ def run_phase3_gates(
                 "sealed.json",
             )
         )
-        if not all(
-            path.is_file() and path.with_suffix(".sha256").is_file()
-            for path in manifest_paths
-        ):
+        if not all(path.is_file() and path.with_suffix(".sha256").is_file() for path in manifest_paths):
             if manifest_directory.exists():
                 raise RuntimeError("partial r5 manifest bundle cannot be resumed")
             build_and_publish_manifests(
@@ -854,9 +911,7 @@ def _manifest_hash_from_sidecar(path: Path) -> str:
     if not line.endswith(suffix):
         raise ValueError(f"manifest sidecar has the wrong filename: {path}")
     digest = line[: -len(suffix)]
-    if len(digest) != _SHA256_LENGTH or any(
-        character not in "0123456789abcdef" for character in digest
-    ):
+    if len(digest) != _SHA256_LENGTH or any(character not in "0123456789abcdef" for character in digest):
         raise ValueError(f"manifest sidecar has an invalid SHA-256: {path}")
     return digest
 
@@ -910,7 +965,12 @@ def run_pre_search_phases(
     )
 
 
-def search_command(regime: str, *, resume: bool = False) -> list[str]:
+def search_command(
+    regime: str,
+    *,
+    resume: bool = False,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> list[str]:
     """Construct one guarded matched Shinka arm command."""
     if regime not in {"stable", "punctuated"}:
         raise ValueError("Shinka regime must be stable or punctuated")
@@ -918,14 +978,19 @@ def search_command(regime: str, *, resume: bool = False) -> list[str]:
         "--regime",
         regime,
         "--profile",
-        PROFILE_NAME,
+        context.profile_name,
     ]
     if resume:
         arguments.append("--resume")
-    return _guarded_shinka_command("run_evo", *arguments)
+    return _guarded_shinka_command("run_evo", *arguments, context=context)
 
 
-def development_command(regime: str, phase: str) -> list[str]:
+def development_command(
+    regime: str,
+    phase: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> list[str]:
     """Construct one guarded development evaluation or freeze handoff."""
     if regime not in {"stable", "punctuated"}:
         raise ValueError("development regime must be stable or punctuated")
@@ -938,31 +1003,39 @@ def development_command(regime: str, phase: str) -> list[str]:
         "--development-phase",
         phase,
         "--profile",
-        PROFILE_NAME,
+        context.profile_name,
+        context=context,
     )
 
 
-def structured_random_command(phase: str) -> list[str]:
+def structured_random_command(
+    phase: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> list[str]:
     """Construct the matched structured-random training or freeze command."""
     if phase not in {"training", "evaluate", "freeze"}:
-        raise ValueError(
-            "structured-random phase must be training, evaluate, or freeze"
-        )
+        raise ValueError("structured-random phase must be training, evaluate, or freeze")
     return _guarded_shinka_command(
         "freeze_finalist",
         "--structured-random-phase",
         phase,
         "--profile",
-        PROFILE_NAME,
+        context.profile_name,
+        context=context,
     )
 
 
-def _guarded_shinka_command(module: str, *arguments: str) -> list[str]:
+def _guarded_shinka_command(
+    module: str,
+    *arguments: str,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> list[str]:
     if module not in {"run_evo", "freeze_finalist"}:
         raise ValueError("unknown guarded Shinka worker module")
     return _guarded_python_command(
         "-m",
-        "experiments.evo2_ecosystem.r5.workflow",
+        context.workflow_module,
         "gpu-shinka-worker",
         "--module",
         module,
@@ -971,12 +1044,19 @@ def _guarded_shinka_command(module: str, *arguments: str) -> list[str]:
     )
 
 
-def _load_r5_run_spec() -> tuple[Any, Any, dict[str, Any], str, bytes]:
+def _load_run_spec(
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> tuple[Any, Any, dict[str, Any], str, bytes]:
     run_spec_module, _, freezer = _shinka_modules()
-    spec, spec_hash, spec_raw = run_spec_module.load_run_spec(PROFILE_PATH)
-    if spec.get("schema_version") != 4 or spec.get("run_id") != RUN_ID:
-        raise ValueError("workflow loaded the wrong r5 run specification")
+    spec, spec_hash, spec_raw = run_spec_module.load_run_spec(context.profile_path)
+    if spec.get("schema_version") != context.schema_version or spec.get("run_id") != context.run_id:
+        raise ValueError("workflow loaded the wrong bounded run specification")
     return run_spec_module, freezer, spec, spec_hash, spec_raw
+
+
+def _load_r5_run_spec() -> tuple[Any, Any, dict[str, Any], str, bytes]:
+    """Compatibility wrapper for historical R5 callers and fixtures."""
+    return _load_run_spec(R5_CONTEXT)
 
 
 def _arm_complete(paths: Any, regime: str) -> bool:
@@ -1011,7 +1091,7 @@ def _authenticate_structured_training(
     freezer: Any,
 ) -> dict[str, Any]:
     paths = run_spec_module.structured_random_paths(spec)
-    baselines = freezer._load_r5_baselines(spec)
+    baselines = freezer._load_bound_baselines(spec)
     roster = tuple(baselines.load_structured_random_roster(paths.roster))
     completion = freezer._structured_completion(
         paths,
@@ -1024,9 +1104,7 @@ def _authenticate_structured_training(
     if not marker.is_file() or marker.read_bytes() != expected:
         raise RuntimeError("structured-random completion marker does not authenticate")
     if completion.get("passed") is not True:
-        raise WorkflowStopped(
-            "structured-random search has fewer than five unique valid candidates"
-        )
+        raise WorkflowStopped("structured-random search has fewer than five unique valid candidates")
     return completion
 
 
@@ -1039,7 +1117,12 @@ def _require_shinka_candidate_floor(
 ) -> Mapping[str, Any]:
     """Audit one completed arm and immutably record a terminal shortfall."""
     audit = freezer._audit_arm(spec, regime, paths)
-    candidate_count = len(freezer.discover_candidates(paths.arm_results))
+    candidates = (
+        freezer.discover_candidates(paths.arm_results, minimum_generation=1)
+        if spec.get("schema_version") == 5
+        else freezer.discover_candidates(paths.arm_results)
+    )
+    candidate_count = len(candidates)
     if candidate_count >= FINALIST_TOP_K:
         return audit
     completion_path = paths.run_root / f"{regime}.complete.json"
@@ -1095,9 +1178,11 @@ def _authenticate_closed_searches(
 def run_search_phase(
     *,
     launcher: Callable[..., Any] = subprocess.run,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Mapping[str, Any]]:
     """Run and close stable, punctuated, then structured-random training."""
-    run_spec_module, freezer, spec, spec_hash, _ = _load_r5_run_spec()
+    loaded = _load_r5_run_spec() if context is R5_CONTEXT else _load_run_spec(context)
+    run_spec_module, freezer, spec, spec_hash, _ = loaded
     stable = run_spec_module.paths_for(spec, "stable")
     punctuated = run_spec_module.paths_for(spec, "punctuated")
 
@@ -1106,7 +1191,7 @@ def run_search_phase(
     if not _arm_complete(stable, "stable"):
         resume = stable.arm_results.exists() and any(stable.arm_results.iterdir())
         launcher(
-            search_command("stable", resume=resume),
+            search_command("stable", resume=resume, context=context),
             cwd=SHINKA_ROOT,
             check=True,
         )
@@ -1116,11 +1201,9 @@ def run_search_phase(
     stable.arm_results.chmod(0o000)
     try:
         if not _arm_complete(punctuated, "punctuated"):
-            resume = punctuated.arm_results.exists() and any(
-                punctuated.arm_results.iterdir()
-            )
+            resume = punctuated.arm_results.exists() and any(punctuated.arm_results.iterdir())
             launcher(
-                search_command("punctuated", resume=resume),
+                search_command("punctuated", resume=resume, context=context),
                 cwd=SHINKA_ROOT,
                 check=True,
             )
@@ -1144,7 +1227,7 @@ def run_search_phase(
     structured = run_spec_module.structured_random_paths(spec)
     if not (structured.control_root / "complete.json").is_file():
         launcher(
-            structured_random_command("training"),
+            structured_random_command("training", context=context),
             cwd=SHINKA_ROOT,
             check=True,
         )
@@ -1165,13 +1248,18 @@ def run_search_phase(
     )
 
 
-def _holdout_paths(spec: Mapping[str, Any], partition: str) -> tuple[Path, tuple[Path, ...]]:
+def _holdout_paths(
+    spec: Mapping[str, Any],
+    partition: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> tuple[Path, tuple[Path, ...]]:
     if partition not in {"development", "sealed"}:
         raise ValueError("holdout partition must be development or sealed")
     run_spec_module, _, _ = _shinka_modules()
     manifest_path = run_spec_module.manifest_path(spec, partition)
-    index = load_founder_index(FOUNDER_INDEX_PATH, verify_artifacts=False)
-    bank = FOUNDER_INDEX_PATH.parent.resolve()
+    index = load_founder_index(context.founder_index_path, verify_artifacts=False)
+    bank = context.founder_index_path.parent.resolve()
     founders = []
     for record in index.founders:
         if record.partition != partition:
@@ -1186,17 +1274,27 @@ def _holdout_paths(spec: Mapping[str, Any], partition: str) -> tuple[Path, tuple
     return manifest_path, tuple(founders)
 
 
-def _assert_holdout_locked(spec: Mapping[str, Any], partition: str) -> None:
-    manifest_path, founders = _holdout_paths(spec, partition)
+def _assert_holdout_locked(
+    spec: Mapping[str, Any],
+    partition: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> None:
+    manifest_path, founders = _holdout_paths(spec, partition, context=context)
     for path in (manifest_path, *founders):
         if not path.is_file() or os.access(path, os.R_OK):
             raise RuntimeError(f"{partition} holdout must be present and unreadable: {path}")
 
 
-def _authenticate_open_holdout(spec: Mapping[str, Any], partition: str) -> None:
+def _authenticate_open_holdout(
+    spec: Mapping[str, Any],
+    partition: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> None:
     """Authenticate one already-open holdout without changing its mode."""
     run_spec_module, _, _ = _shinka_modules()
-    manifest_path, founders = _holdout_paths(spec, partition)
+    manifest_path, founders = _holdout_paths(spec, partition, context=context)
     if not all(path.is_file() and os.access(path, os.R_OK) for path in (manifest_path, *founders)):
         raise RuntimeError(f"{partition} holdout is only partially accessible")
     expected_hash = run_spec_module.manifest_hash(spec, partition)
@@ -1205,34 +1303,36 @@ def _authenticate_open_holdout(spec: Mapping[str, Any], partition: str) -> None:
         raise ValueError(f"{partition} manifest sidecar does not authenticate")
     raw = manifest_path.read_bytes()
     manifest = manifest_from_json_bytes(raw)
-    if (
-        raw != canonical_manifest_bytes(manifest) + b"\n"
-        or manifest_sha256(manifest) != expected_hash
-    ):
+    if raw != canonical_manifest_bytes(manifest) + b"\n" or manifest_sha256(manifest) != expected_hash:
         raise ValueError(f"{partition} manifest does not match its binding")
     from ..founder_artifacts import load_founder_artifact
 
-    index = load_founder_index(FOUNDER_INDEX_PATH, verify_artifacts=False)
+    index = load_founder_index(context.founder_index_path, verify_artifacts=False)
     for record in index.founders:
         if record.partition == partition:
             load_founder_artifact(
-                FOUNDER_INDEX_PATH.parent,
+                context.founder_index_path.parent,
                 record,
                 expected_partition=partition,
             )
 
 
-def _unlock_holdout(spec: Mapping[str, Any], partition: str) -> None:
+def _unlock_holdout(
+    spec: Mapping[str, Any],
+    partition: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> None:
     """Authenticate public bindings, then open exactly one holdout partition."""
-    _assert_holdout_locked(spec, partition)
-    manifest_path, founders = _holdout_paths(spec, partition)
+    _assert_holdout_locked(spec, partition, context=context)
+    manifest_path, founders = _holdout_paths(spec, partition, context=context)
     manifest_path.chmod(0o400)
     for path in founders:
         path.chmod(0o400)
     try:
-        _authenticate_open_holdout(spec, partition)
+        _authenticate_open_holdout(spec, partition, context=context)
     except BaseException:
-        _lock_holdout(spec, partition)
+        _lock_holdout(spec, partition, context=context)
         raise
 
 
@@ -1241,25 +1341,29 @@ def _enter_holdout_epoch(
     partition: str,
     *,
     resume_artifact: Path | None = None,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> bool:
     """Open a locked epoch or authenticate an interrupted open epoch."""
-    manifest_path, founders = _holdout_paths(spec, partition)
+    manifest_path, founders = _holdout_paths(spec, partition, context=context)
     access = [os.access(path, os.R_OK) for path in (manifest_path, *founders)]
     if not any(access):
-        _unlock_holdout(spec, partition)
+        _unlock_holdout(spec, partition, context=context)
         return False
     if not all(access):
         raise RuntimeError(f"{partition} holdout has mixed access modes")
     if resume_artifact is not None and not resume_artifact.is_file():
-        raise RuntimeError(
-            f"open {partition} epoch lacks its authenticated resume artifact"
-        )
-    _authenticate_open_holdout(spec, partition)
+        raise RuntimeError(f"open {partition} epoch lacks its authenticated resume artifact")
+    _authenticate_open_holdout(spec, partition, context=context)
     return True
 
 
-def _lock_holdout(spec: Mapping[str, Any], partition: str) -> None:
-    manifest_path, founders = _holdout_paths(spec, partition)
+def _lock_holdout(
+    spec: Mapping[str, Any],
+    partition: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
+) -> None:
+    manifest_path, founders = _holdout_paths(spec, partition, context=context)
     for path in (manifest_path, *founders):
         if path.exists():
             path.chmod(0o000)
@@ -1275,18 +1379,20 @@ def _freeze_record(path: Path, spec_hash: str) -> dict[str, Any]:
         or record.get("development_integrity_valid") is not True
     ):
         raise ValueError(f"development freeze record does not authenticate: {path}")
-    source = path.parent / "main.py"
+    frozen_spec = record.get("run_spec")
     if (
-        not source.is_file()
-        or _sha256_file(source) != record.get("candidate_source_sha256")
+        isinstance(frozen_spec, Mapping)
+        and frozen_spec.get("schema_version") == 5
+        and (
+            not isinstance(record.get("selected_generation"), int) or isinstance(record.get("selected_generation"), bool) or record["selected_generation"] <= 0
+        )
     ):
+        raise ValueError("schema-v5 finalist must be a noninitial descendant")
+    source = path.parent / "main.py"
+    if not source.is_file() or _sha256_file(source) != record.get("candidate_source_sha256"):
         raise ValueError(f"frozen finalist source does not authenticate: {path}")
     lineage = path.parent / "archive_lineage.json"
-    if (
-        record.get("archive_lineage_record") != lineage.name
-        or not lineage.is_file()
-        or _sha256_file(lineage) != record.get("archive_lineage_sha256")
-    ):
+    if record.get("archive_lineage_record") != lineage.name or not lineage.is_file() or _sha256_file(lineage) != record.get("archive_lineage_sha256"):
         raise ValueError(f"frozen finalist lineage does not authenticate: {path}")
     return record
 
@@ -1323,6 +1429,8 @@ def _development_completion_record(
     spec: dict[str, Any],
     spec_hash: str,
     records: Mapping[str, Mapping[str, Any]],
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Any]:
     artifacts: dict[str, dict[str, str]] = {}
     for label in sorted(records):
@@ -1342,7 +1450,7 @@ def _development_completion_record(
     return {
         "schema_version": 1,
         "complete": True,
-        "run_id": RUN_ID,
+        "run_id": context.run_id,
         "run_spec_sha256": spec_hash,
         "finalists": artifacts,
     }
@@ -1352,16 +1460,23 @@ def _load_completed_development(
     run_spec_module: Any,
     spec: dict[str, Any],
     spec_hash: str,
+    *,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Mapping[str, Any]]:
-    if not DEVELOPMENT_COMPLETE_PATH.is_file():
-        raise WorkflowStopped(
-            "sealed access requires an authenticated completed development epoch"
-        )
+    completion_path = DEVELOPMENT_COMPLETE_PATH if context is R5_CONTEXT else context.development_complete_path
+    if not completion_path.is_file():
+        raise WorkflowStopped("sealed access requires an authenticated completed development epoch")
     records = _load_development_records(run_spec_module, spec, spec_hash)
     expected = _canonical_json_bytes(
-        _development_completion_record(run_spec_module, spec, spec_hash, records)
+        _development_completion_record(
+            run_spec_module,
+            spec,
+            spec_hash,
+            records,
+            context=context,
+        )
     )
-    if DEVELOPMENT_COMPLETE_PATH.read_bytes() != expected:
+    if completion_path.read_bytes() != expected:
         raise ValueError("development completion marker does not authenticate")
     return records
 
@@ -1369,39 +1484,48 @@ def _load_completed_development(
 def run_development_phase(
     *,
     launcher: Callable[..., Any] = subprocess.run,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Mapping[str, Any]]:
     """Authenticate three closed searches, open development once, and freeze."""
-    run_spec_module, freezer, spec, spec_hash, _ = _load_r5_run_spec()
+    loaded = _load_r5_run_spec() if context is R5_CONTEXT else _load_run_spec(context)
+    run_spec_module, freezer, spec, spec_hash, _ = loaded
+    context_kwargs = {} if context is R5_CONTEXT else {"context": context}
+    completion_path = DEVELOPMENT_COMPLETE_PATH if context is R5_CONTEXT else context.development_complete_path
     _authenticate_closed_searches(run_spec_module, freezer, spec, spec_hash)
-    if DEVELOPMENT_COMPLETE_PATH.is_file():
-        _assert_holdout_locked(spec, "development")
-        _assert_holdout_locked(spec, "sealed")
-        return _load_completed_development(run_spec_module, spec, spec_hash)
-    _assert_holdout_locked(spec, "sealed")
-    _enter_holdout_epoch(spec, "development")
+    if completion_path.is_file():
+        _assert_holdout_locked(spec, "development", **context_kwargs)
+        _assert_holdout_locked(spec, "sealed", **context_kwargs)
+        return _load_completed_development(
+            run_spec_module,
+            spec,
+            spec_hash,
+            context=context,
+        )
+    _assert_holdout_locked(spec, "sealed", **context_kwargs)
+    _enter_holdout_epoch(spec, "development", **context_kwargs)
     try:
         # Complete and authenticate all 15 development evaluations before the
         # first finalist can be frozen.
         for regime in ("stable", "punctuated"):
             launcher(
-                development_command(regime, "evaluate"),
+                development_command(regime, "evaluate", context=context),
                 cwd=SHINKA_ROOT,
                 check=True,
             )
         structured = run_spec_module.structured_random_paths(spec)
         launcher(
-            structured_random_command("evaluate"),
+            structured_random_command("evaluate", context=context),
             cwd=SHINKA_ROOT,
             check=True,
         )
         for regime in ("stable", "punctuated"):
             launcher(
-                development_command(regime, "freeze"),
+                development_command(regime, "freeze", context=context),
                 cwd=SHINKA_ROOT,
                 check=True,
             )
         launcher(
-            structured_random_command("freeze"),
+            structured_random_command("freeze", context=context),
             cwd=SHINKA_ROOT,
             check=True,
         )
@@ -1418,13 +1542,17 @@ def run_development_phase(
             spec,
             spec_hash,
             records,
+            **context_kwargs,
         )
-        _write_once(DEVELOPMENT_COMPLETE_PATH, _canonical_json_bytes(completion))
+        _write_once(
+            completion_path,
+            _canonical_json_bytes(completion),
+        )
         return records
     finally:
-        _lock_holdout(spec, "development")
-        _assert_holdout_locked(spec, "development")
-        _assert_holdout_locked(spec, "sealed")
+        _lock_holdout(spec, "development", **context_kwargs)
+        _assert_holdout_locked(spec, "development", **context_kwargs)
+        _assert_holdout_locked(spec, "sealed", **context_kwargs)
 
 
 def build_sealed_suite_record(
@@ -1466,9 +1594,7 @@ def build_sealed_suite_record(
     if set(actual_policies) != set(expected_policies):
         raise ValueError("sealed work does not contain the exact frozen policy matrix")
     primary = primary_policy_label or (finalist_labels[0] if finalist_labels else "exact_initial")
-    if primary not in actual_policies or (
-        adaptive_policy_label is not None and adaptive_policy_label not in actual_policies
-    ):
+    if primary not in actual_policies or (adaptive_policy_label is not None and adaptive_policy_label not in actual_policies):
         raise ValueError("primary/adaptive labels must name frozen sealed policies")
     if disturbance_multiplier is not None and (
         isinstance(disturbance_multiplier, bool)
@@ -1479,15 +1605,9 @@ def build_sealed_suite_record(
         raise ValueError("sealed disturbance multiplier must be finite and positive")
     manifest_file_hash = None
     founder_file_hash = _sha256_file(founder_index_path)
-    manifest_semantic_hash = (
-        sealed_manifest_semantic_sha256
-        or _manifest_hash_from_sidecar(sealed_manifest_path)
-    )
+    manifest_semantic_hash = sealed_manifest_semantic_sha256 or _manifest_hash_from_sidecar(sealed_manifest_path)
     founder_semantic_hash = founder_index_semantic_sha256 or founder_file_hash
-    if any(
-        len(value) != _SHA256_LENGTH
-        for value in (manifest_semantic_hash, founder_semantic_hash)
-    ):
+    if any(len(value) != _SHA256_LENGTH for value in (manifest_semantic_hash, founder_semantic_hash)):
         raise ValueError("sealed semantic bindings must be SHA-256 values")
     return {
         "schema_version": 1,
@@ -1628,9 +1748,7 @@ def build_r5_sealed_suite(
         ("no_credit_ablation", "no_credit_ablation"),
         ("dominant_action_ablation", "dominant_action_ablation"),
     ):
-        source_hash = _sha256_bytes(
-            f"{primary_hash}:{analysis_hash}:{label}".encode("ascii")
-        )
+        source_hash = _sha256_bytes(f"{primary_hash}:{analysis_hash}:{label}".encode("ascii"))
         works.append(
             SealedWork(
                 work_id=label,
@@ -1684,16 +1802,12 @@ def build_r5_sealed_suite(
     )
 
 
-def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
+def _load_sealed_suite_v1(path: Path) -> tuple[dict[str, Any], str]:
     raw = path.read_bytes()
     suite = _load_json(path)
     if raw != _canonical_json_bytes(suite):
         raise ValueError("sealed suite is not canonical JSON")
-    if (
-        suite.get("schema_version") != 1
-        or suite.get("protocol_revision") != PROTOCOL_REVISION
-        or suite.get("run_id") != RUN_ID
-    ):
+    if suite.get("schema_version") != 1 or suite.get("protocol_revision") != PROTOCOL_REVISION or suite.get("run_id") != RUN_ID:
         raise ValueError("sealed suite has the wrong protocol identity")
     for role in ("run_spec", "sealed_manifest", "founder_index", "final_analysis"):
         binding = suite.get(role)
@@ -1706,10 +1820,7 @@ def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
             if _manifest_hash_from_sidecar(bound_path) != binding.get("sha256"):
                 raise ValueError("sealed manifest sidecar does not authenticate")
             file_hash = binding.get("file_sha256")
-            if file_hash is not None and (
-                not os.access(bound_path, os.R_OK)
-                or _sha256_file(bound_path) != file_hash
-            ):
+            if file_hash is not None and (not os.access(bound_path, os.R_OK) or _sha256_file(bound_path) != file_hash):
                 raise ValueError("sealed manifest file binding does not authenticate")
             continue
         file_hash = binding.get("file_sha256", binding.get("sha256"))
@@ -1727,10 +1838,7 @@ def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
     policy_ids = tuple(item.get("work_id") for item in work if item.get("kind") == "policy")
     if policy_ids != tuple(suite.get("expected_policies", ())):
         raise ValueError("sealed suite policy matrix changed")
-    if suite.get("primary_policy") not in policy_ids or (
-        suite.get("adaptive_policy") is not None
-        and suite.get("adaptive_policy") not in policy_ids
-    ):
+    if suite.get("primary_policy") not in policy_ids or (suite.get("adaptive_policy") is not None and suite.get("adaptive_policy") not in policy_ids):
         raise ValueError("sealed suite primary policy is invalid")
     human_sources = {item.candidate_id: item for item in human_candidate_sources()}
     by_id = {item.get("work_id"): item for item in work}
@@ -1742,15 +1850,9 @@ def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
         source_path = item.get("source_path")
         if source_path:
             path_value = (PROJECT_ROOT / source_path).resolve()
-            if (
-                _project_relative(path_value) != source_path
-                or not path_value.is_file()
-                or _sha256_file(path_value) != item.get("source_sha256")
-            ):
+            if _project_relative(path_value) != source_path or not path_value.is_file() or _sha256_file(path_value) != item.get("source_sha256"):
                 raise ValueError(f"sealed source changed: {item.get('work_id')}")
-        elif policy_kind == "fixed" and item.get("source_sha256") != _fixed_source_sha256(
-            str(item.get("work_id"))
-        ):
+        elif policy_kind == "fixed" and item.get("source_sha256") != _fixed_source_sha256(str(item.get("work_id"))):
             raise ValueError(f"sealed fixed source changed: {item.get('work_id')}")
         elif policy_kind == "human":
             source = human_sources.get(str(item.get("work_id")))
@@ -1758,16 +1860,22 @@ def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
                 raise ValueError(f"sealed human source changed: {item.get('work_id')}")
         elif policy_kind in {"no_credit_ablation", "dominant_action_ablation"}:
             primary = by_id[suite["primary_policy"]]
-            expected_hash = _sha256_bytes(
-                (
-                    f"{primary['source_sha256']}:"
-                    f"{suite['final_analysis']['sha256']}:"
-                    f"{item['work_id']}"
-                ).encode("ascii")
-            )
+            expected_hash = _sha256_bytes((f"{primary['source_sha256']}:{suite['final_analysis']['sha256']}:{item['work_id']}").encode("ascii"))
             if item.get("source_sha256") != expected_hash:
                 raise ValueError(f"sealed ablation source changed: {item.get('work_id')}")
     return suite, _sha256_bytes(raw)
+
+
+def _load_sealed_suite(path: Path) -> tuple[dict[str, Any], str]:
+    """Dispatch sealed-suite validation without broadening R5 schema 1."""
+    value = _load_json(path)
+    version = value.get("schema_version")
+    if version == 1:
+        return _load_sealed_suite_v1(path)
+    if version == 2:
+        module = importlib.import_module("experiments.evo2_ecosystem.r6.workflow")
+        return module.load_r6_sealed_suite(path)
+    raise ValueError("sealed suite has an unsupported schema version")
 
 
 def _load_bound_sealed_manifest(suite: Mapping[str, Any]) -> ScenarioManifest:
@@ -1781,6 +1889,31 @@ def _load_bound_sealed_manifest(suite: Mapping[str, Any]) -> ScenarioManifest:
     if manifest.partition != "sealed_final":
         raise ValueError("sealed manifest has the wrong partition")
     return manifest
+
+
+def _sealed_analysis_module(suite: Mapping[str, Any]) -> Any:
+    version = suite.get("schema_version")
+    if version in {None, 1}:
+        return SimpleNamespace(
+            extract_lineage_pairs=extract_lineage_pairs,
+            primary_result_summary=primary_result_summary,
+            run_final_analysis=run_final_analysis,
+        )
+    if version == 2:
+        return importlib.import_module("experiments.evo2_ecosystem.r6.analysis")
+    raise ValueError("sealed suite has an unsupported analysis binding")
+
+
+def _sealed_shock_indices(
+    suite: Mapping[str, Any],
+    manifest: ScenarioManifest,
+) -> frozenset[int]:
+    if suite.get("schema_version") in {None, 1}:
+        return frozenset(index for index, world in enumerate(manifest.worlds) if world.event_kind is not EventKind.NULL)
+    grouped: dict[str, list[int]] = {}
+    for index, world in enumerate(manifest.worlds):
+        grouped.setdefault(world.pair_id, []).append(index)
+    return frozenset(_resolve_pair_indices(manifest, indices)[1] for indices in grouped.values())
 
 
 def _shinka_modules():
@@ -1800,11 +1933,20 @@ def _authenticate_sealed_runtime(
 ) -> None:
     """Require the sealed worker to execute the source-bound runtime."""
     task = SHINKA_ROOT / "examples/evo2_ecosystem"
+    version = run_spec_module.schema_version(spec)
+    if version == 4:
+        analysis_path = Path(__file__).with_name("analysis.py")
+        baseline_path = Path(__file__).with_name("baselines.py")
+    elif version == 5:
+        analysis_path = run_spec_module.protocol_tool_paths(spec)["final_analysis"]
+        baseline_path = run_spec_module.baseline_source_path(spec)
+    else:
+        raise ValueError("sealed runtime requires schema 4 or 5")
     source_paths = {
         "initial": run_spec_module.initial_program_path(spec),
         "evaluator": task / "evaluate.py",
-        "analysis": Path(__file__).with_name("analysis.py"),
-        "baseline": Path(__file__).with_name("baselines.py"),
+        "analysis": analysis_path,
+        "baseline": baseline_path,
         "dependency_lock": run_spec_module.DEPENDENCY_LOCK_PATH,
         "launcher": task / "run_evo.py",
         "finalist_selector": task / "freeze_finalist.py",
@@ -1818,14 +1960,21 @@ def _authenticate_sealed_runtime(
             raise ValueError(f"sealed runtime source changed: {name}")
     if simulator_source_sha256() != expected_sources.get("simulator"):
         raise ValueError("sealed simulator source differs from the run specification")
-    if simulator_config_sha256(SimulatorConfig()) != spec.get(
-        "simulator_config_sha256"
-    ):
+    if simulator_config_sha256(SimulatorConfig()) != spec.get("simulator_config_sha256"):
         raise ValueError("sealed simulator configuration differs from the run specification")
     for role, binding in spec.get("protocol_tools", {}).items():
         path = (PROJECT_ROOT / binding["path"]).resolve()
         if not path.is_file() or _sha256_file(path) != binding.get("sha256"):
             raise ValueError(f"sealed protocol tool changed: {role}")
+    if version == 5:
+        for role, binding in spec.get("protocol_sources", {}).items():
+            path = (PROJECT_ROOT / binding["path"]).resolve()
+            if not path.is_file() or _sha256_file(path) != binding.get("sha256"):
+                raise ValueError(f"sealed R6 protocol source changed: {role}")
+        for role, binding in spec.get("prerequisite_artifacts", {}).items():
+            path = (PROJECT_ROOT / binding["path"]).resolve()
+            if not path.is_file() or _sha256_file(path) != binding.get("sha256"):
+                raise ValueError(f"sealed R6 prerequisite changed: {role}")
     launcher = importlib.import_module("examples.evo2_ecosystem.run_evo")
     launcher._verify_repository_state(spec)
 
@@ -1961,14 +2110,8 @@ def _paired_evaluation_record(
         "pair_deltas": [float(value) for value in np.asarray(evaluation.pair_deltas)],
         "sham_auc_delta": float(np.asarray(evaluation.sham_auc_delta)),
         "shock_auc_delta": float(np.asarray(evaluation.shock_auc_delta)),
-        "episodes": [
-            episode_record(world, episode)
-            for world, episode in zip(manifest.worlds, evaluation.episodes, strict=True)
-        ],
-        "ancestor_episodes": [
-            episode_record(world, episode)
-            for world, episode in zip(manifest.worlds, evaluation.ancestor_episodes, strict=True)
-        ],
+        "episodes": [episode_record(world, episode) for world, episode in zip(manifest.worlds, evaluation.episodes, strict=True)],
+        "ancestor_episodes": [episode_record(world, episode) for world, episode in zip(manifest.worlds, evaluation.ancestor_episodes, strict=True)],
         "adaptive_observations": list(evaluation.adaptive_observations),
     }
 
@@ -2045,11 +2188,11 @@ def _evaluation_from_record(
         or not np.isclose(shock, value.get("shock_auc_delta"), atol=1e-6, rtol=1e-6)
     ):
         raise ValueError("sealed paired score does not recompute")
-    sham_episodes = tuple(
-        episode
-        for world, episode in zip(manifest.worlds, episodes, strict=True)
-        if world.event_kind is EventKind.NULL
-    )
+    grouped: dict[str, list[int]] = {}
+    for index, world in enumerate(manifest.worlds):
+        grouped.setdefault(world.pair_id, []).append(index)
+    control_indices = {_resolve_pair_indices(manifest, indices)[0] for indices in grouped.values()}
+    sham_episodes = tuple(episode for index, episode in enumerate(episodes) if index in control_indices)
     return PairedManifestEvaluation(
         episodes=episodes,
         sham_episodes=sham_episodes,
@@ -2082,7 +2225,11 @@ def run_sealed_policy_worker(
     decision = None
     if item["kind"] == "conditional_policy":
         decision = _load_json(suite_path.parent / suite["mechanism_decision"]["result_name"])
-        if decision.get("suite_sha256") != suite_hash or decision.get("run_mechanism") is not True:
+        authorized = decision.get(
+            "run_ablations",
+            decision.get("run_mechanism"),
+        )
+        if decision.get("suite_sha256") != suite_hash or authorized is not True:
             raise WorkflowStopped("conditional mechanism worker is not authorized")
     run_spec_module, boundary, freezer = _shinka_modules()
     spec_path = Path(suite["run_spec"]["path"])
@@ -2119,11 +2266,9 @@ def run_sealed_policy_worker(
     )
     if not bool(np.asarray(evaluation.integrity_valid)):
         raise RuntimeError("sealed policy evaluation failed integrity")
-    lineages = (
-        extract_lineage_pairs(manifest, evaluation)
-        if item["capture_lineage"]
-        else ()
-    )
+    analysis = _sealed_analysis_module(suite)
+    lineage_extractor = analysis.extract_lineage_pairs if suite.get("schema_version") == 1 else analysis.extract_relocation_lineage_pairs
+    lineages = lineage_extractor(manifest, evaluation) if item["capture_lineage"] else ()
     record = {
         "schema_version": 1,
         "complete": True,
@@ -2198,45 +2343,66 @@ def commit_mechanism_decision(suite_path: Path) -> dict[str, Any]:
     )
     clone, _, _ = load_sealed_policy_result(suite_path, "clone")
     manifest = _load_bound_sealed_manifest(suite)
-    primary_summary = primary_result_summary(manifest, primary, clone)
+    analysis = _sealed_analysis_module(suite)
+    primary_summary = analysis.primary_result_summary(manifest, primary, clone)
     primary_item = _work_item(suite, suite["primary_policy"])
-    adaptive = (
-        suite.get("adaptive_policy") == suite["primary_policy"]
-        and primary_item.get("adaptive_eligible") is True
-    )
+    adaptive = suite.get("adaptive_policy") == suite["primary_policy"] and primary_item.get("adaptive_eligible") is True
     shock_counts = np.zeros(6, dtype=np.int64)
-    for world, episode in zip(
-        manifest.worlds,
+    shock_indices = _sealed_shock_indices(suite, manifest)
+    for index, episode in enumerate(
         primary_record["evaluation"]["episodes"],
-        strict=True,
     ):
-        if world.event_kind is not EventKind.NULL:
+        if index in shock_indices:
             counts = np.asarray(episode["operator_counts"], dtype=np.int64)
             if counts.shape != (6,) or np.any(counts < 0):
                 raise ValueError("primary operator counts are invalid")
             shock_counts += counts
     operator_observations_available = int(np.sum(shock_counts)) > 0
-    dominant = (
-        int(np.argmax(shock_counts)) if operator_observations_available else None
-    )
+    dominant = int(np.argmax(shock_counts)) if operator_observations_available else None
     lineage_pairs_available = bool(lineage_pairs)
     mechanism_estimable = lineage_pairs_available and operator_observations_available
-    run_mechanism = bool(primary_summary["passed"] and adaptive and mechanism_estimable)
-    if run_mechanism:
-        mechanism_status = "run"
-        reason = "primary-positive-and-adaptive-eligible"
-    elif primary_summary["passed"] and adaptive and not lineage_pairs_available:
-        mechanism_status = "not_estimable_no_lineage_pairs"
-        reason = "no-lineage-pairs"
-    elif primary_summary["passed"] and adaptive and not operator_observations_available:
-        mechanism_status = "not_estimable_no_operator_counts"
-        reason = "no-operator-counts"
-    elif primary_summary["passed"]:
-        mechanism_status = "skipped_not_adaptive_eligible"
-        reason = "primary-not-adaptive-eligible"
+    if suite.get("schema_version") == 2:
+        # R6 separates performance evidence from mechanism evidence.  A
+        # positive preregistered primary receives its common-garden test even
+        # when it is not the independently selected adaptive finalist.  The
+        # ablations remain conditional on the primary itself being adaptive.
+        run_common_garden = bool(primary_summary["passed"] and lineage_pairs_available)
+        run_ablations = bool(run_common_garden and adaptive and operator_observations_available)
+        run_mechanism = run_ablations
+        if not primary_summary["passed"]:
+            mechanism_status = "skipped_primary_not_positive"
+            reason = "primary-not-positive"
+        elif not lineage_pairs_available:
+            mechanism_status = "partial_no_lineage_pairs"
+            reason = "no-lineage-pairs"
+        elif not adaptive:
+            mechanism_status = "common_garden_only_not_adaptive_eligible"
+            reason = "primary-not-adaptive-eligible"
+        elif not operator_observations_available:
+            mechanism_status = "common_garden_only_no_operator_counts"
+            reason = "no-operator-counts"
+        else:
+            mechanism_status = "run_common_garden_and_ablations"
+            reason = "primary-positive-adaptive-and-estimable"
     else:
-        mechanism_status = "skipped_primary_not_positive"
-        reason = "primary-not-positive"
+        run_mechanism = bool(primary_summary["passed"] and adaptive and mechanism_estimable)
+        run_common_garden = run_mechanism
+        run_ablations = run_mechanism
+        if run_mechanism:
+            mechanism_status = "run"
+            reason = "primary-positive-and-adaptive-eligible"
+        elif primary_summary["passed"] and adaptive and not lineage_pairs_available:
+            mechanism_status = "not_estimable_no_lineage_pairs"
+            reason = "no-lineage-pairs"
+        elif primary_summary["passed"] and adaptive and not operator_observations_available:
+            mechanism_status = "not_estimable_no_operator_counts"
+            reason = "no-operator-counts"
+        elif primary_summary["passed"]:
+            mechanism_status = "skipped_not_adaptive_eligible"
+            reason = "primary-not-adaptive-eligible"
+        else:
+            mechanism_status = "skipped_primary_not_positive"
+            reason = "primary-not-positive"
     decision = {
         "schema_version": 1,
         "complete": True,
@@ -2247,6 +2413,8 @@ def commit_mechanism_decision(suite_path: Path) -> dict[str, Any]:
         "lineage_pairs_available": lineage_pairs_available,
         "operator_observations_available": operator_observations_available,
         "mechanism_estimable": mechanism_estimable,
+        "run_common_garden": run_common_garden,
+        "run_ablations": run_ablations,
         "run_mechanism": run_mechanism,
         "status": mechanism_status,
         "reason": reason,
@@ -2270,7 +2438,12 @@ def run_sealed_analysis_worker(
         raise ValueError("sealed analysis loaded the wrong run specification")
     _authenticate_sealed_runtime(spec, run_spec_module)
     decision = commit_mechanism_decision(suite_path)
-    if decision["run_mechanism"] and require_gpu_for_mechanism and jax.default_backend() != "gpu":
+    run_common_garden = decision.get(
+        "run_common_garden",
+        decision["run_mechanism"],
+    )
+    run_ablations = decision.get("run_ablations", decision["run_mechanism"])
+    if run_common_garden and require_gpu_for_mechanism and jax.default_backend() != "gpu":
         raise RuntimeError("common-garden mechanism analysis requires GPU")
     manifest = _load_bound_sealed_manifest(suite)
     primary, lineage_pairs, _ = load_sealed_policy_result(
@@ -2281,31 +2454,35 @@ def run_sealed_analysis_worker(
     ablations = None
     pairs: tuple[LineagePair, ...] = ()
     multiplier = None
-    if decision["run_mechanism"]:
-        ablations = {
-            label: load_sealed_policy_result(suite_path, label)[0]
-            for label in ("no_credit_ablation", "dominant_action_ablation")
-        }
+    if run_ablations:
+        ablations = {label: load_sealed_policy_result(suite_path, label)[0] for label in ("no_credit_ablation", "dominant_action_ablation")}
+    if run_common_garden:
         pairs = lineage_pairs
         if not pairs:
-            raise RuntimeError("mechanism analysis requires captured lineage pairs")
-        multiplier = suite["disturbance_multiplier"]
-    result = run_final_analysis(
+            raise RuntimeError("common-garden analysis requires captured lineage pairs")
+        if suite.get("schema_version") == 1:
+            multiplier = suite["disturbance_multiplier"]
+    analysis = _sealed_analysis_module(suite)
+    analysis_kwargs = {
+        "lineage_pairs": pairs,
+        "ablations": ablations,
+        "adaptive_eligible": bool(decision["adaptive_eligible"]),
+    }
+    if suite.get("schema_version") == 1:
+        analysis_kwargs["multiplier"] = multiplier
+    result = analysis.run_final_analysis(
         manifest,
         primary,
         clone,
-        lineage_pairs=pairs,
-        multiplier=multiplier,
-        ablations=ablations,
-        adaptive_eligible=bool(decision["adaptive_eligible"]),
+        **analysis_kwargs,
     )
-    if decision["status"].startswith("not_estimable_"):
+    if suite.get("schema_version") == 1 and decision["status"].startswith("not_estimable_"):
         result["mechanism"] = {
             "status": "not_estimable",
             "reason": decision["reason"].replace("-", "_"),
             "claim_supported": False,
         }
-    elif decision["status"] == "skipped_not_adaptive_eligible":
+    elif suite.get("schema_version") == 1 and decision["status"] == "skipped_not_adaptive_eligible":
         result["mechanism"] = {
             "status": "skipped_not_adaptive_eligible",
             "claim_supported": False,
@@ -2317,9 +2494,7 @@ def run_sealed_analysis_worker(
         "work_id": "final_analysis",
         "suite_sha256": suite_hash,
         "source_sha256": item["source_sha256"],
-        "mechanism_decision_sha256": _sha256_file(
-            suite_path.parent / suite["mechanism_decision"]["result_name"]
-        ),
+        "mechanism_decision_sha256": _sha256_file(suite_path.parent / suite["mechanism_decision"]["result_name"]),
         "result": result,
     }
     output = suite_path.parent / item["result_name"]
@@ -2390,8 +2565,7 @@ def _validate_sealed_analysis_result(suite_path: Path) -> dict[str, Any]:
     if (
         not isinstance(result, Mapping)
         or result.get("manifest_sha256") != suite["sealed_manifest"]["sha256"]
-        or result.get("simulator_config_sha256")
-        != suite["simulator_config_sha256"]
+        or result.get("simulator_config_sha256") != suite["simulator_config_sha256"]
     ):
         raise ValueError("sealed final analysis has the wrong protocol bindings")
     return record
@@ -2433,6 +2607,8 @@ def _development_finalist_sources(
     run_spec_module: Any,
     spec: dict[str, Any],
     records: Mapping[str, Mapping[str, Any]],
+    *,
+    schema_version: int = 4,
 ) -> tuple[Path, dict[str, Path], str, str | None, tuple[str, ...]]:
     structured = run_spec_module.structured_random_paths(spec).frozen / "main.py"
     finalists: dict[str, Path] = {}
@@ -2450,7 +2626,13 @@ def _development_finalist_sources(
             else:
                 finalists[adaptive_label] = root / "adaptive/main.py"
                 eligible.add(adaptive_label)
-    if "punctuated_adaptive" in finalists:
+    if schema_version == 5:
+        # R6 preregisters the highest-ranked noninitial punctuated descendant as
+        # the sole confirmatory primary.  The independently selected adaptive
+        # mechanism finalist remains descriptive and must never replace it.
+        primary = "punctuated_unrestricted"
+        adaptive = primary if primary in eligible else "punctuated_adaptive" if "punctuated_adaptive" in finalists else None
+    elif "punctuated_adaptive" in finalists:
         primary = "punctuated_adaptive"
         adaptive: str | None = primary
     else:
@@ -2461,45 +2643,69 @@ def _development_finalist_sources(
 
 def run_sealed_epoch(
     *,
-    suite_path: Path = SEALED_SUITE_PATH,
+    suite_path: Path | None = None,
     launcher: Callable[..., Any] = subprocess.run,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Any]:
     """Execute or authentically resume the one logical sealed-access epoch."""
-    run_spec_module, _, spec, spec_hash, _ = _load_r5_run_spec()
-    records = _load_completed_development(run_spec_module, spec, spec_hash)
+    suite_path = context.sealed_suite_path if suite_path is None else suite_path
+    loaded = _load_r5_run_spec() if context is R5_CONTEXT else _load_run_spec(context)
+    run_spec_module, _, spec, spec_hash, _ = loaded
+    context_kwargs = {} if context is R5_CONTEXT else {"context": context}
+    records = _load_completed_development(
+        run_spec_module,
+        spec,
+        spec_hash,
+        **context_kwargs,
+    )
     structured, finalists, primary, adaptive, eligible = _development_finalist_sources(
         run_spec_module,
         spec,
         records,
+        schema_version=context.schema_version,
     )
-    _assert_holdout_locked(spec, "development")
-    suite = build_r5_sealed_suite(
-        run_spec_path=PROFILE_PATH,
-        structured_random_source=structured,
-        finalist_sources=finalists,
-        primary_policy_label=primary,
-        adaptive_policy_label=adaptive,
-        adaptive_eligible_labels=eligible,
-        suite_path=suite_path,
-    )
+    _assert_holdout_locked(spec, "development", **context_kwargs)
+    if context.sealed_suite_schema_version == 1:
+        suite = build_r5_sealed_suite(
+            run_spec_path=context.profile_path,
+            structured_random_source=structured,
+            finalist_sources=finalists,
+            primary_policy_label=primary,
+            adaptive_policy_label=adaptive,
+            adaptive_eligible_labels=eligible,
+            suite_path=suite_path,
+        )
+    else:
+        builder = importlib.import_module(context.workflow_module).build_r6_sealed_suite
+        suite = builder(
+            context=context,
+            run_spec_path=context.profile_path,
+            structured_random_source=structured,
+            finalist_sources=finalists,
+            primary_policy_label=primary,
+            adaptive_policy_label=adaptive,
+            adaptive_eligible_labels=eligible,
+            suite_path=suite_path,
+        )
     precommit_sealed_suite(suite, path=suite_path)
     loaded, _ = _load_sealed_suite(suite_path)
     if loaded != suite:
         raise ValueError("sealed suite differs from its frozen construction")
     summary_path = suite_path.parent / _work_item(suite, "final_analysis")["result_name"]
     if summary_path.is_file():
-        manifest_path, _ = _holdout_paths(spec, "sealed")
+        manifest_path, _ = _holdout_paths(spec, "sealed", **context_kwargs)
         if os.access(manifest_path, os.R_OK):
-            _authenticate_open_holdout(spec, "sealed")
-            _lock_holdout(spec, "sealed")
+            _authenticate_open_holdout(spec, "sealed", **context_kwargs)
+            _lock_holdout(spec, "sealed", **context_kwargs)
         else:
-            _assert_holdout_locked(spec, "sealed")
+            _assert_holdout_locked(spec, "sealed", **context_kwargs)
         return _validate_sealed_analysis_result(suite_path)
     try:
         _enter_holdout_epoch(
             spec,
             "sealed",
             resume_artifact=suite_path,
+            **context_kwargs,
         )
 
         run_missing_sealed_work(
@@ -2511,7 +2717,7 @@ def run_sealed_epoch(
             load_sealed_policy_result(suite_path, label)
 
         decision = commit_mechanism_decision(suite_path)
-        if decision["run_mechanism"]:
+        if decision.get("run_ablations", decision["run_mechanism"]):
             run_missing_sealed_work(
                 suite_path=suite_path,
                 kinds=("conditional_policy",),
@@ -2527,18 +2733,19 @@ def run_sealed_epoch(
         )
         return _validate_sealed_analysis_result(suite_path)
     finally:
-        _lock_holdout(spec, "sealed")
-        _assert_holdout_locked(spec, "development")
-        _assert_holdout_locked(spec, "sealed")
+        _lock_holdout(spec, "sealed", **context_kwargs)
+        _assert_holdout_locked(spec, "development", **context_kwargs)
+        _assert_holdout_locked(spec, "sealed", **context_kwargs)
 
 
 def run_phase5(
     *,
     launcher: Callable[..., Any] = subprocess.run,
+    context: BoundedWorkflowContext = R5_CONTEXT,
 ) -> dict[str, Any]:
     """Run the single development epoch followed by the single sealed epoch."""
-    run_development_phase(launcher=launcher)
-    return run_sealed_epoch(launcher=launcher)
+    run_development_phase(launcher=launcher, context=context)
+    return run_sealed_epoch(launcher=launcher, context=context)
 
 
 def run_all_phases(
@@ -2597,22 +2804,23 @@ def _require_cpu_controller(command: str) -> None:
             raise RuntimeError("the r5 controller must be launched with python -B")
         platforms = os.environ.get("JAX_PLATFORMS", "")
         if platforms != "cpu":
-            raise RuntimeError(
-                "the long-lived r5 controller must use JAX_PLATFORMS=cpu; "
-                "its scientific workers select GPU in fresh guarded processes"
-            )
+            raise RuntimeError("the long-lived r5 controller must use JAX_PLATFORMS=cpu; its scientific workers select GPU in fresh guarded processes")
 
 
 def _require_gpu_worker(command: str) -> None:
-    if command in {
-        "world-gpu-stage",
-        "founder-gate-worker",
-        "disturbance-gate-worker",
-        "opportunity-gate-worker",
-        "sealed-policy-worker",
-        "sealed-analysis-worker",
-        "gpu-shinka-worker",
-    } and jax.default_backend() != "gpu":
+    if (
+        command
+        in {
+            "world-gpu-stage",
+            "founder-gate-worker",
+            "disturbance-gate-worker",
+            "opportunity-gate-worker",
+            "sealed-policy-worker",
+            "sealed-analysis-worker",
+            "gpu-shinka-worker",
+        }
+        and jax.default_backend() != "gpu"
+    ):
         raise RuntimeError(f"{command} requires the GPU backend")
 
 
@@ -2658,9 +2866,7 @@ def main() -> None:
         worker_arguments = list(arguments.worker_arguments)
         if worker_arguments[:1] == ["--"]:
             worker_arguments.pop(0)
-        module = importlib.import_module(
-            f"examples.evo2_ecosystem.{arguments.module}"
-        )
+        module = importlib.import_module(f"examples.evo2_ecosystem.{arguments.module}")
         sys.argv = [str(Path(module.__file__).resolve()), *worker_arguments]
         module.main()
     elif arguments.command == "prepare":
