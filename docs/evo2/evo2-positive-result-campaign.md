@@ -106,3 +106,26 @@ its control cost made the robust aggregate negative.
 Decision: do not declare a result from one-repeat training measurements. Freeze
 generations 2, 4, and 5, plus all six fixed operators, and evaluate them with
 three numerical repeats on the untouched development founders and worlds.
+
+### R7 fresh development evaluation
+
+All three frozen programs were evaluated on four untouched development
+founders and two untouched development world seeds, with matched refresh and
+relocation roles and three numerical repeats.
+
+- Generation 2 did not transfer: robust score `-0.030647`; all three repeat
+  scores were negative.
+- Generation 4 remained slightly negative at `-0.004962`; one of three repeats
+  was positive. Its mean refresh and relocation effects were both positive,
+  but performance remained founder-sensitive.
+- Generation 5 transferred: robust score `+0.007952`, with all three repeat
+  scores positive (`+0.002128`, `+0.007952`, `+0.021558`). Mean refresh effect
+  was `+0.058433`, mean relocation effect was `+0.003872`, and both candidate
+  and standard-parametric ancestor survived all sixteen selected-repeat
+  episodes. The program used standard mutation for 95.6% of births and made
+  bounded evidence-gated departures among the other operators.
+
+Generation 5 is therefore the first positive fresh-world Shinka result in the
+campaign. It is not yet the final claim: screen every fixed trusted operator,
+identify the strongest fixed alternative, and compare generation 5 directly
+against that alternative under repeated paired evaluation.
