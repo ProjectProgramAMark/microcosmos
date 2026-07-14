@@ -1,6 +1,30 @@
 [PRD]
 # PRD: Evo² R6 — Credit-Adaptive Heredity Under Resource Relocation
 
+## Pre-data operational amendment 1: evaluator timeout
+
+Date: 2026-07-14
+
+This amendment was made after both source repositories were initially frozen
+but before any world seed in `[12,000, 16,000)` or R6 founder candidate was
+accessed. A guarded full-cardinality preflight used only retired R5 training
+founders and retired world seeds `9000` and `9004`. One numerical repeat took
+approximately `276.2` seconds, and the exact three-repeat workload reached the
+frozen `10`-minute wall-clock limit before completion while using only about
+`3.6 GiB` of memory.
+
+The `10`-minute evaluation timeout in this document is therefore superseded by
+`20` minutes for R6 only. This is an operational allowance, not an increase in
+scientific compute: all simulator steps, worlds, founders, numerical repeats,
+proposal slots, retry rules, model settings, scores, and selection rules remain
+unchanged. Stable Shinka, punctuated Shinka, structured random, development,
+and sealed policy workers receive the same timeout. R5 remains unchanged.
+
+The Phase 4 mechanical preflight must complete within the amended `20`-minute
+limit and the original `24 GiB` cgroup limit before any fresh R6 biological
+input may be accessed. This amendment and the code that enforces it must be
+committed, pushed, and checked out into the detached launch worktrees first.
+
 ## 1. Overview
 
 Evo² R6 is a new, prospectively frozen experiment. It is not a repair,
