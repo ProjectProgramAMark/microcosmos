@@ -136,3 +136,20 @@ candidate grammar intentionally forbids `Delete` AST nodes. All three attempts
 recorded `CandidateValidationError`. No scores were used. The invalid sources
 and metrics remain preserved; validator-compliant fixed programs omit the
 unnecessary statement and are generated under a distinct baseline run ID.
+
+### R8 decision and launch
+
+The corrected one-repeat baseline screen found fixed clone at `+0.085810`
+relative to standard parametric mutation on development worlds. Conservative
+parametric (`-0.040914`) and exploratory parametric (`-0.040512`) were both
+inferior. Structural and mixed screens were still running when R8 launched,
+but the clone advantage was already an order of magnitude larger than the R7
+Shinka advantage.
+
+This identifies R7's central error: it optimized against a weaker
+standard-parametric ancestor. R8 uses the exact fixed-clone program as both its
+initial program and paired ancestor. Its search objective is therefore direct:
+discover a context-dependent heredity scheduler that preserves clone's strong
+ecological performance while using mutation only when online evidence makes it
+beneficial. R8 uses ten total evaluations, one search repeat, the same training
+manifest, model, bounded six-operator contract, simulator, and resource budget.
