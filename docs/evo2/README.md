@@ -1,45 +1,56 @@
 # Evo²-Ecosystem implementation plans
 
-Revised 2026-07-13 after completing the r3 actuator experiment and designing the
-prospective r4 RSI follow-up. The active design uses CPPN controllers from the
+Revised 2026-07-14 after the terminal R5 world-feasibility result and the
+prospective design of R6. The active design uses CPPN controllers from the
 beginning; there is no temporary wave-controller implementation stage.
 
 ## Reading order
 
-1. [R4 credit-adaptive RSI plan](./evo2-r4-credit-adaptive-rsi-plan.md) —
-   authoritative prospective next experiment: a causally qualified global
-   actuation-cost shock, six trusted TensorNEAT heredity actions, recent
-   offspring-operator credit, and a direct descendant-versus-ancestor RSI test.
-2. [R4 preregistration](./evo2-actuation-cost-rsi-r4-preregistration.md) —
+1. [R6 resource-relocation RSI plan](./evo2-r6-resource-relocation-rsi-plan.md) —
+   authoritative prospective next experiment: one preregistered antipodal
+   resource relocation paired with a same-location stock refresh, fresh worlds
+   and founders, corrected fixed-standard viability, sufficient natural credit
+   warmup, and matched bounded ShinkaEvolve searches.
+2. [R5 world-feasibility stop report](./evo2-r5-world-feasibility-stop-report.md) —
+   terminal negative result: every actuation-cost disturbance failed the harm
+   gate and the preregistered pre-event feedback requirement was not met, so no
+   R5 Shinka search was authorized.
+3. [R5 world-feasibility plan](./evo2-r5-world-feasibility-plan.md) — exact
+   prospective protocol whose stop rules produced the terminal R5 result.
+4. [R4 credit-adaptive RSI plan](./evo2-r4-credit-adaptive-rsi-plan.md) —
+   historical design of the six-action TensorNEAT heredity scheduler,
+   recent-offspring operator credit, and direct descendant-versus-ancestor RSI
+   test inherited by R5 and R6.
+5. [R4 preregistration](./evo2-actuation-cost-rsi-r4-preregistration.md) —
    binding ancestry, constants, qualification gates, partitions, outer budget,
    primary metric, and stop rules fixed before r4 implementation experiments.
-3. [R3 final report](./evo2-actuator-rsi-r3-final-report.md) — completed negative
+6. [R3 final report](./evo2-actuator-rsi-r3-final-report.md) — completed negative
    experiment establishing that the tail injury helped clone controls and that
    the punctuated Shinka finalist rediscovered fixed parametric mutation.
-4. [R3 preregistration](./evo2-actuator-rsi-r3-preregistration.md) — exact frozen
+7. [R3 preregistration](./evo2-actuator-rsi-r3-preregistration.md) — exact frozen
    protocol used for the r3 search and sealed examination.
-5. [Final RSI implementation plan](./evo2-rsi-final-implementation-plan.md) —
+8. [Final RSI implementation plan](./evo2-rsi-final-implementation-plan.md) —
    historical detailed follow-up design: persistent actuator degradation,
    clonal founders, the mutation-sensitive benchmark gate, and direct Shinka
    program-lineage evaluation. It preserves the completed pilot as evidence.
-6. [Frozen actuator preregistration](./evo2-actuator-rsi-preregistration.md) —
+9. [Frozen actuator preregistration](./evo2-actuator-rsi-preregistration.md) —
    exact prospective founders, seeds, injury grid, gates, outer budget,
    statistics, and source identities.
-7. [Founder-screen stop report](./evo2-actuator-rsi-screening-stop-report.md) —
+10. [Founder-screen stop report](./evo2-actuator-rsi-screening-stop-report.md) —
    complete guarded GPU screen, the preregistered no-bank stop, and the boundary
    on what the result does and does not show.
-8. [Master PRD](./evo2-ecosystem-master-prd.md) — original implemented scope,
+11. [Master PRD](./evo2-ecosystem-master-prd.md) — original implemented scope,
    architecture, scientific comparison, phase gates, and claim boundary.
-9. [Microcosmos plan](./microcosmos-substrate-plan.md) — direct CPPN state,
+12. [Microcosmos plan](./microcosmos-substrate-plan.md) — direct CPPN state,
    cached GPU inference, trusted TensorNEAT mutation, lifecycle integration,
    events, and tests.
-10. [Heredity and Shinka plan](./heredity-shinka-plan.md) — the only evolvable
+13. [Heredity and Shinka plan](./heredity-shinka-plan.md) — the only evolvable
    function, operator profiles, validator, evaluator contract, and matched
    outer searches.
-11. [Experiment plan](./experiment-analysis-plan.md) — pilot preregistered manifests,
+14. [Experiment plan](./experiment-analysis-plan.md) — pilot preregistered manifests,
    scoring, baselines, paired analysis, conditional common gardens, and final
    artifacts.
-12. [Final report](./evo2-final-report.md) — completed pilot implementation, matched
+15. [Final report](./evo2-final-report.md) — completed pilot implementation, matched
    searches, sealed results, integrity amendments, and the supported claim.
 
 The [lifecycle remediation PRD](./microcosmos-lifecycle-remediation-prd.md) is
@@ -139,7 +150,8 @@ CPPN genome -> body commands -> embodied resource competition
 trusted TensorNEAT mutation <- food-earned asynchronous birth
       ^
       |
-Shinka policy schedules clone / parametric / structural / mixed mutation
+Shinka policy schedules six actions:
+clone / 3 parametric scales / structural / mixed mutation
 ```
 
 The ecosystem supplies selection through energy, reproduction, and death.
@@ -150,8 +162,7 @@ second selection system and break continuous ecological lineages.
 The accurate description is:
 
 > CPPN-controlled ecological evolution in which ShinkaEvolve searches for an
-> ecology-conditioned scheduler over four trusted TensorNEAT mutation
-> operators.
+> ecology-conditioned scheduler over six trusted TensorNEAT heredity actions.
 
 It is not “full generational CPPN-NEAT inside Microcosmos.”
 
@@ -166,8 +177,9 @@ src/microcosmos/heredity.py
 
 - `cppn.py` owns the frozen TensorNEAT genome definition, viable founder,
   cached transform, batched inference, and graph validation.
-- `heredity.py` owns normalized statistics, four trusted mutation profiles,
-  the one `mutate_cppn` primitive, and baseline policies.
+- `heredity.py` owns normalized statistics, the historical four-action registry,
+  the active six-action registry, trusted TensorNEAT mutation primitives, and
+  baseline policies.
 
 Do not add a controller registry, runtime backend switch, copied NEAT
 population manager, custom graph-mutation implementation, core scenario engine,
