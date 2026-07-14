@@ -1,0 +1,21 @@
+{
+  "fresh_r6_biological_inputs_accessed": false,
+  "microcosmos_commit": "b743ae71d53f5466def2586ce3299f7f3f5a284b",
+  "microcosmos_index_sha256": "c36022e36ec75d9cabad0553b234f0880f6370f0cda942d9fba3a56ea6d9da76",
+  "preflight": {
+    "candidate_episode_count": 16,
+    "elapsed_seconds": 637.2198608189938,
+    "fixture_origin": "retired-r5-public-training-panel",
+    "fixture_world_seeds": [
+      9000,
+      9004
+    ],
+    "horizon": 12000,
+    "numerical_repeats": 3,
+    "output_sha256": "5925b0207036f94de5552dc30cb18945c25cca7d040bc40c33efad6cbe9f4c9e",
+    "production_r6_validator_rejected_fixture": true
+  },
+  "protocol_revision": "evo2-r6-resource-relocation-v1",
+  "shinkaevolve_commit": "4584a9043d279bfccc946b4b80cab42a27360f54",
+  "shinkaevolve_index_sha256": "57b0778fc4638293509a67f2fdd8fecc255bbde889dc9faeadd7ad6a216e288a"
+}

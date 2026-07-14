@@ -1,0 +1,10 @@
+{
+  "amendment": "configured-founder-horizon-validation",
+  "founder_candidates_generated_before_amendment": false,
+  "microcosmos_commit": "e8a31ac8f4519dd5a26aa4302d4bc6b37cdeb993",
+  "microcosmos_index_sha256": "d6055429249a5b65063d38e28597ef28cd7e93759e719dc8c0cb0b8691fc6bc4",
+  "protocol_revision": "evo2-r6-resource-relocation-v1",
+  "scientific_constants_changed": false,
+  "shinkaevolve_commit": "4584a9043d279bfccc946b4b80cab42a27360f54",
+  "world_qualification_preserved_sha256": "207641a5697125dbc4da6e82a1d3ce8e362484202f19a9f270c198013bdfbc6d"
+}
