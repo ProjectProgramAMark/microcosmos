@@ -129,3 +129,10 @@ Generation 5 is therefore the first positive fresh-world Shinka result in the
 campaign. It is not yet the final claim: screen every fixed trusted operator,
 identify the strongest fixed alternative, and compare generation 5 directly
 against that alternative under repeated paired evaluation.
+
+The first fixed-baseline screen did not simulate: the generated baseline files
+used a Python `del` statement to mark unused arguments, while the frozen bounded
+candidate grammar intentionally forbids `Delete` AST nodes. All three attempts
+recorded `CandidateValidationError`. No scores were used. The invalid sources
+and metrics remain preserved; validator-compliant fixed programs omit the
+unnecessary statement and are generated under a distinct baseline run ID.
