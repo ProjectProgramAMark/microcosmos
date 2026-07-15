@@ -170,3 +170,26 @@ randomness, exact self-comparison is not numerically zero. This run therefore
 also measures the scale of a one-repeat search fluctuation. R8 search scores are
 useful for proposal selection, but any descendant result must be repeated on
 fresh worlds before it supports a claim.
+
+### R8 completed search
+
+R8 completed ten program evaluations in 2,576.55 seconds for a recorded API
+cost of $2.5204. Seven programs were contract-valid and three failed bounded
+candidate validation before simulation. Shinka used the negative results to
+move from broad mutation (generation 1, only 2.6% clone, score `-0.068359`) to a
+clone-tethered probe (generation 5, 97.4% clone, score `-0.005144`) and then an
+evidence-bootstrap probe (generation 6, 97.3% clone, score `+0.002281`).
+
+Generation 6 improved the relocation subset by `+0.017791` while costing
+`-0.006315` in refresh controls. Its non-clone selection probability rose from
+2.49% before relocation to 2.73% afterward. Shinka independently regenerated
+the exact same source at generation 8. That duplicate scored `-0.001750`, with
+refresh delta `+0.012206` and relocation delta `+0.008369`. The differing
+aggregate sign for byte-identical code confirms that the one-repeat training
+advantage is near the evaluator's stochastic/numerical resolution.
+
+Decision: generation 6 is the R8 transfer candidate because it is the best
+archive program and has an interpretable clone-preserving, evidence-gated
+mechanism. Evaluate its frozen source with three repeats on untouched
+development worlds directly against fixed clone. Do not treat the training
+score as a positive result by itself.
