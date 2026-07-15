@@ -328,3 +328,23 @@ The grammar now admits `jnp.mean`, fixed slicing, and `.astype`; a focused test
 executes all three through the real load and JAX smoke-validation path. R11 is
 retained as an interrupted infrastructure run. A distinct R12 run will repeat
 the same scientific experiment and budget after this validator-only repair.
+
+### R12 validator replay and stop
+
+R12 launched as `evo2-exploratory-r12-head-injury-20260715` with the same
+sixteen-evaluation scientific configuration as R11 and pinned Shinka commit
+`e6e0f93` and Microcosmos commit `1369b73`. Generation zero completed normally:
+fixed standard mutation scored `-0.073939` against clone and used the standard
+operator for every birth. Generations 1 and 2 were again rejected before
+simulation. Their preserved sources revealed two additional pure JAX idioms
+missing from the candidate grammar: `jnp.max` and immutable indexed updates
+such as `logits.at[0].add(...)`.
+
+R12 was stopped before generation 3 could consume another ecosystem
+evaluation. The validator now admits common bounded reductions and JAX's pure
+indexed-update interface. A regression test executes both exact idioms through
+the real R4 loader and smoke validator, and the preserved R12 generation-1 and
+generation-2 sources both pass validator replay. This remains a sandbox repair,
+not a change to worlds, score, operators, candidate inputs, or physics. R12 is
+retained as an interrupted infrastructure run; the next run repeats the same
+experiment from a new immutable result directory.
