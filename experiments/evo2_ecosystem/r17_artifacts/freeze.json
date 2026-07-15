@@ -4,6 +4,18 @@
   "crosspanel_training_index_file_sha256": "7f41a47fac4b3ea4270d6128538919f39b48d318673a1b7f8a0f66fbd555fce5",
   "development_manifest_sha256": "d75f91175bc5ba648e39ed45ddb3f274875715d3ad0a36393012bc69e2f6ab69",
   "event_step": 4000,
+  "finalist": {
+    "candidate_source_sha256": "9b5db8652945ea82705b8a652b80bdcb6d210018cbb58f57d73fd89fb0757ba5",
+    "development_metrics_sha256": "b6d1d2f1c50860ef206a1e7cce25347312a76f9f6cf036a623eee8a18062f125",
+    "development_repeat_scores": [
+      0.007631148211658001,
+      0.0054275463335216045,
+      0.004459080286324024
+    ],
+    "development_robust_score": 0.0054275463335216045,
+    "generation": 2,
+    "source_run_id": "evo2-exploratory-r17b-crosspanel-founder-generalization-20260715"
+  },
   "founder_index_canonical_sha256": "68c5cbcd09851f2dad1de1686190ef5c2039b5b1550610b077ed99c9cf9a1cd9",
   "founder_index_file_sha256": "b120bdd61b2a6aa10e5726ce4a92eeb9e5bca4427e410c907a270d8ae254a025",
   "founder_panel_seed": 6007,
@@ -24,7 +36,8 @@
       "status": "aborted_before_first_proposal_evaluation"
     }
   ],
-  "sealed_manifest_opened": false,
+  "sealed_manifest_opened": true,
+  "sealed_manifest_opened_at_utc": "2026-07-15T22:37:54Z",
   "sealed_manifest_sha256": "8e4850cd2cacc6152f7370c2138ac31df92b9ee3173369960c37f8b90358ad81",
   "shinkaevolve_commit": "335a603b58a8e604f16754be3d9d7ccacdeccb9c",
   "training_manifest_sha256": "042afaf7c56b46fefdb3a389fb7cb4276a85fc075394e95030778cc47e4a1654"
