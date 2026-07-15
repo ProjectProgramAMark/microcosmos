@@ -231,3 +231,33 @@ is paired against the exact fixed-clone source. The launch record pins both
 source hashes, the training manifest and founder-index hashes, both repository
 commits, model, prompt guidance, and budget. Search evaluation remains one
 repeat for throughput; descendants must pass repeated fresh-world evaluation.
+
+### R9 interface audit and R10 relaunch
+
+R9 was intentionally stopped after generations zero through four were recorded.
+The first three descendants exceeded the existing 60-nonblank-line candidate
+limit and failed before simulation. The valid generation-4 stress policy chose
+clone for every realized birth and scored `-0.014883`. Its mean clone
+probability increased from 99.29% before relocation to 99.46% afterward—the
+opposite of the intended response.
+
+Inspection found a proposer-interface error. The exploratory task said that
+population summaries were available but did not document their positions. The
+R8 source inherited by R9 mislabeled `population_stats[1]` (mean energy) as
+population growth, `[2]` (population change) as diversity, and `[3]` (birth
+rate) as lineage entropy, while ignoring `[4]` (death rate) and `[5]` (mean
+intake). Shinka therefore generated coherent code against the wrong semantic
+interface. The trusted simulator and array values were correct; the outer task
+description was incomplete.
+
+The task now explicitly documents all parent, population, and operator indices,
+the opaque RNG, and the 60-line budget. Candidate-validation feedback also
+includes the safe validation reason so the proposer can repair oversized or
+unsupported code. Twenty-six focused CPU tests pass. These changes were
+committed before a new search.
+
+R10 launched as `evo2-exploratory-r10-abi-correct-20260715`, starting from and
+comparing directly against exact fixed clone for twelve evaluations. It uses the
+same training worlds and score; only the proposer now receives the ABI it was
+always meant to program against. Any R10 candidate still requires repeated
+fresh-world confirmation.
