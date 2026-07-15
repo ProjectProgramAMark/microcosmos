@@ -516,3 +516,47 @@ fixed clone as the comparator. Its objective is to improve the worst-founder
 and repeat behavior while preserving the candidate's positive sham and injury
 means. This continuation supplies the valid search depth that R16's obsolete
 complexity checks prevented.
+
+### R16b valid-depth continuation and first sealed result
+
+R16b ran as
+`evo2-exploratory-r16b-valid-depth-early-head-injury-20260715` from the frozen
+R16 generation-3 scheduler, while retaining exact fixed clone as the paired
+comparator. All twenty generation programs passed the bounded capability and
+runtime contract and reached ecosystem simulation. The run generated nineteen
+Shinka proposals, cost `$3.1051`, and completed in 13,563.72 seconds. The
+longer elapsed time reflects concurrent confirmation work, not a changed
+simulation budget. Every proposal, prompt, metric, source, archive relation,
+and launch hash is retained.
+
+Generation 11 was the only policy to survive untouched development
+confirmation. Its three complete repeat scores against clone were
+`[+0.005238, +0.014974, +0.014813]`, for a robust score of `+0.014813`; all
+three repeats were positive. Mean sham and injury effects were respectively
+`+0.017653` and `+0.055724`. The policy cloned 95.41% of realized births, used
+conservative parametric mutation for 4.46%, and used standard parametric
+mutation for 0.13%. It computed separate stable, renewal, stress, and injury
+rescue signals and combined them with per-operator success, usage, and evidence
+estimates. R16b therefore produced a replicated development-positive
+Shinka-generated heredity policy rather than a one-repeat training artifact.
+
+The frozen generation-11 source was then evaluated once on the sealed founder
+partition with three numerical repeats. It did **not** beat clone on the
+predeclared robust aggregate: the score was `-0.005367`, with repeat scores
+`[-0.012919, -0.003857, -0.005367]`. Mean sham and injury effects remained
+positive (`+0.003490` and `+0.007455`), and the mean of the selected repeat's
+sixteen paired deltas was `+0.000949`, but one injury-world delta of
+`-0.101044` dominated the lower tail. This is a sealed negative result and is
+not relabeled as success.
+
+The failure mode has changed. The original continuous-mutation policy paid a
+large stable-world cost; generation 11 removed that mean tradeoff but remained
+too sensitive to particular founder/world combinations. R17 therefore changes
+neither physics, injury, horizon, scoring, trusted operators, nor candidate
+inputs. It trains on a fixed cross-panel manifest with eight founder genomes
+instead of four while holding the number of worlds constant by using one world
+seed per founder. A separately seeded founder bank is frozen before R17 begins
+and reserved for fresh development and sealed confirmation. This is the
+smallest correction that directly addresses the measured founder-tail failure
+without training on the failed sealed outcomes or adding another ecological
+mechanism.
