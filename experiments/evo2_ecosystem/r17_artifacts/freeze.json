@@ -1,0 +1,20 @@
+{
+  "created_at_utc": "2026-07-15T21:43:05.209955+00:00",
+  "development_manifest_sha256": "d75f91175bc5ba648e39ed45ddb3f274875715d3ad0a36393012bc69e2f6ab69",
+  "event_step": 4000,
+  "founder_index_canonical_sha256": "68c5cbcd09851f2dad1de1686190ef5c2039b5b1550610b077ed99c9cf9a1cd9",
+  "founder_index_file_sha256": "b120bdd61b2a6aa10e5726ce4a92eeb9e5bca4427e410c907a270d8ae254a025",
+  "founder_panel_seed": 6007,
+  "horizon": 12000,
+  "microcosmos_commit": "8b3a7e8f1e9d08eaaa45559cb8c06131bae75068",
+  "screening_eligibility_seeds": [
+    12000,
+    12001
+  ],
+  "screening_horizon": 7500,
+  "screening_record_sha256": "7fc6a0b949dd8811a606d60e1007b1990c7038e930ea2795629e7a2ed1de1ed9",
+  "sealed_manifest_opened": false,
+  "sealed_manifest_sha256": "8e4850cd2cacc6152f7370c2138ac31df92b9ee3173369960c37f8b90358ad81",
+  "shinkaevolve_commit": "335a603b58a8e604f16754be3d9d7ccacdeccb9c",
+  "training_manifest_sha256": "042afaf7c56b46fefdb3a389fb7cb4276a85fc075394e95030778cc47e4a1654"
+}
