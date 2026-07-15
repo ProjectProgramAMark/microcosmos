@@ -348,3 +348,21 @@ generation-2 sources both pass validator replay. This remains a sandbox repair,
 not a change to worlds, score, operators, candidate inputs, or physics. R12 is
 retained as an interrupted infrastructure run; the next run repeats the same
 experiment from a new immutable result directory.
+
+### R13 ABI-orientation repair
+
+R13 repeated the same sixteen-evaluation head-injury experiment. Generation
+zero completed with fixed standard mutation at `-0.106121` relative to clone.
+Generation 1 was rejected because it used ordinary local tuple unpacking, which
+the sandbox still disallowed. More importantly, both generated descendants
+transposed the documented operator-stat table: they used
+`operator_stats[:, 0]` instead of `operator_stats[0]`, producing three-element
+vectors where the policy requires one value for each of six operators.
+
+The run was stopped while generation 2 was evaluating; its partial artifacts
+are retained. The sandbox now permits tuple unpacking only into new local names,
+and the smoke validator still rejects incompatible shapes. The proposer prompt
+now gives executable indexing examples for success, usage, and evidence and
+explicitly forbids the transposed form. Twenty-eight focused CPU tests pass.
+These changes clarify and admit the intended fixed ABI without changing the
+candidate's information, worlds, score, heredity operators, or simulator.
