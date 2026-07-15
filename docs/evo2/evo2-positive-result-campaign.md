@@ -224,3 +224,10 @@ use only bounded scarcity/decline evidence to unlock sparse conservative or
 standard parametric probes under ecological stress. Development is now treated
 as iterative campaign feedback; any later claim requires untouched sealed
 founders and seeds.
+
+R9 launched as `evo2-exploratory-r9-stress-gated-20260715` with twelve total
+evaluations. Generation zero is the exact R8 generation-6 source; every program
+is paired against the exact fixed-clone source. The launch record pins both
+source hashes, the training manifest and founder-index hashes, both repository
+commits, model, prompt guidance, and budget. Search evaluation remains one
+repeat for throughput; descendants must pass repeated fresh-world evaluation.
