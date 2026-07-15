@@ -193,3 +193,34 @@ archive program and has an interpretable clone-preserving, evidence-gated
 mechanism. Evaluate its frozen source with three repeats on untouched
 development worlds directly against fixed clone. Do not treat the training
 score as a positive result by itself.
+
+The remaining fixed development screens completed after R8: fixed structural
+scored `-0.030796` and fixed mixed scored `-0.120095`, both relative to standard
+parametric. Together with conservative (`-0.040914`) and exploratory
+(`-0.040512`), these measurements confirm that fixed clone (`+0.085810`) is the
+strongest trusted fixed policy on this development panel.
+
+The R8 development confirmation was frozen under
+`evo2-exploratory-r8-confirmation-20260715`. It copies the exact generation-6
+source and exact fixed-clone source, records their hashes and both repository
+commits, and uses the untouched R6 development manifest. The candidate is being
+evaluated directly against clone with three complete numerical repeats on GPU.
+
+### R8 development result and R9 decision
+
+The R8 generation-6 candidate did not transfer as an overall improvement. Its
+three development repeat scores were `+0.012590`, `-0.048194`, and `-0.013583`;
+the coherent median was `-0.013583`. The candidate improved relocation episodes
+by `+0.013249` on average but cost `-0.006860` in matched refresh controls. It
+selected clone for 97.4% of births, yet mean clone probability was 97.47% before
+relocation and 97.36% afterward. The policy therefore paid mutation cost in
+healthy worlds without sharply increasing exploration under the shock.
+
+This is a measured algorithmic failure rather than a simulator blocker. R9
+starts from the exact R8 generation-6 source and remains paired directly against
+fixed clone. Its proposer feedback states the observed mechanism: retain
+effectively pure cloning while parent energy and recent intake are healthy, and
+use only bounded scarcity/decline evidence to unlock sparse conservative or
+standard parametric probes under ecological stress. Development is now treated
+as iterative campaign feedback; any later claim requires untouched sealed
+founders and seeds.
