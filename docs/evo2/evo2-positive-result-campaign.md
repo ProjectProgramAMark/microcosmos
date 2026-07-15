@@ -479,3 +479,40 @@ that mutation is spent when its post-injury benefit is likely to exceed its
 stable-world cost. R16 proper starts from the frozen R15 generation-18 source,
 compares every descendant directly with frozen fixed clone, and uses twenty
 Shinka evaluations on the same early-injury treatment.
+
+### R16 completed search and valid-depth continuation
+
+R16 proper ran as `evo2-exploratory-r16-early-head-injury-20260715`. It
+completed twenty nominal generation slots in 4,592.08 seconds, generated
+nineteen proposals for a recorded API cost of `$2.8186`, and preserved the
+complete archive. Generation 3 was the one-repeat training champion at
+`+0.001406` versus clone and used clone for 99.1% of realized births.
+Generation 7 was also slightly positive at `+0.000187` with 99.3% clone use.
+The other valid descendants were negative.
+
+Generation 3 was immediately frozen and evaluated on untouched development
+founders for three numerical repeats. Its repeat scores were
+`[-0.000459, +0.013501, -0.000673]`, giving a robust score of `-0.000459`.
+Its mean sham effect was `+0.015844` and mean injury effect was `+0.002540`.
+This is much closer to clone than the R14 and R15 development results, but it
+does not robustly beat clone and is not a finalist. The distinct generation-7
+pressure/evidence mechanism was also frozen for development confirmation.
+
+Only seven unique R16 generations reached ecosystem simulation. Twelve
+proposals exceeded an arbitrary 100-nonblank-line limit and one exceeded an
+arbitrary 1,024-AST-node limit. These were not capability or runtime
+violations: two preserved rejected sources execute successfully through the
+real fixed-ABI JAX smoke validator when those size checks are omitted. The two
+non-safety complexity checks and the corresponding prompt sentence were
+therefore removed. The source-byte bound, AST capability allowlist, immutable
+regions, opaque RNG, fixed six-value output, JAX smoke execution, process
+timeout, fixed trusted operators, worlds, score, and physics remain unchanged.
+The change removes code rather than adding infrastructure; twenty-eight focused
+CPU tests pass.
+
+Because thirteen of twenty nominal slots did not perform the intended
+experiment, a clean continuation starts from frozen generation 3 and retains
+fixed clone as the comparator. Its objective is to improve the worst-founder
+and repeat behavior while preserving the candidate's positive sham and injury
+means. This continuation supplies the valid search depth that R16's obsolete
+complexity checks prevented.
