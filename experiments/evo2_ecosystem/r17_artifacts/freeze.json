@@ -1,5 +1,7 @@
 {
   "created_at_utc": "2026-07-15T21:43:05.209955+00:00",
+  "crosspanel_training_index_canonical_sha256": "4964255ed14375b6d661a6c37a01a25dff6ef5ff37acaf05fc9c78d0b2e85699",
+  "crosspanel_training_index_file_sha256": "7f41a47fac4b3ea4270d6128538919f39b48d318673a1b7f8a0f66fbd555fce5",
   "development_manifest_sha256": "d75f91175bc5ba648e39ed45ddb3f274875715d3ad0a36393012bc69e2f6ab69",
   "event_step": 4000,
   "founder_index_canonical_sha256": "68c5cbcd09851f2dad1de1686190ef5c2039b5b1550610b077ed99c9cf9a1cd9",
@@ -13,6 +15,15 @@
   ],
   "screening_horizon": 7500,
   "screening_record_sha256": "7fc6a0b949dd8811a606d60e1007b1990c7038e930ea2795629e7a2ed1de1ed9",
+  "search_attempts": [
+    {
+      "failure": "development founders retained their old partition label in the first cross-panel index",
+      "generation_zero_score": -2.0,
+      "run_id": "evo2-exploratory-r17-crosspanel-founder-generalization-20260715",
+      "simulation_performed": false,
+      "status": "aborted_before_first_proposal_evaluation"
+    }
+  ],
   "sealed_manifest_opened": false,
   "sealed_manifest_sha256": "8e4850cd2cacc6152f7370c2138ac31df92b9ee3173369960c37f8b90358ad81",
   "shinkaevolve_commit": "335a603b58a8e604f16754be3d9d7ccacdeccb9c",
