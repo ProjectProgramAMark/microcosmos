@@ -406,3 +406,59 @@ source limit is raised from 60 to 100 nonblank lines because it rejected four
 otherwise bounded proposals and does not protect the simulator; AST capability
 restrictions, fixed output shape, JAX smoke validation, and runtime limits
 remain unchanged.
+
+### R15 completed sparse-mutation search
+
+R15 launched as `evo2-exploratory-r15-sparse-head-injury-20260715` from exact
+fixed clone and compared every program directly with that same frozen clone.
+It completed twenty evaluations in 8,425.48 seconds, generated nineteen Shinka
+proposals for a recorded API cost of `$2.6885`, and preserved every source,
+metric, prompt, launch hash, and SQLite archive record. Seventeen generation
+programs were contract-valid; generations 3, 17, and 19 were rejected before
+simulation for exceeding the documented 100-nonblank-line limit.
+
+Shinka moved immediately from exact clone toward sparse heredity schedulers.
+The valid descendants generally cloned 93--99% of births and spent the
+remaining budget on conservative and standard parametric mutation. Generation
+12 was the one-repeat training champion at `+0.009561` versus clone, generation
+15 scored `+0.001078`, and generation 18 scored `+0.000215`. Generation 18 had
+positive mean candidate-minus-clone effects in both sham (`+0.049604`) and
+injury (`+0.021906`) training worlds while cloning 96.6% of realized births.
+
+None of the apparent training improvements transferred to the fresh
+development founders under three complete numerical repeats:
+
+| Frozen R15 program | Median paired score vs clone | Repeat scores |
+|---|---:|---|
+| generation 1 | -0.034845 | all three negative |
+| generation 9 | -0.017296 | all three negative |
+| generation 12 | -0.056643 | `[-0.056643, -0.066690, -0.047388]` |
+| generation 15 | -0.048429 | `[-0.048429, -0.041304, -0.077611]` |
+| generation 18 | -0.044665 | `[-0.040972, -0.056818, -0.044665]` |
+
+The matched fixed-standard baseline scored `-0.048055` with repeats
+`[-0.048055, -0.037258, -0.062119]`; the earlier fixed-conservative baseline
+scored `-0.248492`. Shinka therefore learned to suppress most of the large cost
+of conventional mutation, but no R15 policy beat no-mutation clone on fresh
+founders. R15 is a complete negative result, not a finalist.
+
+The mechanism trace explains why another search on the identical treatment is
+not justified. The promising policies became *more* clonal after injury. For
+example, generation 18's mean clone probability rose from 96.1% before the
+event to 97.9% afterward. The injury at step 7,500 left only 4,500 of the
+12,000 simulated steps for new variants to be born, receive ecological credit,
+and spread. Sparse mutation produced too few post-event trials, while broad
+mutation remained founder-sensitive and costly.
+
+### R16 early-injury treatment
+
+R16 keeps the simulator, CPPN controller, six trusted heredity operators,
+founders, world seeds, injury gains, score, and total 12,000-step budget fixed.
+It changes only the event time from step 7,500 to step 4,000, expanding the
+post-injury adaptation window from 4,500 to 8,000 steps without adding compute.
+The exploratory and confirmation manifest builders now accept an explicit
+chunk-aligned `--event-step`, and the chosen value is recorded in launch
+metadata and canonical manifest bytes. Before another outer search, fixed
+standard mutation and the R15 generation-18 sparse scheduler are being measured
+against clone with three repeats on the R6 training founders under this revised
+timing.
