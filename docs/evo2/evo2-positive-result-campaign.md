@@ -366,3 +366,43 @@ now gives executable indexing examples for success, usage, and evidence and
 explicitly forbids the transposed form. Twenty-eight focused CPU tests pass.
 These changes clarify and admit the intended fixed ABI without changing the
 candidate's information, worlds, score, heredity operators, or simulator.
+
+### R14 completed adaptive-mutation search
+
+R14 launched from the preserved, ABI-correct Shinka policy generated in R12
+generation 2 rather than paying for fixed-standard initialization again. It
+completed all twenty evaluations in 7,236.91 seconds, generated nineteen
+proposals for a recorded API cost of `$2.5029`, and retained every source,
+metric, prompt, database record, and launch hash. Sixteen of the twenty
+generation programs were valid. Four proposals were rejected before simulation
+only because they exceeded the
+60-nonblank-line source limit.
+
+The initial adaptive policy used 51.5% conservative and 45.7% standard mutation
+and scored `-0.087924` relative to clone. Shinka's generation-3
+`regime_blended_repair` policy improved the one-repeat training score to
+`-0.044892`; it used 51.4% conservative, 41.8% standard, and 5.5% exploratory
+mutation and had positive mean effects in both sham (`+0.020082`) and injury
+(`+0.016929`) worlds. Generation 19 was close at `-0.049454` and had the largest
+positive injury mean (`+0.047668`) with a small sham cost (`-0.008196`). No R14
+training policy beat clone on the robust aggregate.
+
+Generation 3 was frozen and evaluated immediately on the fresh development
+founders for three numerical repeats. All repeat scores were negative:
+`[-0.092445, -0.105449, -0.117987]`. Its selected robust score was `-0.105449`,
+so the training improvement did not transfer. The matched fixed-conservative
+baseline scored `-0.248492` with repeats
+`[-0.248492, -0.255023, -0.246846]`. Shinka therefore discovered a policy that
+substantially reduced the cost of conventional mutation, but it did not beat
+clone and is not a positive final result.
+
+Mechanistically, nearly every R14 policy mutated nearly every birth. The best
+policy used clone for only 0.5% of realized births; the development loss shows
+that this exploration budget remains too expensive across founders. The next
+search starts from exact clone and asks Shinka to discover sparse,
+stress-triggered mutation: high clone probability while ecology is stable, with
+mutation spending tied to decline, death, energy, and operator evidence. The
+source limit is raised from 60 to 100 nonblank lines because it rejected four
+otherwise bounded proposals and does not protect the simulator; AST capability
+restrictions, fixed output shape, JAX smoke validation, and runtime limits
+remain unchanged.
