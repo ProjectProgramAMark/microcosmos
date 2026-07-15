@@ -294,3 +294,37 @@ controller, mutation kernel, score, or candidate privilege. It only substitutes
 an existing event that changes the controller problem for one that did not
 create useful hereditary pressure. The next proposer prompt will ask for
 measurable adaptive exploration rather than effectively pure cloning.
+
+### R11 head-actuator search launch
+
+R11 launched as `evo2-exploratory-r11-head-injury-20260715` for sixteen total
+evaluations. It uses the R6 training founders and world seeds, with every
+resource-relocation fork transformed canonically into a matched uninjured/null
+world and a persistent head-actuator injury world. At step 7,500 the first two
+of six hinge gains change from `1.0` to `0.1`; all other simulator, resource,
+lifecycle, founder, seed, horizon, and scoring values remain unchanged.
+
+The initial program is fixed standard-parametric mutation so generation zero
+immediately measures a real mutation operator. Every generation is paired
+directly against exact fixed clone. The proposer receives the corrected ABI and
+is explicitly asked to realize mutation, preserve uninjured performance, and
+improve injured recovery rather than produce unused non-clone probabilities.
+The launch record pins Shinka commit `dd3ea42`, Microcosmos commit `d252f87`,
+the candidate and ancestor source hashes, founder-index hash, canonical
+manifest hash, model, scenario family, and outer budget.
+
+R11 was stopped after generations zero through two were preserved. Generation
+zero established the fixed-standard baseline against clone (`-0.045209`) while
+using standard mutation for every birth. Its mean direct candidate-minus-clone
+effects were positive in both uninjured (`+0.003251`) and injured (`+0.030100`)
+worlds, but the robust paired aggregate was negative because effects were highly
+founder-sensitive. Generations 1 and 2 were rejected before simulation because
+their otherwise bounded JAX expressions used `jnp.mean` and array `.astype`,
+which the candidate grammar did not admit. Both failures returned the same
+generic call error.
+
+Those operations are pure, fixed-shape, and do not expand candidate privilege.
+The grammar now admits `jnp.mean`, fixed slicing, and `.astype`; a focused test
+executes all three through the real load and JAX smoke-validation path. R11 is
+retained as an interrupted infrastructure run. A distinct R12 run will repeat
+the same scientific experiment and budget after this validator-only repair.
