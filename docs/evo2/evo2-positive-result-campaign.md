@@ -458,7 +458,24 @@ It changes only the event time from step 7,500 to step 4,000, expanding the
 post-injury adaptation window from 4,500 to 8,000 steps without adding compute.
 The exploratory and confirmation manifest builders now accept an explicit
 chunk-aligned `--event-step`, and the chosen value is recorded in launch
-metadata and canonical manifest bytes. Before another outer search, fixed
-standard mutation and the R15 generation-18 sparse scheduler are being measured
-against clone with three repeats on the R6 training founders under this revised
-timing.
+metadata and canonical manifest bytes. Fixed standard mutation and the R15
+generation-18 sparse scheduler were each measured against exact clone with
+three numerical repeats on the unchanged R6 training founders under this
+revised timing.
+
+Continuous fixed-standard mutation scored `-0.048503` on the robust aggregate.
+Its stable sham-world effect was `-0.067226`, while its injury-world effect was
+`+0.075270`: mutation is useful after the early injury but its continuous cost
+in the stable world is larger. R15 generation 18 nearly closed the aggregate
+gap at `-0.003519`, with repeat scores
+`[+0.017028, -0.026118, -0.003519]`. It cloned 96.3% of realized births and had
+a smaller sham cost (`-0.024845`) while retaining a positive injury effect
+(`+0.027912`). These are replicated screen results, not a claimed positive
+result.
+
+The screen establishes a concrete R16 optimization target: condition sparse
+mutation on observable ecological state and accumulated operator evidence so
+that mutation is spent when its post-injury benefit is likely to exceed its
+stable-world cost. R16 proper starts from the frozen R15 generation-18 source,
+compares every descendant directly with frozen fixed clone, and uses twenty
+Shinka evaluations on the same early-injury treatment.
