@@ -153,3 +153,20 @@ discover a context-dependent heredity scheduler that preserves clone's strong
 ecological performance while using mutation only when online evidence makes it
 beneficial. R8 uses ten total evaluations, one search repeat, the same training
 manifest, model, bounded six-operator contract, simulator, and resource budget.
+
+R8 launched as `evo2-exploratory-r8-clone-20260714`. The launch record pins the
+clone source hash, training manifest hash, founder index hash, Shinka commit,
+Microcosmos commit, model, and outer budget. Two remaining fixed-operator
+development screens were already running when the R8 initial evaluation began.
+Three-way GPU contention increased the initial evaluation time to 599.83
+seconds. The screens were temporarily paused to keep resource contention from
+triggering the local evaluator's twelve-minute timeout; they will be resumed
+after R8. Future exploratory launches use a thirty-minute runaway limit so host
+contention is not misclassified as candidate failure.
+
+The generation-zero clone-vs-identical-clone evaluation scored `-0.005961`.
+Because the two paired ecosystem trajectories still consume independent policy
+randomness, exact self-comparison is not numerically zero. This run therefore
+also measures the scale of a one-repeat search fluctuation. R8 search scores are
+useful for proposal selection, but any descendant result must be repeated on
+fresh worlds before it supports a claim.
