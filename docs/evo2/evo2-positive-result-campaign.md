@@ -261,3 +261,36 @@ comparing directly against exact fixed clone for twelve evaluations. It uses the
 same training worlds and score; only the proposer now receives the ABI it was
 always meant to program against. Any R10 candidate still requires repeated
 fresh-world confirmation.
+
+### R10 completed search and treatment decision
+
+R10 completed all twelve evaluations in 3,306.26 seconds. Shinka generated
+eleven descendants for a recorded API cost of $1.3200. Ten of the twelve
+generation programs were contract-valid; generations 1 and 7 were rejected
+before simulation because the bounded grammar did not admit ordinary JAX array
+slices. The rejected sources and exact validation feedback remain preserved.
+
+The corrected ABI solved the interface defect, but it did not produce a useful
+heredity result on resource relocation. Every contract-valid generation used
+clone for 100% of realized births. Generation 2 received the highest one-repeat
+score, `+0.005588` relative to clone, and generation 8 received `+0.002175`, but
+both were behaviorally clone policies. Their tiny non-clone probabilities never
+selected a mutation. These point scores are therefore measurements of residual
+clone-versus-clone execution noise, not autonomous improvement.
+
+The remaining valid descendants scored between `-0.015421` and `-0.007619`,
+again while realizing only clone. R10 is consequently complete as a negative
+treatment result: Shinka produced readable stress schedulers against the now
+correct semantic interface, but relocation did not drive their stress signals
+far enough to alter heredity. No R10 program advances to development.
+
+Decision: keep the six-action CPPN heredity system, fixed-clone comparator,
+paired evaluator, and exact ABI. Retire resource relocation as the active search
+treatment. The next exploratory search will use the already implemented
+persistent actuator-injury event, because the earlier prospective training
+measurement established that head-hinge gain `0.1` was harmful but survivable
+for clone (`95%` interval `[-0.135546, -0.009778]`). This changes no physics,
+controller, mutation kernel, score, or candidate privilege. It only substitutes
+an existing event that changes the controller problem for one that did not
+create useful hereditary pressure. The next proposer prompt will ask for
+measurable adaptive exploration rather than effectively pure cloning.
