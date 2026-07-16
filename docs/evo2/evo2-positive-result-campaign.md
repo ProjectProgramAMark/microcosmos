@@ -915,21 +915,10 @@ operators, 12,000-step horizon, step-4,000 injury, promotion rules, and hidden
 partitions remain unchanged. Development and sealed artifacts are still mode
 `000`.
 
-### Final R21 outer search launched
-
-The frozen R21 bank and search boundary were committed and pushed at
-Microcosmos commit `270961a` before candidate evaluation. The final search is
-`evo2-final-r21-cross-founder-20260716`, launched under a 20/24 GiB guarded GPU
-service for exactly twenty Shinka evaluations and three numerical repeats per
-candidate. It initializes from frozen R15 generation 18 (`fc69ac96`), compares
-every proposal directly against exact clone (`a1c80145`), and uses only the
-thirty-two-world expanded R21 training manifest (`7bd346ae`) and sixteen-founder
-training index (`ac99bf29`).
-
-The Shinka prompt records the prior cross-founder failure and asks for
-normalized ecology and trusted-operator-evidence signals that reduce
-founder-specific over-triggering while retaining a genuine non-clone,
-ecology-conditioned mechanism. The simulator, score, policy ABI, six trusted
-operators, 12,000-step horizon, step-4,000 injury, promotion rules, and hidden
-partitions remain unchanged. Development and sealed artifacts are still mode
-`000`.
+R21 generation 0 evaluated the frozen R15 generation-18 ancestor on all sixteen
+training founders. All three repeat scores were negative (`-0.002782`,
+`-0.007861`, and `-0.007671`), with coherent-median sham effect `+0.027050`
+and injury effect `-0.008487`. The policy realized 96.450% clone, 2.564%
+conservative mutation, and 0.986% standard mutation. It is a valid non-clone,
+ecology-conditioned mechanism, but its replicated score is negative and it is
+not eligible for development promotion. The search continues unchanged.
