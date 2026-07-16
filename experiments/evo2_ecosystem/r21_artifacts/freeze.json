@@ -1,0 +1,44 @@
+{
+  "event_step": 4000,
+  "horizon": 12000,
+  "injury_gains": [
+    0.1,
+    0.1,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "manifests": {
+    "development_early_injury.json": {
+      "canonical_sha256": "96036f0776be3cb3f772dbcc3aa896b9ba11941c27845ff6b569a13f4ebb9363",
+      "file_sha256": "127a5138e240d11b5643ee8d64063283c3a15c9fcb4f301d3a686b2a673c5d80"
+    },
+    "sealed_early_injury.json": {
+      "canonical_sha256": "f7f9a16dc2e8c286e517509d3a518c431d899e1a7441e14cd5e30a83814ae5a7",
+      "file_sha256": "7f824a8cf0c9ff2ca8b284a19dcf309237498e9df1400f548b2da7da0a7bc434"
+    },
+    "training_expanded_r18_early_injury.json": {
+      "canonical_sha256": "288008f529acf594086e90a6077e968622eb0716daec0c9b72cabfa66983c22b",
+      "file_sha256": "7bd346ae94f4e184057672c2c63988965390ae2a04ecf0d045af817287152041"
+    },
+    "training_smoke_early_injury.json": {
+      "canonical_sha256": "5532131c0ec635995f307f87bcd184c946b78268db74b981747032f40d70da44",
+      "file_sha256": "5a0970dff65f1e2279fc023f5b866d6ef881fd1324166f8d98fbdf44aeab4422"
+    }
+  },
+  "r18_independent_founder_index_canonical_sha256": "eb765c26582b58b967517af023cc1134ae35628784098b9377382ccd1a7a8af9",
+  "r18_inherited_training_index_canonical_sha256": "d01f9041373d53e2f488eef544b0bb9640c0ef5eefb460dd053a15a7c3d5e571",
+  "r21_founder_panel_seed": 9007,
+  "r21_founder_screening_horizon": 7500,
+  "r21_founder_screening_record_sha256": "00ebfd15410af177e0d19950e61cc508bcefe9a265c33dbb66c9540f14b9f80f",
+  "r21_founder_screening_seeds": [
+    12000,
+    12001
+  ],
+  "r21_independent_founder_index_canonical_sha256": "d062f2094cf88afd1c602777032ed59a71800ea78a3b0f3bd75d0254751fd999",
+  "r21_independent_founder_index_file_sha256": "2f859dadf096cfb9dd5d3bb3a251a9dfaf91ff2546364ba14f2eafc48e11dd23",
+  "r21_training_founder_index_canonical_sha256": "e495052bf31f0d803bc53c2700f24fcc42daa934251161fd956fe180e12d895b",
+  "r21_training_founder_index_file_sha256": "ac99bf29a87597e2a9fc7db62445ab338944f88742f9992cbd86ca73353758b9",
+  "r21_training_seed": 19000
+}

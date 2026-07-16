@@ -873,3 +873,25 @@ three repeats. It initializes from R15 generation 18 and receives twenty Shinka
 evaluations. The new preregistration is
 `evo2-r21-cross-founder-preregistration.md`. No R21 founder has yet been
 generated and no holdout has been opened at the time of this record.
+
+### R21 founder bank frozen
+
+The final prospectively generated R21 bank used panel seed `9007`, screening
+seeds `12000/12001`, and the unchanged clone-viability rules. It contains
+exactly four training, four development, and eight sealed founders. Development
+and sealed bytes were set to mode `000` immediately after publication. The
+complete records from the two unpublished screens remain preserved under
+`failed_panel_seed_8007/` and
+`failed_panel_seed_9007_worlds_18000_18001/`.
+
+`prepare_r21_artifacts.py` then copied all sixteen exposed non-sealed R18
+founders into the immutable R21 training index and published the frozen
+manifests. The training manifest has sixteen founders and thirty-two paired
+worlds at seed `19000`; development has four new founders, two seeds, and
+sixteen worlds; sealed has eight new founders, two seeds, and thirty-two
+worlds. Every world retains the 12,000-step horizon and step-4,000 head injury.
+The freeze record pins independent-index hash `2f859dad`, training-index hash
+`ac99bf29`, training-manifest hash `7bd346ae`, development-manifest hash
+`127a5138`, and sealed-manifest hash `7f824a8c`. No R21 development or sealed
+founder was opened. Forty focused founder, manifest, and protocol tests passed
+before the outer search boundary was committed.
