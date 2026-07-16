@@ -712,3 +712,27 @@ three-repeat evaluations under the persistent 20/24 GiB guarded service. The
 launch pins compact-source hash `43e42009`, ShinkaEvolve commit `c769176`,
 Microcosmos commit `2976666`, exact clone, hard-panel manifest and founder
 hashes, model, and evaluation budget. The recurring monitor now follows R20.
+
+### R20 generation 16 development promotion
+
+R20 generation 16 is the campaign's first replicated hard-training candidate
+to satisfy the preregistered promotion rule. Its coherent-median robust score
+was `+0.000095`; two of three numerical repeats were positive (`+0.000095`,
+`-0.000227`, and `+0.000118`). Its selected repeat had `+0.007004` sham and
+`+0.000110` injury effects. The policy was 99.6904% clone and 0.3096% standard
+mutation, so this is a small measured effect rather than a claim of a large
+training gain.
+
+The source is nevertheless a real non-clone, ecology-conditioned mechanism,
+not a constant sparse baseline. It computes graded yellow/red/black rescue
+states from population contraction, deaths, low population, energy, intake,
+birth readiness, and parent condition, then modulates mutation using the
+standard operator's observed success, usage, and evidence. Its frozen source
+hash is `715f6407a4deb24658e6f05eaf3472329376ce8645d6fa1f3239cbc9ce2a6490`.
+
+Generation 16 was frozen immediately into
+`evo2-exploratory-r20-gen16-r18-development-20260716`. A three-repeat direct
+comparison against exact clone is running on the untouched frozen R18
+development founders, using manifest hash `e4d4c148` and founder-index hash
+`cef78456`. The R20 search remains untouched and continues independently. No
+sealed founder or sealed result has been opened.
