@@ -922,3 +922,11 @@ and injury effect `-0.008487`. The policy realized 96.450% clone, 2.564%
 conservative mutation, and 0.986% standard mutation. It is a valid non-clone,
 ecology-conditioned mechanism, but its replicated score is negative and it is
 not eligible for development promotion. The search continues unchanged.
+
+R21 generation 1 introduced parent-relative stress gating and required
+operator evidence before increasing mutation. It remained a genuine
+ecology-conditioned policy, realizing 96.149% clone, 2.568% conservative, and
+1.284% standard mutation. All three training repeats were negative
+(`-0.013977`, `-0.007031`, and `-0.003523`); the coherent-median sham effect
+was `+0.003710` and injury effect was `-0.009856`. It is not eligible for
+development promotion. The search remains healthy and unchanged.
