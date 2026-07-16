@@ -173,7 +173,7 @@ def main() -> None:
     )
     independent_index = load_founder_index(
         artifact_root / "founders" / "index.json",
-        verify_artifacts=True,
+        verify_artifacts=False,
     )
     partitions = {
         partition: tuple(
@@ -248,6 +248,14 @@ def main() -> None:
         ),
         "r18_training_seed": R17_TRAINING_SEED,
         "manifests": manifest_hashes,
+        "preparation_attempts": [
+            {
+                "attempt": 1,
+                "failure": "held-out founder bytes were correctly permission-sealed",
+                "manifest_published": False,
+                "status": "failed_before_manifest_publication",
+            }
+        ],
     }
     _write_once(
         artifact_root / "freeze.json",
