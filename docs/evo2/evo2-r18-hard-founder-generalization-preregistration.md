@@ -20,7 +20,8 @@ numerical instability, or absence of injury benefit in development.
   archive as a negative/diagnostic record.
 - Treat the entire now-exposed R17 sealed founder panel as R18 training data;
   do not select only the worst founders. Use one fixed world seed per founder,
-  maintaining the existing eight-founder/sixteen-world training size.
+  maintaining the existing eight-founder/sixteen-world training size. Use the
+  lower of the two already-exposed R17 sealed seeds (`15000`) for every founder.
 - Initialize R18 from the strongest R17 source under the unchanged training
   score, with preference to a source that also passed independent development.
 - Generate a new independent `4/4/8` founder bank before R18 search using CPPN
