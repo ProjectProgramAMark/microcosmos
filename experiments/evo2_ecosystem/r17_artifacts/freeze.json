@@ -39,6 +39,18 @@
   "sealed_manifest_opened": true,
   "sealed_manifest_opened_at_utc": "2026-07-15T22:37:54Z",
   "sealed_manifest_sha256": "8e4850cd2cacc6152f7370c2138ac31df92b9ee3173369960c37f8b90358ad81",
+  "sealed_result": {
+    "injury_auc_delta": -0.0310839656740427,
+    "metrics_sha256": "2cf73a57c7926f032ff34c16025bc400ac143569710e8211a0b218780b16cc06",
+    "repeat_scores": [
+      -0.03880094364285469,
+      -0.025093955919146538,
+      -0.03314531594514847
+    ],
+    "robust_score": -0.03314531594514847,
+    "sham_auc_delta": -0.016639739274978638,
+    "status": "failed_against_fixed_clone"
+  },
   "shinkaevolve_commit": "335a603b58a8e604f16754be3d9d7ccacdeccb9c",
   "training_manifest_sha256": "042afaf7c56b46fefdb3a389fb7cb4276a85fc075394e95030778cc47e4a1654"
 }
