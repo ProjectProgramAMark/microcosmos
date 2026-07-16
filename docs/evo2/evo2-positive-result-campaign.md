@@ -683,3 +683,26 @@ record pins ShinkaEvolve commit `f23926e`, Microcosmos commit `dc9604e`, the
 frozen generation-1 source hash, clone hash, training manifest hash, founder
 index hash, model, and three-repeat evaluation budget. The recurring monitor
 now follows R19.
+
+### R19 negative completion and R20 compact reset
+
+R19 completed twenty replicated evaluations in 13,060.27 seconds and generated
+nineteen Shinka proposals for `$3.6230`. Seventeen programs were valid. No
+candidate beat clone. Generation 14 was best at `-0.000067`, with all three
+repeat scores negative (`-0.000067`, `-0.000060`, and `-0.000109`). Across the
+valid archive, realized behavior repeatedly collapsed to approximately
+98--99% clone plus a small, nearly constant conservative-mutation fraction.
+Programs that used more standard mutation improved some injury measurements but
+paid larger sham or founder-tail costs. The three-repeat evaluator therefore
+removed false positives as intended and established that another continuation
+from the same large program would be low-value.
+
+R20 keeps the replicated evaluator and every ecological input, operator, world,
+founder, physical rule, and score fixed, but resets the editable parent to a
+compact stress-gated program. The seed directly maps decline, death, population
+loss, energy, intake, parent readiness, and accumulated standard-operator
+evidence into a clone-to-standard rescue pulse. This is both the smallest test
+of whether the existing observable state can support injury-conditioned
+mutation and a simpler search surface for Shinka. It adds no simulator state or
+privileged event signal. Shinka must improve the compact program rather than
+continue appending decorative gates to the R19 lineage.
