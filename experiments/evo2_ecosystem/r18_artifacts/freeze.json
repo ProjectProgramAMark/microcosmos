@@ -1,0 +1,51 @@
+{
+  "event_step": 4000,
+  "horizon": 12000,
+  "injury_gains": [
+    0.1,
+    0.1,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "manifests": {
+    "development_early_injury.json": {
+      "canonical_sha256": "26a54aa914f42601532cbd46c517ae305c369cfda9dc1242d4b018501f6c8a5e",
+      "file_sha256": "e4d4c1482d65563e3adec4060d26a0579182c1b8669d1b0df23d0e4050581c07"
+    },
+    "sealed_early_injury.json": {
+      "canonical_sha256": "eeb9a9e9a66df896a4e75420fb0d8df7d54b4220206f52c2caf7c1e1c8bf3d69",
+      "file_sha256": "4edcee4fc9e4ee1ecb55f77506ee6d7d74d07b28cab86d233caaa18830122a42"
+    },
+    "training_exposed_r17_sealed_early_injury.json": {
+      "canonical_sha256": "73c36fadb89b21bd8b59d294f62a42b0fd513fd37dfaa2d34e13c5c341a76329",
+      "file_sha256": "3e9d3320f45870327b1ba11792f750d4fe29421c67304dc28512864bae93e7c3"
+    },
+    "training_smoke_early_injury.json": {
+      "canonical_sha256": "00678c68ac35222ca0277811b57f479a1717b69be9d07ec856b7a772c81b8639",
+      "file_sha256": "62430ab8a1188aacde741f7a99e1e9fd7ec5fc344dd96ac4b86ecbcc58372f27"
+    }
+  },
+  "preparation_attempts": [
+    {
+      "attempt": 1,
+      "failure": "held-out founder bytes were correctly permission-sealed",
+      "manifest_published": false,
+      "status": "failed_before_manifest_publication"
+    }
+  ],
+  "r17_source_founder_index_canonical_sha256": "68c5cbcd09851f2dad1de1686190ef5c2039b5b1550610b077ed99c9cf9a1cd9",
+  "r18_founder_panel_seed": 7007,
+  "r18_founder_screening_horizon": 7500,
+  "r18_founder_screening_record_sha256": "d1e841952428e57187c505a8aa7f6ea497e41c628c7279529cd92c0d106b274e",
+  "r18_founder_screening_seeds": [
+    13000,
+    13001
+  ],
+  "r18_independent_founder_index_canonical_sha256": "eb765c26582b58b967517af023cc1134ae35628784098b9377382ccd1a7a8af9",
+  "r18_independent_founder_index_file_sha256": "cef784562c8f8bf045f161ed01c708c778902f2d6b98a8dcf270d5985c561c72",
+  "r18_training_founder_index_canonical_sha256": "d01f9041373d53e2f488eef544b0bb9640c0ef5eefb460dd053a15a7c3d5e571",
+  "r18_training_founder_index_file_sha256": "e16a0a5ae7f815f19c3fbe98f8b27cd0196466ca94bbb0ebd06a13b36532f67b",
+  "r18_training_seed": 15000
+}
