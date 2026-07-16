@@ -953,3 +953,11 @@ success relative to clone rather than applying a constant mixture. The source
 is frozen for exactly one three-repeat R21 development confirmation while the
 outer search continues independently. Only new R21 development artifacts are
 opened; sealed remains locked.
+
+The frozen development run is
+`evo2-final-r21-gen4-development-20260716`. It compares source `d6b0c7ea`
+directly against exact clone for exactly three numerical repeats on the new R21
+development manifest (`127a5138`). Only the four development artifacts were
+made owner-readable; all eight sealed artifacts remain mode `000`. The guarded
+confirmation runs independently while the twenty-evaluation R21 search
+continues.
