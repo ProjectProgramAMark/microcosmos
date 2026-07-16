@@ -777,3 +777,29 @@ comparisons against exact clone are running on the now-open R18 development
 panel: fixed standard mutation, fixed conservative mutation, and frozen R15
 generation 18. Their outcome will distinguish a policy-search failure from a
 panel on which available mutation operators have no positive effect to gate.
+
+### R18 development opportunity and one-shot sealed evaluation
+
+All three development diagnostics completed with valid integrity. Continuous
+standard mutation was negative in every repeat (`-0.057539`, `-0.051515`, and
+`-0.078614`) and harmed both sham (`-0.020112`) and injury (`-0.019942`)
+episodes. Continuous conservative mutation was worse in every repeat
+(`-0.087536`, `-0.093678`, and `-0.075106`), again harming sham (`-0.044942`)
+and injury (`-0.086182`) episodes.
+
+In contrast, the frozen Shinka-generated R15 generation-18 policy beat exact
+clone in all three untouched R18 development repeats: `+0.001106`, `+0.020162`,
+and `+0.009246`. Its coherent-median repeat improved both sham (`+0.015556`)
+and injury (`+0.041902`) effects while realizing 98.157% clone, 1.164%
+conservative, 0.485% standard, and 0.194% exploratory mutation. This is the
+first candidate to satisfy the campaign's three-positive-repeat fresh-founder
+rule. It also demonstrates that sparse operator scheduling, rather than either
+continuous conventional mutation operator, is the viable mechanism class.
+
+The sealed partition was therefore opened exactly once for this frozen source
+(SHA-256 `fc69ac96`) and exact clone comparator. The three-repeat sealed run is
+`evo2-exploratory-r15-gen18-r18-sealed-20260716`, launched as the guarded
+service `evo2-r15-gen18-r18-sealed.service`. Its launch record pins the source,
+clone, R18 founder index, sealed manifest, development evidence, repository
+commits, and repeat count. No other candidate has been evaluated on R18 sealed
+founders.
