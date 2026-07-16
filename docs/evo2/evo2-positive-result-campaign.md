@@ -937,3 +937,19 @@ standard mutation, but all three repeats were again negative (`-0.006680`,
 `-0.012750`, and `-0.013663`). The coherent-median sham effect was
 `-0.006084` and injury effect was `-0.002167`. It is not eligible for
 development promotion; no hidden founder has been opened.
+
+R21 generation 3 tightened clone-relative operator trust and reduced mutation
+to 2.778%, but all three repeats remained negative (`-0.010992`, `-0.011394`,
+and `-0.008341`). It was not promotable.
+
+R21 generation 4 is the first source to satisfy the frozen training-promotion
+rule. Its three repeat scores were all positive (`+0.009665`, `+0.005382`,
+and `+0.002814`), with coherent-median sham effect `+0.007798` and injury
+effect `+0.016683`. It realized 97.297% clone, 1.824% conservative mutation,
+and 0.878% standard mutation. Source `d6b0c7ea` is a genuine
+ecology-conditioned mechanism: it normalizes ecological need using population
+viability and parent-relative condition, then gates mutation using evidence and
+success relative to clone rather than applying a constant mixture. The source
+is frozen for exactly one three-repeat R21 development confirmation while the
+outer search continues independently. Only new R21 development artifacts are
+opened; sealed remains locked.
