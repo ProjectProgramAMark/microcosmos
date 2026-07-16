@@ -55,7 +55,7 @@ is paired with world seed `19000`. R18's eight sealed founders are excluded.
 Before search, generate a new independent `4/4/8` bank with:
 
 - CPPN panel seed `9007`;
-- clone-only screening seeds `18000` and `18001`;
+- clone-only screening seeds `12000` and `12001`;
 - the unchanged 7,500-step viability screen and disjoint assigned ranges;
 - selection rule `ascending-first-qualified-clone-r21-independent-v1`.
 
@@ -113,3 +113,22 @@ horizon, 4/4/8 disjoint candidate ranges, viability gates, simulator, and
 ascending-first-qualified selection rule are unchanged. If this replacement
 also cannot publish the preregistered bank, R21 founder generation stops for a
 new protocol decision rather than weakening the gates post hoc.
+
+## Second prospective amendment: replace nonviable screening worlds
+
+The seed-`9007` replacement also completed without publishing a bank. As in
+the seed-`8007` attempt, all eighty CPPNs were finite and integrity-valid but
+every one produced zero births in screening worlds `18000` and `18001`. Its
+append-only record is preserved under
+`r21_artifacts/failed_panel_seed_9007_worlds_18000_18001/`. Two independent
+CPPN populations failing identically isolates the problem to the new screening
+worlds rather than candidate supply.
+
+Before any third screen, only the clone-viability worlds are changed to the
+previously validated seeds `12000` and `12001`. These worlds successfully
+published prior 4/4/8 banks under the same simulator and gates. Panel seed
+`9007`, the candidate bytes, 7,500-step horizon, 4/4/8 ranges, biological
+gates, simulator, and ascending-first-qualified rule remain unchanged. The
+screen worlds are an infrastructure viability filter, not R21 training,
+development, or sealed evaluation data. New R21 development and sealed world
+seeds remain exactly as preregistered and unopened.
