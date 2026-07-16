@@ -895,3 +895,41 @@ The freeze record pins independent-index hash `2f859dad`, training-index hash
 `127a5138`, and sealed-manifest hash `7f824a8c`. No R21 development or sealed
 founder was opened. Forty focused founder, manifest, and protocol tests passed
 before the outer search boundary was committed.
+
+### Final R21 outer search launched
+
+The frozen R21 bank and search boundary were committed and pushed at
+Microcosmos commit `270961a` before candidate evaluation. The final search is
+`evo2-final-r21-cross-founder-20260716`, launched under a 20/24 GiB guarded GPU
+service for exactly twenty Shinka evaluations and three numerical repeats per
+candidate. It initializes from frozen R15 generation 18 (`fc69ac96`), compares
+every proposal directly against exact clone (`a1c80145`), and uses only the
+thirty-two-world expanded R21 training manifest (`7bd346ae`) and sixteen-founder
+training index (`ac99bf29`).
+
+The Shinka prompt records the prior cross-founder failure and asks for
+normalized ecology and trusted-operator-evidence signals that reduce
+founder-specific over-triggering while retaining a genuine non-clone,
+ecology-conditioned mechanism. The simulator, score, policy ABI, six trusted
+operators, 12,000-step horizon, step-4,000 injury, promotion rules, and hidden
+partitions remain unchanged. Development and sealed artifacts are still mode
+`000`.
+
+### Final R21 outer search launched
+
+The frozen R21 bank and search boundary were committed and pushed at
+Microcosmos commit `270961a` before candidate evaluation. The final search is
+`evo2-final-r21-cross-founder-20260716`, launched under a 20/24 GiB guarded GPU
+service for exactly twenty Shinka evaluations and three numerical repeats per
+candidate. It initializes from frozen R15 generation 18 (`fc69ac96`), compares
+every proposal directly against exact clone (`a1c80145`), and uses only the
+thirty-two-world expanded R21 training manifest (`7bd346ae`) and sixteen-founder
+training index (`ac99bf29`).
+
+The Shinka prompt records the prior cross-founder failure and asks for
+normalized ecology and trusted-operator-evidence signals that reduce
+founder-specific over-triggering while retaining a genuine non-clone,
+ecology-conditioned mechanism. The simulator, score, policy ABI, six trusted
+operators, 12,000-step horizon, step-4,000 injury, promotion rules, and hidden
+partitions remain unchanged. Development and sealed artifacts are still mode
+`000`.
