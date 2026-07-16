@@ -736,3 +736,20 @@ comparison against exact clone is running on the untouched frozen R18
 development founders, using manifest hash `e4d4c148` and founder-index hash
 `cef78456`. The R20 search remains untouched and continues independently. No
 sealed founder or sealed result has been opened.
+
+The first development launch stopped before simulation because the four frozen
+development artifacts still had their preregistration permission lock. The
+evaluator returned `ValueError`, `full_evaluation_performed=false`, and no
+scientific metric. That failed attempt is preserved verbatim. Only `dev-00`
+through `dev-03` were made owner-readable; all eight sealed artifacts remain
+mode `000`. The identical candidate, clone, manifest, founder index, and three
+repeat command were then relaunched as
+`evo2-r20-gen16-development-retry.service`.
+
+Meanwhile R20 generations 17 and 18 completed without another promotion.
+Generation 17 used 9.29% standard mutation and scored `-0.020220` in all three
+repeats, trading a `+0.037327` injury effect for a `-0.118845` sham effect.
+Generation 18 realized clone only and had a negative coherent median
+(`-0.000046`; repeats `-0.000104`, `+0.000256`, and `-0.000046`). These results
+reinforce the measured objective: excessive rescue mutation pays too much in
+stable worlds, while clone-like descendants remain within numerical noise.
