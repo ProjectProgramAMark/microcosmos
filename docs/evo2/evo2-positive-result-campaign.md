@@ -706,3 +706,9 @@ of whether the existing observable state can support injury-conditioned
 mutation and a simpler search surface for Shinka. It adds no simulator state or
 privileged event signal. Shinka must improve the compact program rather than
 continue appending decorative gates to the R19 lineage.
+
+R20 launched as `evo2-exploratory-r20-compact-stress-20260716` for twenty
+three-repeat evaluations under the persistent 20/24 GiB guarded service. The
+launch pins compact-source hash `43e42009`, ShinkaEvolve commit `c769176`,
+Microcosmos commit `2976666`, exact clone, hard-panel manifest and founder
+hashes, model, and evaluation budget. The recurring monitor now follows R20.
