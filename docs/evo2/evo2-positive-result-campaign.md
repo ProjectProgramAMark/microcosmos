@@ -837,3 +837,23 @@ candidate AST rejects. The failed metrics are preserved. Removing that unused
 statement changes no policy output; the corrected source hash and retry are
 recorded, and the identical three-repeat development comparison is running as
 `evo2-r15-gen18-dev-matched-sparse-retry.service`.
+
+### Final matched-rate result and campaign conclusion
+
+The corrected matched-sparse control completed with valid integrity and was
+negative in all three development repeats: `-0.024064`, `-0.026399`, and
+`-0.007038`. It closely reproduced the target operator allocation (98.057%
+clone, 1.203% conservative, 0.463% standard, and 0.278% exploratory), yet
+harmed sham (`-0.025339`) and injury (`-0.004810`) effects. Together with the
+negative no-crisis ablation, this establishes an exploratory mechanistic result:
+R15 generation 18's development gain depended on state-conditioned crisis
+scheduling rather than average mutation rate alone.
+
+The independent sealed result remains negative in every repeat, so the campaign
+did not achieve its intended general heredity-improvement claim. Final CSV,
+JSON, Markdown, PNG, PDF, lineage, mechanism, treatment-effect, and SHA-256
+artifacts were generated under
+`evo2-r15-r20-final-artifacts-20260716`. The focused campaign report is
+`evo2-r15-r20-campaign-report.md`. Both clearly separate the positive
+exploratory development mechanism from the negative confirmatory generalization
+result. R18 sealed data is retired permanently.
