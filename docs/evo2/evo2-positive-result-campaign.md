@@ -676,3 +676,10 @@ unchanged. The initial program is frozen R18b generation 1, the closest valid
 new descendant. This costs three times more simulation per proposal but gives
 Shinka a replicated fitness signal before promotion; it adds no new ecological
 feature, gate, or candidate capability.
+
+R19 launched as `evo2-exploratory-r19-replicated-hard-founder-20260716` for
+twenty evaluations under the persistent 20/24 GiB guarded service. Its launch
+record pins ShinkaEvolve commit `f23926e`, Microcosmos commit `dc9604e`, the
+frozen generation-1 source hash, clone hash, training manifest hash, founder
+index hash, model, and three-repeat evaluation budget. The recurring monitor
+now follows R19.
