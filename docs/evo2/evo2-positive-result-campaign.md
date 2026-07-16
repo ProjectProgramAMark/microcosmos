@@ -560,3 +560,56 @@ and reserved for fresh development and sealed confirmation. This is the
 smallest correction that directly addresses the measured founder-tail failure
 without training on the failed sealed outcomes or adding another ecological
 mechanism.
+
+### R17 completed cross-founder search and sealed failure
+
+R17b ran as
+`evo2-exploratory-r17b-crosspanel-founder-generalization-20260715`. It
+completed all twenty valid ecosystem evaluations, generated nineteen Shinka
+proposals for a recorded API cost of `$3.2743`, and retained every source,
+metric, prompt, patch, archive relation, launch hash, and SQLite record. The
+run took 16,730.60 seconds while sharing the GPU with confirmations and R18
+startup. Generation 2 was the one-repeat training champion at `+0.014354`
+relative to exact clone; later training-positive generations 4, 11, 13, and 18
+did not exceed it.
+
+Generation 2 was frozen before confirmation. On the independently generated
+R17 development founders, its three repeat scores were
+`[+0.007631, +0.005428, +0.004459]`; all three were positive and the robust
+score was `+0.005428`. The source therefore met the preregistered development
+rule. Its one permitted sealed examination failed: the robust score was
+`-0.033145`, all three repeat scores were negative, and several individual
+founder/world deltas had large negative tails. Direct sealed comparison with
+fixed standard mutation was also negative (`-0.011036`). R17 generation 11 was
+later checked on development because it represented a distinct mechanism, but
+all three repeats were negative and it was rejected. No other one-repeat R17
+score was promoted.
+
+The generation-2 policy used approximately 75--80% clone, 18--24%
+conservative parametric mutation, and less than 2% standard mutation depending
+on the founder panel. It improved the mean in some worlds but spent too much
+mutation on fragile founders. The sealed failure therefore supports a narrower
+continuation: learn on the complete now-exposed hard founder panel and require
+generalization to a new independently generated founder bank.
+
+### R18 frozen hard-founder continuation
+
+Before R18 search, a new `4/4/8` training/development/sealed founder bank was
+generated with panel seed `7007`, screening seeds `13000` and `13001`, and the
+unchanged clone-only viability screen. Development and sealed founder bytes
+were permission-sealed. The complete exposed R17 sealed panel—not only its
+worst cases—became the R18 training panel, using one fixed world seed per
+founder and the unchanged sixteen-world budget. The simulator, 12,000-step
+horizon, step-4,000 injury, score, fixed-clone comparator, policy ABI, and six
+trusted heredity operators remain unchanged.
+
+On this exact hard training panel, fixed standard mutation scored `-0.027646`
+relative to clone: its sham effect was `-0.016434`, its injury effect was
+`+0.010889`, and survival was 0.5625 versus clone's 0.75. The first R18
+evaluation of the inherited R17 generation-2 policy scored `-0.022292`, with
+negative sham and injury means. R18 generation 1 reduced that gap to
+`-0.002222` by cloning 98.19% of births and using conservative mutation for
+1.81%, but it remained negative in both treatment means and was not promoted.
+R18 continues for the frozen twenty-evaluation Shinka budget. Any candidate
+must beat clone in all three fresh development repeats before the one permitted
+sealed evaluation.
