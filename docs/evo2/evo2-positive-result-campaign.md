@@ -650,3 +650,29 @@ the existing `sakana` interpreter and pinned Node installation. No experimental
 code or configuration changed in either correction. R18b then launched under a
 persistent user service with 20 GiB soft and 24 GiB hard memory guards; the
 existing thirty-minute monitor now follows that run.
+
+### R18b negative completion and R19 replicated search
+
+R18b completed all seven evaluations. No program qualified for development.
+Generation 1 was the best new valid proposal at `-0.000030` robust, with
+`+0.009637` sham and `-0.006563` injury effects. It realized 98.16% clone and
+1.84% conservative mutation, so it was neither positive nor a demonstrated
+injury-conditioned mechanism. Later valid generations scored between
+`-0.001042` and `-0.008758`. Generation 6 failed bounded execution because its
+new expression referenced `fragile_lock` before that value was defined; it did
+not reach ecosystem simulation.
+
+The duplicate evaluation of frozen R18 generation 12 scored `-0.001631`, after
+the identical source scored `+0.000050` in R18. This sign reversal directly
+measures the selection problem: improvements at the scale currently being
+searched are smaller than one-repeat numerical variation. Continuing to rank
+new programs by a single repeat would spend search budget on noise.
+
+R19 therefore changes one measured property only: each hard-panel training
+evaluation uses three numerical repeats and the evaluator's existing coherent
+median selection. Physics, founders, worlds, horizon, injury, score, fixed-clone
+comparator, policy ABI, trusted operators, model, and sealed partitions remain
+unchanged. The initial program is frozen R18b generation 1, the closest valid
+new descendant. This costs three times more simulation per proposal but gives
+Shinka a replicated fitness signal before promotion; it adds no new ecological
+feature, gate, or candidate capability.
