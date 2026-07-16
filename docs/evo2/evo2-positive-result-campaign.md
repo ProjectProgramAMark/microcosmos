@@ -613,3 +613,40 @@ negative sham and injury means. R18 generation 1 reduced that gap to
 R18 continues for the frozen twenty-evaluation Shinka budget. Any candidate
 must beat clone in all three fresh development repeats before the one permitted
 sealed evaluation.
+
+### R18 lifecycle interruption and minimal recovery
+
+R18's interactive launcher ended after generation 13 when the Codex turn that
+owned its transient process scope exited. Generation 13's ecosystem evaluation
+completed and its artifacts are intact, but the outer runner did not ingest the
+result or propose generation 14. This was an external process-lifecycle failure,
+not a candidate, simulator, GPU, or scientific failure.
+
+Generations 11--13 added no promotable result. Generation 12 produced a
+one-repeat robust score of `+0.000050`, but its injury effect was `-0.005083`
+and its realized policy was only 98.19% clone plus 1.81% conservative mutation.
+It therefore failed the preregistered requirement for a real ecology-conditioned
+non-clone mechanism and was not opened on development founders. Generations 11
+and 13 scored `-0.000826` and `-0.000020`, respectively.
+
+The smallest recovery is R18b, initialized from the frozen generation-12 source
+and run as a persistent guarded user service. It uses the same hard training
+manifest, founder index, fixed-clone comparator, physics, score, policy ABI,
+trusted operators, and hidden founder partitions. Seven evaluations provide one
+explicitly recorded duplicate initialization measurement plus six new Shinka
+proposals, restoring the intended search depth without adding resume machinery
+or changing the experiment. Together R18 and R18b contain nineteen proposals;
+the duplicate initialization is accounted for as recovery overhead rather than
+as additional search evidence.
+
+The first persistent-service launch stopped before runner construction because
+the noninteractive service environment did not include `npx` on `PATH`. It
+created only the immutable launch record and copied training manifest; no
+candidate was proposed or evaluated. Those two files were preserved in a
+`startup-failed-no-npx` directory. The first corrected command also stopped
+before Python startup because its replacement `PATH` omitted the Conda
+environment's binary directory. The final service environment includes both
+the existing `sakana` interpreter and pinned Node installation. No experimental
+code or configuration changed in either correction. R18b then launched under a
+persistent user service with 20 GiB soft and 24 GiB hard memory guards; the
+existing thirty-minute monitor now follows that run.
