@@ -803,3 +803,23 @@ service `evo2-r15-gen18-r18-sealed.service`. Its launch record pins the source,
 clone, R18 founder index, sealed manifest, development evidence, repository
 commits, and repeat count. No other candidate has been evaluated on R18 sealed
 founders.
+
+### Negative sealed result and non-sealed mechanism analysis
+
+The one-shot R18 sealed evaluation completed with valid physical and policy
+integrity but was negative in all three repeats: `-0.000933`, `-0.001146`, and
+`-0.000301`. The coherent-median repeat improved sham worlds by `+0.008478`
+but harmed injured worlds by `-0.006053`, for an overall `-0.000933` robust
+score. It realized 95.335% clone, 3.245% conservative, and 1.420% standard
+mutation. This is an honest independent generalization failure, not a positive
+submission result. The sealed partition will not be reused and no other
+candidate will be evaluated on it.
+
+Two preregistered-style diagnostics now run only on the already-open R18
+development panel. A constant sparse mixture matches R15 generation 18's
+development operator-use fractions, testing whether its apparent gain requires
+state conditioning rather than mutation rate alone. A minimal source ablation
+removes only the explicit `pressure` and `rescue` logit terms while retaining
+all other code, testing the hypothesized crisis-response mechanism. Both use
+three repeats and exact clone; their post-sealed status is explicitly
+exploratory. No sealed input is involved.
