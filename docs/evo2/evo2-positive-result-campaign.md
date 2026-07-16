@@ -753,3 +753,27 @@ Generation 18 realized clone only and had a negative coherent median
 (`-0.000046`; repeats `-0.000104`, `+0.000256`, and `-0.000046`). These results
 reinforce the measured objective: excessive rescue mutation pays too much in
 stable worlds, while clone-like descendants remain within numerical noise.
+
+### R20 completion and generation-16 development failure
+
+R20 completed all twenty replicated evaluations. Generation 19 was not
+promotable: it scored `-0.000287` in all three repeats while realizing 99.745%
+clone and 0.255% standard mutation. Generation 16 therefore remained R20's
+only training promotion.
+
+The corrected generation-16 development confirmation completed successfully,
+with physical and policy integrity valid, but failed the required fresh-founder
+test. All three repeat scores were negative: `-0.004069`, `-0.014493`, and
+`-0.003984`. The coherent-median repeat had `+0.000646` sham effect and
+`-0.006874` injury effect. It realized 99.805% clone and one rare exploratory
+mutation event; this did not retain the tiny training-panel injury benefit.
+Because the three-positive-repeat criterion failed, sealed founders remain
+permission-locked and have not been evaluated.
+
+Before spending another Shinka budget, the next minimal measured experiment is
+to determine whether the trusted heredity operators themselves provide usable
+development-panel opportunity. Three parallel, guarded, three-repeat direct
+comparisons against exact clone are running on the now-open R18 development
+panel: fixed standard mutation, fixed conservative mutation, and frozen R15
+generation 18. Their outcome will distinguish a policy-search failure from a
+panel on which available mutation operators have no positive effect to gate.
