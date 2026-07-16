@@ -961,3 +961,14 @@ development manifest (`127a5138`). Only the four development artifacts were
 made owner-readable; all eight sealed artifacts remain mode `000`. The guarded
 confirmation runs independently while the twenty-evaluation R21 search
 continues.
+
+The R21 generation-4 development confirmation completed with valid physical
+and policy integrity but failed all three repeats (`-0.010517`, `-0.006197`,
+and `-0.007712`). Its coherent-median sham effect was `+0.018830`, while its
+injury effect was `-0.022518`; it realized 98.496% clone, 1.378%
+conservative mutation, and 0.125% standard mutation. The positive diverse-panel
+training effect therefore did not transfer to the new development founders.
+The frozen promotion criterion fails, sealed evaluation is not permitted, and
+all eight R21 sealed artifacts remain mode `000`. The full twenty-evaluation
+outer search continues for its preregistered lineage record, but no result from
+this development panel will be used to modify or rerun the search.
