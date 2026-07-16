@@ -857,3 +857,19 @@ artifacts were generated under
 `evo2-r15-r20-campaign-report.md`. Both clearly separate the positive
 exploratory development mechanism from the negative confirmatory generalization
 result. R18 sealed data is retired permanently.
+
+### R21 prospective continuation
+
+The negative R18 sealed result does not justify retesting that panel, but the
+replicated development mechanism and controls justify one new cross-founder
+experiment. R21 was frozen before new founder generation. It changes training
+diversity only: all sixteen exposed non-sealed R18 founders become training,
+while a new independent `4/4/8` bank generated with panel seed `8007` and
+screening seeds `18000/18001` supplies untouched development and sealed panels.
+
+R21 retains the simulator, 12,000-step horizon, step-4,000 injury, exact clone,
+six trusted operators, bounded policy ABI, paired lower-tail-aware score, and
+three repeats. It initializes from R15 generation 18 and receives twenty Shinka
+evaluations. The new preregistration is
+`evo2-r21-cross-founder-preregistration.md`. No R21 founder has yet been
+generated and no holdout has been opened at the time of this record.
