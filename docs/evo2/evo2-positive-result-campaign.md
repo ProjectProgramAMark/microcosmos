@@ -930,3 +930,10 @@ ecology-conditioned policy, realizing 96.149% clone, 2.568% conservative, and
 (`-0.013977`, `-0.007031`, and `-0.003523`); the coherent-median sham effect
 was `+0.003710` and injury effect was `-0.009856`. It is not eligible for
 development promotion. The search remains healthy and unchanged.
+
+R21 generation 2 added a compactness-weighted ecology gate around mutation
+exploration. It realized 96.504% clone, 2.467% conservative, and 1.028%
+standard mutation, but all three repeats were again negative (`-0.006680`,
+`-0.012750`, and `-0.013663`). The coherent-median sham effect was
+`-0.006084` and injury effect was `-0.002167`. It is not eligible for
+development promotion; no hidden founder has been opened.
