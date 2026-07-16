@@ -9,7 +9,7 @@ from pathlib import Path
 from .build_founder_bank import R4_PRODUCTION_SPEC, run_founder_bank_builder
 
 
-PANEL_SEED = 8007
+PANEL_SEED = 9007
 SCREENING_SEEDS = (18_000, 18_001)
 SCREENING_HORIZON = 7_500
 SELECTION_RULE = "ascending-first-qualified-clone-r21-independent-v1"

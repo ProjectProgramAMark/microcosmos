@@ -54,7 +54,7 @@ is paired with world seed `19000`. R18's eight sealed founders are excluded.
 
 Before search, generate a new independent `4/4/8` bank with:
 
-- CPPN panel seed `8007`;
+- CPPN panel seed `9007`;
 - clone-only screening seeds `18000` and `18001`;
 - the unchanged 7,500-step viability screen and disjoint assigned ranges;
 - selection rule `ascending-first-qualified-clone-r21-independent-v1`.
@@ -95,3 +95,21 @@ finalist and never reused.
 This protocol changes training diversity, not the simulator, candidate inputs,
 mutation portfolio, or metric. It is a new experiment with a new untouched
 holdout, not a patch to the R18 sealed result.
+
+## Prospective amendment after the unpublished founder-screen attempt
+
+The first founder-generation attempt used the originally registered CPPN panel
+seed `8007`. It completed on 2026-07-16 without publishing a bank: all eighty
+candidates were finite and integrity-valid, but every candidate produced zero
+births under both screening worlds. No development or sealed founder was
+selected or opened. The complete append-only record is preserved under
+`r21_artifacts/failed_panel_seed_8007/`.
+
+Before generating any replacement candidates, the panel seed is changed once
+to `9007`. This is the next campaign-series seed after the successful `6007`
+and `7007` panels; it is not chosen from candidate performance. Every other
+screening setting remains frozen: seeds `18000` and `18001`, the 7,500-step
+horizon, 4/4/8 disjoint candidate ranges, viability gates, simulator, and
+ascending-first-qualified selection rule are unchanged. If this replacement
+also cannot publish the preregistered bank, R21 founder generation stops for a
+new protocol decision rather than weakening the gates post hoc.
