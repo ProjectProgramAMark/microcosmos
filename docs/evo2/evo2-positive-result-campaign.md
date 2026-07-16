@@ -823,3 +823,17 @@ removes only the explicit `pressure` and `rescue` logit terms while retaining
 all other code, testing the hypothesized crisis-response mechanism. Both use
 three repeats and exact clone; their post-sealed status is explicitly
 exploratory. No sealed input is involved.
+
+The no-crisis ablation completed with valid integrity and was negative in every
+development repeat (`-0.019043`, `-0.028174`, and `-0.008733`). It harmed both
+sham (`-0.023406`) and injury (`-0.005925`) effects while using 98.980% clone,
+0.835% conservative, and 0.186% exploratory mutation. On the exploratory
+development panel, the explicit pressure/rescue terms were therefore necessary
+for R15 generation 18's positive effect.
+
+The first matched-sparse launch failed candidate validation before simulation
+because the constant policy used a Python `del` statement, which the bounded
+candidate AST rejects. The failed metrics are preserved. Removing that unused
+statement changes no policy output; the corrected source hash and retry are
+recorded, and the identical three-repeat development comparison is running as
+`evo2-r15-gen18-dev-matched-sparse-retry.service`.
