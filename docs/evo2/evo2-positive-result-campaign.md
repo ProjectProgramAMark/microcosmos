@@ -972,3 +972,67 @@ The frozen promotion criterion fails, sealed evaluation is not permitted, and
 all eight R21 sealed artifacts remain mode `000`. The full twenty-evaluation
 outer search continues for its preregistered lineage record, but no result from
 this development panel will be used to modify or rerun the search.
+
+Generations 5 and 6 were invalid and were retained with their proposal source,
+prompt, response, error record, and archive metadata. Neither produced a score.
+
+R21 generation 7 retained a genuine ecology-conditioned mutation-budget
+mechanism but was negative in all three repeats (`-0.027564`, `-0.018248`,
+`-0.020824`). It increased mutation to 15.580% of births and damaged the injury
+treatment (`-0.019868`).
+
+Generation 8 was negative in all three repeats (`-0.004703`, `-0.002692`,
+`-0.006017`). Generation 9 was mixed (`+0.003113`, `-0.003662`, `-0.001901`)
+despite positive selected-execution sham and injury effects. Generation 10 was
+also mixed (`+0.002699`, `-0.015846`, `-0.011849`). None was promotable.
+
+Generations 11 and 12 each contained one positive execution but retained
+negative robust aggregates: `-0.001248` and `-0.001820`, respectively.
+Generation 13 was negative in all three executions (`-0.003694`, `-0.012030`,
+`-0.004022`), as was generation 14 (`-0.009318`, `-0.027763`, `-0.008925`).
+
+Generation 15 was negative in all three executions (`-0.003700`, `-0.005543`,
+`-0.008419`). Generation 16 reduced mutation to 0.478% of births but remained
+negative in all three (`-0.008301`, `-0.005699`, `-0.006961`).
+
+Generation 17 produced a slightly positive robust aggregate (`+0.000339`) and
+positive selected-execution sham and injury effects, but its executions were
+mixed (`+0.001081`, `-0.008282`, `+0.000339`). Generation 18 similarly
+produced a positive robust aggregate (`+0.002421`) with mixed executions
+(`+0.002421`, `+0.002755`, `-0.015909`). Because neither improvement
+replicated across all three executions, neither satisfied the frozen promotion
+rule.
+
+Generation 19, the twentieth and final evaluation, was negative in all three
+executions (`-0.010171`, `-0.009459`, `-0.000541`). The final search therefore
+completed all twenty evaluations with generation 4 as the only replicated
+training qualifier. Because generation 4 had already failed all three
+independent development executions, no second development candidate was tested,
+the R21 sealed panel remained unopened and mode `000`, and no further search
+round was launched.
+
+### Final R21 closure and submission package
+
+R21 ended normally after exactly twenty evaluation slots. Nineteen LLM
+proposals followed the frozen R15 initial source; eighteen candidate evaluations
+were valid and generations 5 and 6 were preserved as invalid. The recorded
+proposal cost was `$2.8492`, total wall time was `29,736.88` seconds, and the
+Shinka CLI reported `8h 27m 19s` of total compute accounting. Generation 4
+remained the best training score and the only candidate positive in all three
+training executions. Later generations 17 and 18 had small positive robust
+aggregates but each contained one negative execution and were not promotable.
+
+The final machine-readable package is
+`evo2-r15-r21-final-artifacts-20260717`. It contains combined exact-clone,
+continuous-standard, continuous-conservative, R15 generation-18,
+matched-sparse, no-crisis-ablation, R20, and R21 comparisons; every R21
+generation and repeat; treatment effects; realized operator allocation; all
+three principal late program lineages; the complete R21 parent/inspiration
+graph; compute and API-cost accounting; plots; and a verified SHA-256 manifest
+covering 83 source, result, protocol, and provenance files.
+
+The final candidate report is `sakana-ai-project-candidate-writeup.md`. It
+clearly separates exploratory R18 development evidence, the negative R18
+sealed result, R21 training, the negative R21 development confirmation, and
+the unopened R21 sealed partition. No R22, second R21 development candidate,
+second sealed evaluation, or post-result redesign was launched.

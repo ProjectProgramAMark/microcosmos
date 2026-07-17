@@ -1,64 +1,97 @@
 # Evo²-Ecosystem implementation plans
 
-Revised 2026-07-16 after the R15–R20 replicated hard-founder campaign. The
-active design uses CPPN controllers from the beginning; there is no temporary
-wave-controller implementation stage.
+Revised 2026-07-17 after the final R21 cross-founder experiment. The project is
+complete through its preregistered stopping boundary. The active design uses
+CPPN controllers from the beginning; there is no temporary wave-controller
+implementation stage.
+
+## Project in plain language
+
+Evo²-Ecosystem asks whether AI can improve an evolutionary process rather than
+merely design one successful organism. Microcosmos supplies GPU-simulated
+filament organisms and viscous-fluid physics. This project adds finite food,
+energy, birth, death, inherited variable-topology CPPNs, physical injury, and
+lineages. ShinkaEvolve writes a bounded policy choosing when a newborn should
+be cloned or changed by one of five trusted TensorNEAT mutation operators.
+
+Shinka discovered a real ecology-conditioned scheduling mechanism. On an
+already-open R18 development panel, the frozen policy beat exact cloning in all
+three executions; a constant matched-rate policy and an ablation without its
+crisis terms both failed there. The same policy then lost in all three
+independent sealed executions. The final R21 search broadened training to 16
+founders, but its only 3/3-positive training candidate also lost all three
+fresh-development executions. Consequently, R21 sealed data was never opened.
+
+The honest result is a working embodied bounded-RSI benchmark and autonomous
+discovery of a substantive heredity mechanism, but not evidence of a generally
+superior heredity algorithm. The central lesson is that discovering plausible
+self-improvement code is easier than verifying that it transfers.
+
+Start with the [final candidate report](./sakana-ai-project-candidate-writeup.md),
+then inspect the [R21 preregistration](./evo2-r21-cross-founder-preregistration.md)
+and [complete campaign log](./evo2-positive-result-campaign.md). Machine-readable
+tables, plots, lineages, costs, and hashes are generated in ShinkaEvolve by
+`examples/evo2_ecosystem/summarize_r15_r21_campaign.py`.
 
 ## Reading order
 
-1. [R21 cross-founder preregistration](./evo2-r21-cross-founder-preregistration.md) —
-   active prospective continuation: all sixteen exposed non-sealed R18 founders
-   become training, while a fresh independently generated bank supplies the new
-   untouched development and one-shot sealed panels.
-2. [R15–R20 campaign report](./evo2-r15-r20-campaign-report.md) — latest
+1. [Sakana candidate project writeup](./sakana-ai-project-candidate-writeup.md) —
+   final candidate-facing synthesis of the motivation, architecture,
+   bounded-RSI claim, implementation, complete R15–R21 evidence, limitations,
+   reproducibility record, and interview pitch.
+2. [R21 cross-founder preregistration](./evo2-r21-cross-founder-preregistration.md) —
+   frozen final protocol. All twenty evaluations completed; the only
+   three-repeat training qualifier failed all three new-development executions,
+   so sealed remained unopened and no further research round followed.
+3. [R15–R20 campaign report](./evo2-r15-r20-campaign-report.md) — latest
    replicated Shinka campaign: a real ecology-conditioned development effect,
    negative matched-rate and mechanism controls, and a negative independent
    sealed result that defines the current generalization boundary.
-3. [R6 resource-relocation RSI plan](./evo2-r6-resource-relocation-rsi-plan.md) —
+4. [R6 resource-relocation RSI plan](./evo2-r6-resource-relocation-rsi-plan.md) —
    authoritative prospective next experiment: one preregistered antipodal
    resource relocation paired with a same-location stock refresh, fresh worlds
    and founders, corrected fixed-standard viability, sufficient natural credit
    warmup, and matched bounded ShinkaEvolve searches.
-4. [R5 world-feasibility stop report](./evo2-r5-world-feasibility-stop-report.md) —
+5. [R5 world-feasibility stop report](./evo2-r5-world-feasibility-stop-report.md) —
    terminal negative result: every actuation-cost disturbance failed the harm
    gate and the preregistered pre-event feedback requirement was not met, so no
    R5 Shinka search was authorized.
-5. [R5 world-feasibility plan](./evo2-r5-world-feasibility-plan.md) — exact
+6. [R5 world-feasibility plan](./evo2-r5-world-feasibility-plan.md) — exact
    prospective protocol whose stop rules produced the terminal R5 result.
-6. [R4 credit-adaptive RSI plan](./evo2-r4-credit-adaptive-rsi-plan.md) —
+7. [R4 credit-adaptive RSI plan](./evo2-r4-credit-adaptive-rsi-plan.md) —
    historical design of the six-action TensorNEAT heredity scheduler,
    recent-offspring operator credit, and direct descendant-versus-ancestor RSI
    test inherited by R5 and R6.
-7. [R4 preregistration](./evo2-actuation-cost-rsi-r4-preregistration.md) —
+8. [R4 preregistration](./evo2-actuation-cost-rsi-r4-preregistration.md) —
    binding ancestry, constants, qualification gates, partitions, outer budget,
    primary metric, and stop rules fixed before r4 implementation experiments.
-8. [R3 final report](./evo2-actuator-rsi-r3-final-report.md) — completed negative
+9. [R3 final report](./evo2-actuator-rsi-r3-final-report.md) — completed negative
    experiment establishing that the tail injury helped clone controls and that
    the punctuated Shinka finalist rediscovered fixed parametric mutation.
-9. [R3 preregistration](./evo2-actuator-rsi-r3-preregistration.md) — exact frozen
+10. [R3 preregistration](./evo2-actuator-rsi-r3-preregistration.md) — exact frozen
    protocol used for the r3 search and sealed examination.
-10. [Final RSI implementation plan](./evo2-rsi-final-implementation-plan.md) —
+11. [Final RSI implementation plan](./evo2-rsi-final-implementation-plan.md) —
    historical detailed follow-up design: persistent actuator degradation,
    clonal founders, the mutation-sensitive benchmark gate, and direct Shinka
    program-lineage evaluation. It preserves the completed pilot as evidence.
-11. [Frozen actuator preregistration](./evo2-actuator-rsi-preregistration.md) —
+12. [Frozen actuator preregistration](./evo2-actuator-rsi-preregistration.md) —
    exact prospective founders, seeds, injury grid, gates, outer budget,
    statistics, and source identities.
-12. [Founder-screen stop report](./evo2-actuator-rsi-screening-stop-report.md) —
+13. [Founder-screen stop report](./evo2-actuator-rsi-screening-stop-report.md) —
    complete guarded GPU screen, the preregistered no-bank stop, and the boundary
    on what the result does and does not show.
-13. [Master PRD](./evo2-ecosystem-master-prd.md) — original implemented scope,
+14. [Master PRD](./evo2-ecosystem-master-prd.md) — original implemented scope,
    architecture, scientific comparison, phase gates, and claim boundary.
-14. [Microcosmos plan](./microcosmos-substrate-plan.md) — direct CPPN state,
+15. [Microcosmos plan](./microcosmos-substrate-plan.md) — direct CPPN state,
    cached GPU inference, trusted TensorNEAT mutation, lifecycle integration,
    events, and tests.
-15. [Heredity and Shinka plan](./heredity-shinka-plan.md) — the only evolvable
+16. [Heredity and Shinka plan](./heredity-shinka-plan.md) — the only evolvable
    function, operator profiles, validator, evaluator contract, and matched
    outer searches.
-16. [Experiment plan](./experiment-analysis-plan.md) — pilot preregistered manifests,
+17. [Experiment plan](./experiment-analysis-plan.md) — pilot preregistered manifests,
    scoring, baselines, paired analysis, conditional common gardens, and final
    artifacts.
-17. [Final report](./evo2-final-report.md) — completed pilot implementation, matched
+18. [Final report](./evo2-final-report.md) — completed pilot implementation, matched
    searches, sealed results, integrity amendments, and the supported claim.
 
 The [lifecycle remediation PRD](./microcosmos-lifecycle-remediation-prd.md) is
