@@ -455,7 +455,7 @@ def campaign_timeline() -> None:
         "R1–R6",
         "R7–R14",
         "R15",
-        "R16b–R17",
+        "R16b–R17b",
         "R18–R20",
         "R21",
     ]

@@ -205,7 +205,7 @@ The strongest completed pre-R21 artifact is the frozen R15 generation-18 program
 - **operator value:** delayed success, usage, evidence, and scarcity;
 - **parent quality and graph compactness:** bounded parent energy/intake and CPPN capacity use.
 
-These signals alter a strong clone prior. The program does not receive the injury label and does not continuously mutate every child. It uses observable ecological state and accumulated operator evidence to decide when variation may be worth its cost. The complete central source is reproduced in Appendix E; its SHA-256 is `fc69ac96baa846b7650e474995566228582545b915ddf8dbd4754d161d573526`.
+These signals alter a strong clone prior. The program does not receive the injury label and does not continuously mutate every child. It uses observable ecological state and accumulated operator evidence to decide when variation may be worth its cost. The complete central source is reproduced in Appendix D; its SHA-256 is `fc69ac96baa846b7650e474995566228582545b915ddf8dbd4754d161d573526`.
 
 On four R18 development founders that had not generated or tuned the frozen R15 source, all three complete executions beat exact clone: `+0.001106`, `+0.020162`, and `+0.009246`. However, R20 generation 16 had already opened this panel before the R15 diagnostic, so the result is exploratory rather than an untouched confirmation. The coherent robust score was `+0.009246`; the selected execution had sham effect `+0.015556` and injury effect `+0.041902`. Realized births were 98.157% clone, 1.164% conservative mutation, 0.485% standard mutation, and 0.194% exploratory mutation.
 
@@ -240,11 +240,15 @@ R21 is the final research round. Its sole method change was broader exposed trai
 
 The search completed all 20 evaluations in 29,736.88 seconds of wall time, with 19 generated proposals after the initial R15 source and $2.8492 in recorded proposal API cost. Eighteen candidate evaluations were valid and two were rejected. Generation 4 was the only candidate positive in all three training executions (`+0.009665`, `+0.005382`, `+0.002814`), and its program was a genuine non-clone, ecology-conditioned mechanism. Frozen confirmation on the four new development founders then failed all three executions (`−0.010517`, `−0.006197`, `−0.007712`). Its sham effect remained positive (`+0.018830`) while its injury effect was negative (`−0.022518`). Generations 17 and 18 later had slightly positive robust training aggregates, but each contained one negative execution and therefore failed the replicated promotion rule.
 
-![R15–R21 Shinka program lineages](figures/r15_r21_program_lineages.png)
+Generation 4 tempered the inherited R15 scheduler by multiplying normalized ecological need by population viability and parent-relative condition, then crediting mutation only when delayed operator evidence favored it relative to clone. It remained clone-dominant, using 2.703% non-clone births in training and 1.504% in development. This reduced broad mutation but did not transfer: its injury effect changed from `+0.016683` in training to `−0.022518` in development. Its authenticated parent path was the frozen R15 source, generation 1 (`trusted_relative_rescue`), and generation 4 (`trusted_tempered_pressure`); generation 3 was an archive inspiration, not its parent. The generation-4 source SHA-256 is `d6b0c7ea19b0ad69c3b4c5e3aa3035ffd2d208d02a620ec07fcb7ffcba4e0db9`.
 
-*Figure 8: Complete valid-candidate training scores for the three principal late searches. Crosses mark R21 candidates rejected before scoring. R21 generation 4 was the only 3/3-positive training qualifier; its subsequent development result was negative in all three executions.*
+![R15–R21 Shinka training-score traces](figures/r15_r21_program_lineages.png)
+
+*Figure 8: Training score by evaluation slot for R15, R20, and R21. Points are scored candidates; crosses mark invalid proposals and are not scores. Evaluation order does not encode program parentage. R21 generation 4 was the only 3/3-positive training qualifier and subsequently failed all three development executions.*
 
 R21 therefore did not qualify for sealed evaluation. All eight R21 sealed founder files remain unopened and mode `000`. No second development candidate, second sealed attempt, R22, or post-result redesign followed. The final R21 conclusion is a negative cross-founder generalization result.
+
+Because generation 4 failed development, R21 stopped before sealed access and before the positive-result-only R21 baseline and ablation stage. No R21-specific matched-rate or mechanism-ablation claim is made; the fixed-standard, fixed-conservative, matched-sparse, and no-crisis controls reported below belong to the earlier R18 development analysis.
 
 ### What the results establish today
 
@@ -292,56 +296,9 @@ My broader conviction about RSI is unchanged, but the project made it more concr
 
 ## Reproducibility and final artifacts
 
-The canonical human-readable report is this file. The machine-readable final
-artifact set is
-`ShinkaEvolve/examples/evo2_ecosystem/results/evo2-r15-r21-final-artifacts-20260717/`.
-It contains the combined comparison tables, every R21 generation score,
-repeat-level and treatment-level effects, realized operator allocations, the
-complete program-parent graph, the R15/R20/R21 lineage plot, compute and cost
-accounting, and a SHA-256 manifest covering 83 result, source, protocol, and
-provenance files. The raw R21 run directory additionally preserves every
-proposal source, edit, prompt, model response, validation failure, metric,
-SQLite archive relationship, runtime, and cost record. R21 sealed founder bytes
-are deliberately excluded from post-run hashing because they remain unread and
-mode `000`; their pre-lock hashes are already pinned by the frozen bank record.
+I preserved a machine-readable archive containing every R21 proposal, source, edit, prompt, model response, validation outcome, metric, parent relationship, runtime, and cost record. A SHA-256 manifest covers 83 source, result, protocol, and provenance files. The unopened R21 sealed founder bytes are excluded from post-run hashing; their pre-lock hashes remain pinned by the frozen bank record.
 
-All Python commands use the shared `sakana` Conda environment. From the common
-repository parent:
-
-```bash
-# Verify the interpreter and CUDA backend used for experiments.
-conda run -n sakana python -c \
-  "import os,sys; assert os.path.basename(sys.prefix)=='sakana'; print(sys.executable)"
-conda run -n sakana python -c \
-  "import jax; assert jax.default_backend()=='gpu'; print(jax.devices())"
-
-# Run the complete regression suites on CPU to avoid cumulative GPU allocation.
-cd microcosmos
-conda run -n sakana env JAX_PLATFORMS=cpu pytest -q
-cd ../ShinkaEvolve
-conda run -n sakana env JAX_PLATFORMS=cpu pytest -q
-
-# Rebuild the final tables, plots, lineage, cost record, and hashes.
-conda run -n sakana env JAX_PLATFORMS=cpu python \
-  examples/evo2_ecosystem/summarize_r15_r21_campaign.py \
-  --output-dir \
-  examples/evo2_ecosystem/results/evo2-r15-r21-final-artifacts-20260717
-
-# Optional document export; these are report-only tools, not simulator deps.
-cd ../microcosmos
-conda run -n sakana python -m pip install python-docx html2docx
-conda run -n sakana python docs/evo2/build_submission_docx.py \
-  docs/evo2/sakana-ai-project-candidate-writeup.md \
-  docs/evo2/sakana-submission.docx
-```
-
-The exact R21 launch command, model, hashes, source programs, manifests, and
-commits are preserved in `launch.json` and `complete.json` inside
-`evo2-final-r21-cross-founder-20260716/`. Re-running the outer search is
-expected to generate different proposals and GPU-level numerical variation;
-reproducibility here means preserving the exact executed evidence and making
-the frozen evaluation procedure independently runnable, not claiming that an
-LLM-driven stochastic search is bitwise repeatable.
+This report contains the evidence needed to assess the project without access to the repository: complete numerical comparisons in Appendix B, frozen configuration and hashes in Appendix C, and the central implementation and policy source in Appendix D. Experiments used Linux, the `sakana` Conda environment, CUDA 13-enabled JAX/XLA, and one NVIDIA GB10 GPU. Re-running the stochastic outer search would not be bitwise deterministic; reproducibility means preserving the exact executed evidence and an independently runnable frozen evaluation procedure.
 
 ## Appendix
 
@@ -364,7 +321,7 @@ Round numbers are not perfectly contiguous because an actuator-injury subtrack r
 | R17b | Broaden exposed training founders | Again passed 3/3 development and failed sealed transfer. |
 | R18/R18b | Freeze a hard 4/4/8 founder bank and continue an interrupted search without changing the experiment | No promotable candidate. The same source changed score sign between one-repeat executions, exposing numerical variation. |
 | R19 | Require three complete numerical executions per training candidate | No candidate beat clone; one-repeat positives were no longer admissible. |
-| R20 | Reset to a compact stress scheduler while retaining replicated evaluation | A tiny replicated training positive failed all three development executions. Diagnostic baselines on the now-open development panel rediscovered R15 generation 18 as the only 3/3-positive opportunity. |
+| R20 | Reset to a compact stress scheduler while retaining replicated evaluation | A tiny positive coherent-median training aggregate, with one negative execution, failed all three development executions. Diagnostic baselines on the now-open development panel rediscovered R15 generation 18 as the only 3/3-positive opportunity. |
 | R15-on-R18 analysis | Freeze R15 generation 18, run the already-open R18 development panel, then the one permitted R18 sealed test | Exploratory development selection: 3/3 positive. Matched-sparse and no-crisis analyses were negative on that open panel. Independent sealed: 0/3 positive. Panel retired. |
 | R21 | Train on all 16 exposed non-sealed R18 founders; freeze a new independent 4/4/8 bank | Completed 20 evaluations. The only 3/3-positive training qualifier failed all three new-development executions; sealed stayed unopened. No further research round followed. |
 
@@ -421,15 +378,7 @@ Two unpublished R21 founder screens are part of the historical record. Panel see
 
 Structural and mixed mutation were exactly zero in these selected executions. The fixed policies use their named operator for every realized birth.
 
-### C. Program-evolution lineage
-
-![R15 and R20 Shinka program lineages](figures/program_lineages.png)
-
-*Figure A1: Training scores for every R15 and R20 program generation. Invalid R15 proposals were rejected before ecosystem evaluation; R20's compact bounded sources all reached simulation. A training peak is only an archive event, not evidence of transfer: the corresponding frozen source still had to pass development and sealed rules.*
-
-The lineage artifacts preserve each candidate's source, parent source, edit, prompt, model response, validation outcome, score, and cost. The graph above is shown to demonstrate that Shinka searched a lineage of executable programs, not merely scalar hyperparameters.
-
-### D. Frozen configuration, integrity, and compute accounting
+### C. Frozen configuration, integrity, and compute accounting
 
 #### Core evaluation configuration
 
@@ -486,6 +435,9 @@ The lineage artifacts preserve each candidate's source, parent source, edit, pro
 | Independent 4/4/8 founder-bank index | `2f859dadf096` |
 | New development manifest | `127a5138e240` |
 | New sealed manifest | `7f824a8cf0c9` |
+| R21 generation-4 source | `d6b0c7ea19b0` |
+| R21 generation-4 training metrics | `681343ff8959` |
+| R21 generation-4 development metrics | `0309c045f2f5` |
 | Microcosmos search-boundary commit | `270961a570f8` |
 | ShinkaEvolve search-boundary commit | `2d83c53c5598` |
 
@@ -499,6 +451,9 @@ r21_training_manifest_sha256 = 7bd346ae94f4e184057672c2c63988965390ae2a04ecf0d04
 r21_independent_bank_sha256 = 2f859dadf096cfb9dd5d3bb3a251a9dfaf91ff2546364ba14f2eafc48e11dd23
 r21_development_manifest_sha256 = 127a5138e240d11b5643ee8d64063283c3a15c9fcb4f301d3a686b2a673c5d80
 r21_sealed_manifest_sha256 = 7f824a8cf0c9ff2ca8b284a19dcf309237498e9df1400f548b2da7da0a7bc434
+r21_gen4_source_sha256 = d6b0c7ea19b0ad69c3b4c5e3aa3035ffd2d208d02a620ec07fcb7ffcba4e0db9
+r21_gen4_training_metrics_sha256 = 681343ff895927ec1eca4ee44139e3adb001bdccc16bbb5e475660a96be2564b
+r21_gen4_development_metrics_sha256 = 0309c045f2f5294077b0daa9da0fce6cf5d8ab153e4cc530e500f182b68d8e4d
 microcosmos_commit = 270961a570f81d6f73b3b98c68a80af14ec7b469
 shinkaevolve_commit = 2d83c53c5598cd1a5ccf8e4dd0ec17fb685baa7b
 ```
@@ -513,7 +468,7 @@ R21's four development and eight sealed founder bytes were mode `000` during out
 | R16 | 20 nominal | 4,592.08 s | $2.8186 |
 | R16b | 20 | 13,563.72 s | $3.1051 |
 | R17b | 20 | 16,730.60 s | $3.2743 |
-| R18 interrupted portion | Through generation 13 | Not finalized | $2.4925 |
+| R18 interrupted portion | Through generation 13 | Unavailable (interrupted service) | $2.4925 |
 | R18b continuation | 7 | 2,181.69 s | $1.0015 |
 | R19 | 20 | 13,060.27 s | $3.6230 |
 | R20 | 20 | 16,090.78 s | $2.8753 |
@@ -523,7 +478,7 @@ R21's four development and eight sealed founder bytes were mode `000` during out
 
 R21's final CLI additionally reported 8h 27m 19s of total compute accounting. Wall time is elapsed service time and includes differing contention conditions; it is not normalized GPU compute. The table covers principal Shinka searches, not every founder screen, fixed baseline, confirmation, failed startup, analysis, or report-generation process. API cost is for external program proposals, not local simulation.
 
-### E. Selected implementation excerpts
+### D. Selected implementation excerpts
 
 The repository will not accompany this report, so the excerpts below reproduce the implementation seams needed to understand the design. Boilerplate and unrelated validation branches are omitted only where noted.
 
@@ -817,11 +772,11 @@ def _load_bound_manifest(spec, role, dependencies):
 
 Promotion is a protocol decision outside candidate code: a positive replicated training score plus a real non-clone ecology-conditioned mechanism permits development; all three development executions must be positive before the one permitted sealed evaluation.
 
-### F. Short project summary for the interview
+### E. Short project summary for the interview
 
 > I built Evo²-Ecosystem, a GPU-native artificial-life benchmark in which an outer ShinkaEvolve loop modifies the heredity policy of an inner embodied evolutionary process. I extended Microcosmos with finite resources, energy, birth, death, inherited variable-topology CPPNs, TensorNEAT variation, physical injury, and lineage tracking. Shinka can edit only a bounded scheduler over six trusted heredity operators; physics, mutation kernels, founders, scoring, and holdouts remain frozen within each round. It discovered a sparse ecology-conditioned policy that beat exact cloning in three executions on an already-open development panel. Two post-sealed exploratory analyses support that its state conditioning mattered there. The same frozen policy then lost all three independent sealed executions, and the only fully replicated R21 cross-founder training qualifier also failed all three fresh-development executions. The contribution is therefore both a concrete embodied-RSI benchmark and an honest demonstration that autonomous mechanism discovery is not the same as verified general improvement.
 
-### G. References
+### F. References
 
 1. Lu, C., et al. “Towards End-to-End Automation of AI Research.” *Nature* 651, 914–919 (2026). [https://www.nature.com/articles/s41586-026-10265-5](https://www.nature.com/articles/s41586-026-10265-5)
 2. Sakana AI. “The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery.” [https://sakana.ai/ai-scientist/](https://sakana.ai/ai-scientist/)
